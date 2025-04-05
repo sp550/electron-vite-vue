@@ -101,6 +101,8 @@ export function usePatientData() {
     }
   };
 
+
+
   const addPatient = async (patientData: Omit<Patient, "id">): Promise<Patient | null> => {
     let newPatientDir: string | null = null;
     try {
@@ -337,5 +339,6 @@ const updatePatient = async (updatedPatient: Patient): Promise<boolean> => {
     removePatient,
     getPatientById,
     updatePatient,
+    savePatients
   };
 }

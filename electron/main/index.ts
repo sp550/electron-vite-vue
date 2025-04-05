@@ -42,8 +42,8 @@ const createWindow = () => {
       // --- END FIX ---
       contextIsolation: true,
       nodeIntegration: false,
-      // devTools: !app.isPackaged,
-      devTools: false,
+      devTools: !app.isPackaged,
+      // devTools: false,
     },
     // Add other options like icon if needed
     // icon: path.join(__dirname, '../../public/logo.svg') // Example icon path
