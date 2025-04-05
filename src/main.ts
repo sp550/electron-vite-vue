@@ -1,14 +1,24 @@
-import { createApp } from 'vue'
-import App from './App.vue'
+// src/main.ts
+import { createApp } from "vue";
+import App from "./App.vue";
+// import router from './router'; // Remove this line
+import vuetify from "./plugins/vuetify";
+// import './styles/main.scss'; // Import global styles if you have them
 
-import './style.css'
+// Log if electronAPI is available (for debugging)
+if (window.electronAPI) {
+  console.log("electronAPI found on window object.");
+} else {
+  console.warn(
+    "electronAPI NOT found on window object. Check preload script and contextBridge."
+  );
+}
 
-import './demos/ipc'
-// If you want use Node.js, the`nodeIntegration` needs to be enabled in the Main process.
-// import './demos/node'
+const app = createApp(App);
 
-createApp(App)
-  .mount('#app')
-  .$nextTick(() => {
-    postMessage({ payload: 'removeLoading' }, '*')
-  })
+// app.use(router); // Remove this line
+app.use(vuetify);
+
+app.mount("#app");
+
+console.log("Vue app mounted.");

@@ -1,118 +1,137 @@
-import { ipcRenderer, contextBridge } from 'electron'
+// electron/preload/index.ts
 
-// --------- Expose some API to the Renderer process ---------
-contextBridge.exposeInMainWorld('ipcRenderer', {
-  on(...args: Parameters<typeof ipcRenderer.on>) {
-    const [channel, listener] = args
-    return ipcRenderer.on(channel, (event, ...args) => listener(event, ...args))
-  },
-  off(...args: Parameters<typeof ipcRenderer.off>) {
-    const [channel, ...omit] = args
-    return ipcRenderer.off(channel, ...omit)
-  },
-  send(...args: Parameters<typeof ipcRenderer.send>) {
-    const [channel, ...omit] = args
-    return ipcRenderer.send(channel, ...omit)
-  },
-  invoke(...args: Parameters<typeof ipcRenderer.invoke>) {
-    const [channel, ...omit] = args
-    return ipcRenderer.invoke(channel, ...omit)
-  },
+import {
+  contextBridge,
+  ipcRenderer,
+  MessageBoxOptions,
+  MessageBoxReturnValue,
+  OpenDialogOptions,
+  OpenDialogReturnValue,
+} from "electron";
+// import path from 'node:path'; // <-- REMOVE THIS IMPORT
 
-  // You can expose other APTs you need here.
-  // ...
-})
+// --- Expose Electron APIs to Renderer ---
+contextBridge.exposeInMainWorld("electronAPI", {
+  // File System Operations using ABSOLUTE paths (keep these)
+  readFileAbsolute: (absolutePath: string): Promise<string | null> =>
+    ipcRenderer.invoke("read-file-absolute", absolutePath),
+  writeFileAbsolute: (absolutePath: string, content: string): Promise<void> =>
+    ipcRenderer.invoke("write-file-absolute", absolutePath, content),
+  deleteFileAbsolute: (absolutePath: string): Promise<void> =>
+    ipcRenderer.invoke("delete-file-absolute", absolutePath),
+  existsAbsolute: (absolutePath: string): Promise<boolean> =>
+    ipcRenderer.invoke("exists-absolute", absolutePath),
+  mkdirAbsolute: (absolutePath: string): Promise<void> =>
+    ipcRenderer.invoke("mkdir-absolute", absolutePath),
+  rmdirAbsolute: (absolutePath: string): Promise<void> =>
+    ipcRenderer.invoke("rmdir-absolute", absolutePath),
 
-// --------- Preload scripts loading ---------
-function domReady(condition: DocumentReadyState[] = ['complete', 'interactive']) {
-  return new Promise((resolve) => {
-    if (condition.includes(document.readyState)) {
-      resolve(true)
-    } else {
-      document.addEventListener('readystatechange', () => {
-        if (condition.includes(document.readyState)) {
-          resolve(true)
+  // Dialogs (keep these)
+  showConfirmDialog: (
+    options: MessageBoxOptions
+  ): Promise<MessageBoxReturnValue> =>
+    ipcRenderer.invoke("show-confirm-dialog", options),
+  showOpenDialog: (
+    options: OpenDialogOptions
+  ): Promise<OpenDialogReturnValue> =>
+    ipcRenderer.invoke("show-open-dialog", options),
+
+  // Path Utilities (keep getPath)
+  getPath: (
+    name:
+      | "home"
+      | "appData"
+      | "userData"
+      | "logs"
+      | "temp"
+      | "desktop"
+      | "documents"
+      | "downloads"
+      | "music"
+      | "pictures"
+      | "videos"
+  ): Promise<string> => ipcRenderer.invoke("get-path", name),
+
+  // MODIFIED: Use IPC for joining paths
+  joinPaths: (...paths: string[]): Promise<string> =>
+    ipcRenderer.invoke("join-paths", ...paths),
+  // WAS: joinPaths: (...paths: string[]): string => path.join(...paths),
+});
+
+// --- Monaco Editor Worker Setup (Keep as before) ---
+// This ensures the Monaco Editor worker scripts can be loaded correctly in Electron.
+// Needs `monaco-editor` installed.
+// Using dynamic import for the worker URLs to help Vite with bundling.
+// @ts-ignore - MonacoEnvironment is expected on self/window by the editor loader
+self.MonacoEnvironment = {
+    getWorker: function (_moduleId: any, label: string) {
+        let workerUrl: URL;
+        switch (label) {
+            case 'json':
+                workerUrl = new URL('monaco-editor/esm/vs/language/json/json.worker?worker', import.meta.url);
+                break;
+            case 'css':
+            case 'scss':
+            case 'less':
+                workerUrl = new URL('monaco-editor/esm/vs/language/css/css.worker?worker', import.meta.url);
+                break;
+            case 'html':
+            case 'handlebars':
+            case 'razor':
+                workerUrl = new URL('monaco-editor/esm/vs/language/html/html.worker?worker', import.meta.url);
+                break;
+            case 'typescript':
+            case 'javascript':
+                workerUrl = new URL('monaco-editor/esm/vs/language/typescript/ts.worker?worker', import.meta.url);
+                break;
+            default:
+                workerUrl = new URL('monaco-editor/esm/vs/editor/editor.worker?worker', import.meta.url);
+                break;
         }
-      })
+        // The `?worker` query suffix is a Vite convention to load the module as a web worker
+        return new Worker(workerUrl, { type: 'module' });
     }
-  })
-}
+};
 
-const safeDOM = {
-  append(parent: HTMLElement, child: HTMLElement) {
-    if (!Array.from(parent.children).find(e => e === child)) {
-      return parent.appendChild(child)
-    }
-  },
-  remove(parent: HTMLElement, child: HTMLElement) {
-    if (Array.from(parent.children).find(e => e === child)) {
-      return parent.removeChild(child)
-    }
-  },
-}
 
-/**
- * https://tobiasahlin.com/spinkit
- * https://connoratherton.com/loaders
- * https://projects.lukehaas.me/css-loaders
- * https://matejkustec.github.io/SpinThatShit
- */
-function useLoading() {
-  const className = `loaders-css__square-spin`
-  const styleContent = `
-@keyframes square-spin {
-  25% { transform: perspective(100px) rotateX(180deg) rotateY(0); }
-  50% { transform: perspective(100px) rotateX(180deg) rotateY(180deg); }
-  75% { transform: perspective(100px) rotateX(0) rotateY(180deg); }
-  100% { transform: perspective(100px) rotateX(0) rotateY(0); }
-}
-.${className} > div {
-  animation-fill-mode: both;
-  width: 50px;
-  height: 50px;
-  background: #fff;
-  animation: square-spin 3s 0s cubic-bezier(0.09, 0.57, 0.49, 0.9) infinite;
-}
-.app-loading-wrap {
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100vw;
-  height: 100vh;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: #282c34;
-  z-index: 9;
-}
-    `
-  const oStyle = document.createElement('style')
-  const oDiv = document.createElement('div')
+console.log('Preload script fully loaded and configured.');
 
-  oStyle.id = 'app-loading-style'
-  oStyle.innerHTML = styleContent
-  oDiv.className = 'app-loading-wrap'
-  oDiv.innerHTML = `<div class="${className}"><div></div></div>`
-
-  return {
-    appendLoading() {
-      safeDOM.append(document.head, oStyle)
-      safeDOM.append(document.body, oDiv)
-    },
-    removeLoading() {
-      safeDOM.remove(document.head, oStyle)
-      safeDOM.remove(document.body, oDiv)
-    },
+// --- TypeScript Declarations for Renderer ---
+declare global {
+  interface Window {
+    electronAPI: {
+      readFileAbsolute: (absolutePath: string) => Promise<string | null>;
+      writeFileAbsolute: (
+        absolutePath: string,
+        content: string
+      ) => Promise<void>;
+      deleteFileAbsolute: (absolutePath: string) => Promise<void>;
+      existsAbsolute: (absolutePath: string) => Promise<boolean>;
+      mkdirAbsolute: (absolutePath: string) => Promise<void>;
+      rmdirAbsolute: (absolutePath: string) => Promise<void>;
+      showConfirmDialog: (
+        options: MessageBoxOptions
+      ) => Promise<MessageBoxReturnValue>;
+      showOpenDialog: (
+        options: OpenDialogOptions
+      ) => Promise<OpenDialogReturnValue>;
+      getPath: (
+        name:
+          | "home"
+          | "appData"
+          | "userData"
+          | "logs"
+          | "temp"
+          | "desktop"
+          | "documents"
+          | "downloads"
+          | "music"
+          | "pictures"
+          | "videos"
+      ) => Promise<string>;
+      // MODIFIED: joinPaths now returns a Promise
+      joinPaths: (...paths: string[]) => Promise<string>;
+    };
+    // monaco: typeof monaco; // Optional
   }
 }
-
-// ----------------------------------------------------------------------
-
-const { appendLoading, removeLoading } = useLoading()
-domReady().then(appendLoading)
-
-window.onmessage = (ev) => {
-  ev.data.payload === 'removeLoading' && removeLoading()
-}
-
-setTimeout(removeLoading, 4999)

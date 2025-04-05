@@ -1,0 +1,304 @@
+// src/composables/usePatientData.ts
+import { ref, onMounted, watch } from "vue";
+import { v4 as uuidv4 } from "uuid";
+import type { Patient } from "@/types";
+import { useFileSystemAccess } from "./useFileSystemAccess";
+import { useConfig } from "./useConfig";
+
+const patients = ref<Patient[]>([]);
+const isLoading = ref(false);
+const error = ref<string | null>(null);
+
+export function usePatientData() {
+  const {
+    readFileAbsolute,
+    writeFileAbsolute,
+    mkdirAbsolute,
+    rmdirAbsolute,
+    showConfirmDialog,
+    joinPaths,
+  } = useFileSystemAccess();
+  const { config, isConfigLoaded, isDataDirectorySet } = useConfig();
+
+  // --- Helpers ---
+  const getPatientsFilePath = async (): Promise<string | null> => {
+    if (!isDataDirectorySet.value || !config.value.dataDirectory) return null;
+    try {
+      return await joinPaths(config.value.dataDirectory, config.value.patientsFilename);
+    } catch (error: any) {
+      console.error("Error in getPatientsFilePath:", error);
+      return null;
+    }
+  };
+
+  const getPatientNotesDir = async (patientId: string): Promise<string | null> => {
+    if (!isDataDirectorySet.value || !config.value.dataDirectory) return null;
+    try {
+    const segments = [config.value.dataDirectory, config.value.notesBaseDir];
+    if (patientId) {
+      segments.push(patientId);
+    }
+      return await joinPaths(...segments);
+    } catch (error: any) {
+      console.error("Error in getPatientNotesDir:", error);
+      return null;
+    }
+  };
+  // --- End Helpers ---
+
+  const loadPatients = async () => {
+    if (!isConfigLoaded.value || !isDataDirectorySet.value) {
+      console.warn("loadPatients: Config not loaded or data directory not set.");
+      patients.value = [];
+      return;
+    }
+
+    isLoading.value = true;
+    error.value = null;
+    const absolutePath = await getPatientsFilePath(); // <-- await here
+
+    if (!absolutePath) {
+      error.value = "loadPatients: Could not determine patients file path.";
+      isLoading.value = false;
+      patients.value = [];
+      return;
+    }
+
+    console.log("Loading patients from:", absolutePath);
+    try {
+      const fileContent = await readFileAbsolute(absolutePath);
+      if (fileContent) {
+        patients.value = JSON.parse(fileContent);
+      } else {
+        patients.value = [];
+        console.warn("loadPatients: Patients file not found or empty. Initializing.");
+      }
+    } catch (err: any) {
+      console.error("Error loading patients:", err);
+      error.value = `Failed to load patients: ${err.message || err}`;
+      patients.value = [];
+    } finally {
+      isLoading.value = false;
+    }
+  };
+
+  const savePatients = async (updatedPatients: Patient[]): Promise<boolean> => {
+    const absolutePath = await getPatientsFilePath();
+    if (!absolutePath) {
+      error.value = "savePatients: Could not determine patients file path.";
+      return false;
+    }
+
+    console.log("Saving patients to:", absolutePath);
+    try {
+      await writeFileAbsolute(absolutePath, JSON.stringify(updatedPatients, null, 2));
+      patients.value = updatedPatients; // Update reactive state
+      return true;
+    } catch (err: any) {
+      console.error("Error saving patients:", err);
+      error.value = `Failed to save patients: ${err.message || err}`;
+      return false;
+    }
+  };
+
+  const addPatient = async (patientData: Omit<Patient, "id">): Promise<Patient | null> => {
+    let newPatientDir: string | null = null;
+    try {
+    const baseNotesDirCheck = await getPatientNotesDir(""); // Check base path validity
+    if (!baseNotesDirCheck) {
+        error.value = "addPatient: Data directory not configured or invalid.";
+      console.error("Add Patient Error: Base notes directory check failed.");
+      return null;
+    }
+
+    isLoading.value = true;
+    error.value = null;
+
+      const newPatient: Patient = { ...patientData, id: uuidv4() };
+      newPatientDir = await getPatientNotesDir(newPatient.id);
+
+      if (!newPatientDir) {
+        throw new Error("Could not construct patient notes directory path.");
+      }
+
+      console.log("Creating notes directory for new patient:", newPatientDir);
+      await mkdirAbsolute(newPatientDir);
+      console.log("Directory created:", newPatientDir);
+
+      const currentPatients = [...patients.value];
+      currentPatients.push(newPatient);
+
+      console.log("Saving updated patient list...");
+      const saveSuccess = await savePatients(currentPatients);
+
+      if (saveSuccess) {
+        console.log("Patient added successfully:", newPatient.id);
+        return newPatient;
+      } else {
+        console.warn("Saving patient list failed after directory creation. Attempting cleanup...");
+        if (newPatientDir) {
+          try {
+            await rmdirAbsolute(newPatientDir);
+            console.log("Cleaned up created directory:", newPatientDir);
+          } catch (cleanupError) {
+            console.error("Failed to cleanup created directory:", cleanupError);
+          }
+        }
+        throw new Error("Failed to save updated patient list after adding patient.");
+      }
+    } catch (err: any) {
+      console.error("Error adding patient:", err);
+      error.value = `Failed to add patient: ${err.message || err}`;
+      // Attempt cleanup again in the main catch block for errors after mkdir but before save completes
+      if (newPatientDir) {
+        try {
+          // Check if it actually exists before trying to remove, might fail during mkdir
+          const dirExists = await useFileSystemAccess().existsAbsolute(
+            newPatientDir
+          );
+          if (dirExists) {
+            await rmdirAbsolute(newPatientDir);
+            console.log(
+              "Cleaned up created directory in catch block:",
+              newPatientDir
+            );
+          }
+        } catch (cleanupError) {
+          console.error(
+            "Failed to cleanup created directory during addPatient failure (in catch):",
+            cleanupError
+          );
+        }
+      }
+      return null; // Indicate failure
+    } finally {
+      isLoading.value = false;
+    }
+  };
+
+  // --- REMOVE PATIENT ---
+  const removePatient = async (patientId: string): Promise<boolean> => {
+    const notesDir = await getPatientNotesDir(patientId); // Path for the patient's notes dir
+    if (!notesDir) {
+      error.value =
+        "Cannot remove patient: Data directory not configured or invalid.";
+      console.error("Remove Patient Error: Notes directory path check failed.");
+      return false;
+    }
+
+    const patientToRemove = patients.value.find((p) => p.id === patientId);
+    if (!patientToRemove) {
+      error.value = "Patient not found.";
+      console.error(
+        `Remove Patient Error: Patient with ID ${patientId} not found.`
+      );
+      return false; // Or maybe true if already gone? False seems safer.
+    }
+
+    // --- Confirmation Dialog ---
+    console.log(
+      `Requesting confirmation to remove patient: ${patientToRemove.name}`
+    );
+    const confirmation = await showConfirmDialog({
+      type: "warning",
+      buttons: ["Cancel", "Delete Patient"], // Button order matters, 0=Cancel, 1=Delete
+      defaultId: 0,
+      cancelId: 0,
+      title: "Confirm Deletion",
+      message: `Are you sure you want to delete patient "${patientToRemove.name}"?`,
+      detail:
+        "This action cannot be undone and will delete all associated notes.",
+    });
+
+    if (confirmation.response !== 1) {
+      // Check if the 'Delete Patient' button (index 1) was clicked
+      console.log("Patient removal cancelled by user.");
+      return false; // User cancelled
+    }
+    console.log("User confirmed patient removal.");
+
+    isLoading.value = true;
+    error.value = null;
+    try {
+      // --- Filter out the patient ---
+      const updatedPatients = patients.value.filter((p) => p.id !== patientId);
+
+      // --- Save the updated patient list ---
+      console.log("Saving updated patient list (after removal)...");
+      const saveSuccess = await savePatients(updatedPatients); // savePatients handles updating ref
+
+      if (saveSuccess) {
+        // --- Remove the patient's notes directory *after* successful save ---
+        console.log(
+          "Patient list saved. Removing patient notes directory:",
+          notesDir
+        );
+        await rmdirAbsolute(notesDir); // Attempt removal
+        console.log("Patient removed successfully:", patientId);
+        return true;
+      } else {
+        // If saving the patient list failed, do NOT remove the directory
+        console.error(
+          "Failed to save patient list after filtering for removal."
+        );
+        // Error should be set by savePatients
+        throw new Error("Failed to save patient list after removing patient.");
+      }
+    } catch (err: any) {
+      console.error("Error removing patient:", err);
+      error.value = `Failed to remove patient: ${err.message || err}`;
+      // Consider reloading patients to revert local state if save failed,
+      // but this might cause UI flicker or mask the root cause.
+      // await loadPatients();
+      return false; // Indicate failure
+    } finally {
+      isLoading.value = false;
+    }
+  };
+
+  const getPatientById = (patientId: string): Patient | undefined => {
+    return patients.value.find((p) => p.id === patientId);
+  };
+
+  // Watch for config changes (specifically dataDirectory being set/unset) and reload patients
+  watch(
+    [isConfigLoaded, isDataDirectorySet],
+    ([loaded, dirSet], [oldLoaded, oldDirSet]) => {
+      console.log(
+        `Config watcher triggered: loaded=${loaded}, dirSet=${dirSet}`
+      );
+      if (loaded && dirSet) {
+        // Reload patients only if the directory was *just* set or changed
+        // Or if the config just finished loading and the directory *is* set
+        if (dirSet !== oldDirSet || (loaded && !oldLoaded)) {
+          console.log("Config loaded and directory set, reloading patients...");
+          loadPatients();
+        }
+      } else if (loaded && !dirSet) {
+        // Config loaded, but no directory set
+        console.log(
+          "Config loaded, but no data directory set. Clearing patients."
+        );
+        patients.value = []; // Clear patients if directory becomes unset
+        error.value = "Data directory not configured. Please select one.";
+      }
+    },
+    { immediate: false }
+  );
+
+  onMounted(() => {
+    if (isConfigLoaded.value && isDataDirectorySet.value) {
+      loadPatients();
+    }
+  });
+
+  return {
+    patients,
+    isLoading,
+    error,
+    loadPatients, // Expose loadPatients if manual reload is needed
+    addPatient,
+    removePatient,
+    getPatientById,
+  };
+}
