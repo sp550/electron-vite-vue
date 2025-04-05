@@ -175,6 +175,42 @@ export function usePatientData() {
       isLoading.value = false;
     }
   };
+const updatePatient = async (updatedPatient: Patient): Promise<boolean> => {
+  const absolutePath = await getPatientsFilePath();
+  if (!absolutePath) {
+    error.value = "Cannot update patient: Data directory not configured.";
+    return false;
+  }
+  isLoading.value = true;
+  error.value = null;
+
+  try {
+    const currentPatients = [...patients.value];
+    const patientIndex = currentPatients.findIndex(
+      (p) => p.id === updatedPatient.id
+    );
+    if (patientIndex === -1) {
+      error.value = `Patient with ID ${updatedPatient.id} not found in the list.`;
+      return false;
+    }
+
+    currentPatients[patientIndex] = { ...updatedPatient };
+
+    const saveSuccess = await savePatients(currentPatients); // Save the modified array
+    if (saveSuccess) {
+      console.log("Patient list saved successfully after update.");
+      return true;
+    } else {
+      throw new Error("Failed to save updated patient list."); // Let savePatients' catch handle logging
+    }
+  } catch (err: any) {
+    console.error("Error updating patient:", err);
+    error.value = `Failed to update patient: ${err.message || err}`;
+    return false;
+  } finally {
+    isLoading.value = false;
+  }
+};
 
   // --- REMOVE PATIENT ---
   const removePatient = async (patientId: string): Promise<boolean> => {
@@ -300,5 +336,6 @@ export function usePatientData() {
     addPatient,
     removePatient,
     getPatientById,
+    updatePatient,
   };
 }

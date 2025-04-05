@@ -1,7 +1,16 @@
-import { app, BrowserWindow, ipcMain, shell, dialog, OpenDialogOptions, OpenDialogReturnValue } from 'electron'; // Add dialog types
-import path from 'node:path';
-import fs from 'node:fs';
-
+import {
+  app,
+  BrowserWindow,
+  ipcMain,
+  shell,
+  dialog,
+  OpenDialogOptions,
+  OpenDialogReturnValue,
+} from "electron"; // Add dialog types
+import path from "node:path";
+import fs from "node:fs";
+// electron/main.ts
+import { screen } from "electron"; // Add screen
 // Handle creating/removing shortcuts on Windows when installing/uninstalling.
 // if (require('electron-squirrel-startup')) { // Keep if you need Squirrel support
 //   app.quit();
@@ -10,10 +19,22 @@ import fs from 'node:fs';
 let mainWindow: BrowserWindow | null;
 
 const createWindow = () => {
+  const { width, height } = screen.getPrimaryDisplay().workAreaSize;
+
+  // Calculate window dimensions
+  const windowWidth = Math.round(width / 3); // 1/3 of screen width
+  const windowHeight = height; // 100% of screen height
+
+  // Calculate window position (top right)
+  const windowX = width - windowWidth;
+  const windowY = 0; // Top edge of screen
+
   // Create the browser window.
   mainWindow = new BrowserWindow({
-    width: 1200,
-    height: 800,
+    x: windowX,
+    y: windowY,
+    width: windowWidth,
+    height: windowHeight,
     webPreferences: {
       // --- FIX THIS LINE ---
       // It needs to point from dist-electron/main/ up one level and into /preload/
@@ -21,7 +42,8 @@ const createWindow = () => {
       // --- END FIX ---
       contextIsolation: true,
       nodeIntegration: false,
-      devTools: !app.isPackaged,
+      // devTools: !app.isPackaged,
+      devTools: false,
     },
     // Add other options like icon if needed
     // icon: path.join(__dirname, '../../public/logo.svg') // Example icon path
@@ -66,7 +88,7 @@ const createWindow = () => {
 };
 // --- Get User Data Path (Only for the config file itself) ---
 // This is now less critical as data paths depend on config, but keep for config saving
-const configBaseDir = app.getPath('userData'); // Config stored directly in userData
+const configBaseDir = app.getPath("userData"); // Config stored directly in userData
 console.log("Config file base directory:", configBaseDir);
 
 ipcMain.handle("join-paths", (event, ...paths: string[]): string => {
@@ -94,40 +116,54 @@ ipcMain.handle("join-paths", (event, ...paths: string[]): string => {
 });
 
 // NEW: Handler for getting specific Electron paths
-ipcMain.handle('get-path', (event, name: Parameters<typeof app.getPath>[0]): string => {
+ipcMain.handle(
+  "get-path",
+  (event, name: Parameters<typeof app.getPath>[0]): string => {
     try {
-        return app.getPath(name);
+      return app.getPath(name);
     } catch (error) {
-        console.error(`Error getting path '${name}':`, error);
-        return ''; // Return empty string or throw error
+      console.error(`Error getting path '${name}':`, error);
+      return ""; // Return empty string or throw error
     }
-});
+  }
+);
 
 // NEW: Handler for showing the open directory dialog
-ipcMain.handle('show-open-dialog', async (event, options: OpenDialogOptions): Promise<OpenDialogReturnValue> => {
-  const mainWindow = BrowserWindow.getFocusedWindow(); // Or get from event sender if preferred
-  if (!mainWindow) return { canceled: true, filePaths: [] };
-  return await dialog.showOpenDialog(mainWindow, options);
-});
-
+ipcMain.handle(
+  "show-open-dialog",
+  async (event, options: OpenDialogOptions): Promise<OpenDialogReturnValue> => {
+    const mainWindow = BrowserWindow.getFocusedWindow(); // Or get from event sender if preferred
+    if (!mainWindow) return { canceled: true, filePaths: [] };
+    return await dialog.showOpenDialog(mainWindow, options);
+  }
+);
 
 // UPDATED: File System Handlers - Now expect ABSOLUTE paths
 
-ipcMain.handle('read-file-absolute', async (event, absolutePath: string): Promise<string | null> => {
-  console.log("IPC Handling: Reading absolute file:", absolutePath);
-  try {
-    const fileExists = await fs.promises.access(absolutePath, fs.constants.F_OK).then(() => true).catch(() => false);
-    if (fileExists) {
-      return await fs.promises.readFile(absolutePath, 'utf-8');
+ipcMain.handle(
+  "read-file-absolute",
+  async (event, absolutePath: string): Promise<string | null> => {
+    console.log("IPC Handling: Reading absolute file:", absolutePath);
+    try {
+      const fileExists = await fs.promises
+        .access(absolutePath, fs.constants.F_OK)
+        .then(() => true)
+        .catch(() => false);
+      if (fileExists) {
+        return await fs.promises.readFile(absolutePath, "utf-8");
+      }
+      return null; // File doesn't exist
+    } catch (error: any) {
+      console.error(
+        `IPC Handling: Error reading absolute file ${absolutePath}:`,
+        error
+      );
+      // Only throw specific errors maybe? Or let renderer handle ENOENT
+      if (error.code === "ENOENT") return null; // Treat not found as null
+      throw new Error(`Failed to read file: ${path.basename(absolutePath)}`);
     }
-    return null; // File doesn't exist
-  } catch (error: any) {
-    console.error(`IPC Handling: Error reading absolute file ${absolutePath}:`, error);
-    // Only throw specific errors maybe? Or let renderer handle ENOENT
-     if (error.code === 'ENOENT') return null; // Treat not found as null
-    throw new Error(`Failed to read file: ${path.basename(absolutePath)}`);
   }
-});
+);
 
 ipcMain.handle(
   "write-file-absolute",
@@ -151,76 +187,132 @@ ipcMain.handle(
   }
 );
 
-ipcMain.handle('delete-file-absolute', async (event, absolutePath: string): Promise<void> => {
+ipcMain.handle(
+  "delete-file-absolute",
+  async (event, absolutePath: string): Promise<void> => {
     console.log("IPC Handling: Deleting absolute file:", absolutePath);
     try {
-        const fileExists = await fs.promises.access(absolutePath, fs.constants.F_OK).then(() => true).catch(() => false);
-        if (fileExists) {
-            await fs.promises.unlink(absolutePath);
-        } else {
-            console.log("IPC Handling: File not found, skipping delete:", absolutePath);
-        }
+      const fileExists = await fs.promises
+        .access(absolutePath, fs.constants.F_OK)
+        .then(() => true)
+        .catch(() => false);
+      if (fileExists) {
+        await fs.promises.unlink(absolutePath);
+      } else {
+        console.log(
+          "IPC Handling: File not found, skipping delete:",
+          absolutePath
+        );
+      }
     } catch (error: any) {
-        console.error(`IPC Handling: Error deleting absolute file ${absolutePath}:`, error);
-        throw new Error(`Failed to delete file: ${path.basename(absolutePath)}`);
+      console.error(
+        `IPC Handling: Error deleting absolute file ${absolutePath}:`,
+        error
+      );
+      throw new Error(`Failed to delete file: ${path.basename(absolutePath)}`);
     }
-});
+  }
+);
 
-ipcMain.handle('exists-absolute', async (event, absolutePath: string): Promise<boolean> => {
+ipcMain.handle(
+  "exists-absolute",
+  async (event, absolutePath: string): Promise<boolean> => {
     console.log("IPC Handling: Checking existence (absolute):", absolutePath);
     try {
-        await fs.promises.access(absolutePath, fs.constants.F_OK);
-        return true;
+      await fs.promises.access(absolutePath, fs.constants.F_OK);
+      return true;
     } catch (error: any) {
-        // If error code is ENOENT, file doesn't exist, return false. Otherwise, log/throw.
-        if (error.code === 'ENOENT') {
-            return false;
-        }
-        console.error(`IPC Handling: Error checking existence for ${absolutePath}:`, error);
-        throw new Error(`Failed to check existence for file: ${path.basename(absolutePath)}`);
+      // If error code is ENOENT, file doesn't exist, return false. Otherwise, log/throw.
+      if (error.code === "ENOENT") {
+        return false;
+      }
+      console.error(
+        `IPC Handling: Error checking existence for ${absolutePath}:`,
+        error
+      );
+      throw new Error(
+        `Failed to check existence for file: ${path.basename(absolutePath)}`
+      );
     }
-});
-
-ipcMain.handle('mkdir-absolute', async (event, absolutePath: string): Promise<void> => {
-  console.log("IPC Handling: Creating directory (absolute):", absolutePath);
-  try {
-    const dirExists = await fs.promises.access(absolutePath, fs.constants.F_OK).then(() => true).catch(() => false);
-    if (!dirExists) {
-      await fs.promises.mkdir(absolutePath, { recursive: true });
-      console.log("IPC Handling: Directory created successfully (absolute):", absolutePath);
-    } else {
-       console.log("IPC Handling: Directory already exists (absolute):", absolutePath);
-    }
-  } catch (error: any) {
-    console.error(`IPC Handling: Error creating directory ${absolutePath}:`, error);
-    throw new Error(`Failed to create directory: ${path.basename(absolutePath)}`);
   }
-});
+);
 
-ipcMain.handle('rmdir-absolute', async (event, absolutePath: string): Promise<void> => {
+ipcMain.handle(
+  "mkdir-absolute",
+  async (event, absolutePath: string): Promise<void> => {
+    console.log("IPC Handling: Creating directory (absolute):", absolutePath);
+    try {
+      const dirExists = await fs.promises
+        .access(absolutePath, fs.constants.F_OK)
+        .then(() => true)
+        .catch(() => false);
+      if (!dirExists) {
+        await fs.promises.mkdir(absolutePath, { recursive: true });
+        console.log(
+          "IPC Handling: Directory created successfully (absolute):",
+          absolutePath
+        );
+      } else {
+        console.log(
+          "IPC Handling: Directory already exists (absolute):",
+          absolutePath
+        );
+      }
+    } catch (error: any) {
+      console.error(
+        `IPC Handling: Error creating directory ${absolutePath}:`,
+        error
+      );
+      throw new Error(
+        `Failed to create directory: ${path.basename(absolutePath)}`
+      );
+    }
+  }
+);
+
+ipcMain.handle(
+  "rmdir-absolute",
+  async (event, absolutePath: string): Promise<void> => {
     console.log("IPC Handling: Removing directory (absolute):", absolutePath);
     try {
-        const dirExists = await fs.promises.access(absolutePath, fs.constants.F_OK).then(() => true).catch(() => false);
-        if (dirExists) {
-            await fs.promises.rm(absolutePath, { recursive: true, force: true });
-            console.log("IPC Handling: Directory removed successfully (absolute):", absolutePath);
-        } else {
-            console.log("IPC Handling: Directory not found, skipping remove:", absolutePath);
-        }
+      const dirExists = await fs.promises
+        .access(absolutePath, fs.constants.F_OK)
+        .then(() => true)
+        .catch(() => false);
+      if (dirExists) {
+        await fs.promises.rm(absolutePath, { recursive: true, force: true });
+        console.log(
+          "IPC Handling: Directory removed successfully (absolute):",
+          absolutePath
+        );
+      } else {
+        console.log(
+          "IPC Handling: Directory not found, skipping remove:",
+          absolutePath
+        );
+      }
     } catch (error: any) {
-        console.error(`IPC Handling: Error removing directory ${absolutePath}:`, error);
-        throw new Error(`Failed to remove directory: ${path.basename(absolutePath)}`);
+      console.error(
+        `IPC Handling: Error removing directory ${absolutePath}:`,
+        error
+      );
+      throw new Error(
+        `Failed to remove directory: ${path.basename(absolutePath)}`
+      );
     }
-});
-
+  }
+);
 
 // Keep the confirmation dialog handler
-ipcMain.handle('show-confirm-dialog', async (event, options: Electron.MessageBoxOptions) => {
-  const mainWindow = BrowserWindow.getFocusedWindow();
-  if (!mainWindow) return null;
-  const result = await dialog.showMessageBox(mainWindow, options);
-  return result;
-});
+ipcMain.handle(
+  "show-confirm-dialog",
+  async (event, options: Electron.MessageBoxOptions) => {
+    const mainWindow = BrowserWindow.getFocusedWindow();
+    if (!mainWindow) return null;
+    const result = await dialog.showMessageBox(mainWindow, options);
+    return result;
+  }
+);
 
 // Add other IPC handlers (deleteFile, exists, mkdir, rmdir, showConfirmDialog) here,
 // ensuring they use `path.join(dataPath, relativePath)`
