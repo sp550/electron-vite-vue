@@ -5,7 +5,7 @@
 <script setup lang="ts">
 import { ref, onMounted, onBeforeUnmount, watch, nextTick } from 'vue';
 import { editor, languages, KeyMod, KeyCode } from 'monaco-editor';
-
+import { initializeMedicalTemplates,initializeMedicalLanguage } from '@/monacoLanguage';
 // Props using defineProps
 const props = defineProps({
    modelValue: {
@@ -70,6 +70,9 @@ onMounted(async () => {
    } else {
       console.error("Monaco Editor container not found.");
    }
+
+   initializeMedicalLanguage();
+   initializeMedicalTemplates();
 });
 
 onBeforeUnmount(() => {
