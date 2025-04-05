@@ -13,6 +13,15 @@ export default defineConfig(({ command }) => {
   // No need to manually delete dist-electron here usually
 
   return {
+    optimizeDeps: {
+      include: [
+        "monaco-editor/esm/vs/editor/editor.worker",
+        "monaco-editor/esm/vs/language/json/json.worker",
+        "monaco-editor/esm/vs/language/css/css.worker",
+        "monaco-editor/esm/vs/language/html/html.worker",
+        "monaco-editor/esm/vs/language/typescript/ts.worker",
+      ],
+    },
     resolve: {
       alias: {
         "@": path.resolve(__dirname, "./src"), // Keep the alias
@@ -47,6 +56,15 @@ export default defineConfig(({ command }) => {
             options.reload();
           },
           vite: {
+            optimizeDeps: {
+              include: [
+                "monaco-editor/esm/vs/editor/editor.worker",
+                "monaco-editor/esm/vs/language/json/json.worker",
+                "monaco-editor/esm/vs/language/css/css.worker",
+                "monaco-editor/esm/vs/language/html/html.worker",
+                "monaco-editor/esm/vs/language/typescript/ts.worker",
+              ],
+            },
             build: {
               sourcemap: sourcemap ? "inline" : undefined,
               minify: isBuild,
@@ -55,6 +73,12 @@ export default defineConfig(({ command }) => {
                 external: Object.keys(
                   "dependencies" in pkg ? pkg.dependencies : {}
                 ),
+                output: {
+                  // Ensure monaco editor assets are handled correctly
+                  manualChunks: {
+                    "monaco-editor": ["monaco-editor"],
+                  },
+                },
               },
             },
           },
@@ -78,5 +102,8 @@ export default defineConfig(({ command }) => {
         return undefined;
       })(),
     clearScreen: false,
+    fs: {
+      allow: [path.resolve(__dirname, "node_modules/monaco-editor")],
+    },
   };
 });

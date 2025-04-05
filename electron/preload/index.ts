@@ -63,35 +63,35 @@ contextBridge.exposeInMainWorld("electronAPI", {
 // Needs `monaco-editor` installed.
 // Using dynamic import for the worker URLs to help Vite with bundling.
 // @ts-ignore - MonacoEnvironment is expected on self/window by the editor loader
-self.MonacoEnvironment = {
-    getWorker: function (_moduleId: any, label: string) {
-        let workerUrl: URL;
-        switch (label) {
-            case 'json':
-                workerUrl = new URL('monaco-editor/esm/vs/language/json/json.worker?worker', import.meta.url);
-                break;
-            case 'css':
-            case 'scss':
-            case 'less':
-                workerUrl = new URL('monaco-editor/esm/vs/language/css/css.worker?worker', import.meta.url);
-                break;
-            case 'html':
-            case 'handlebars':
-            case 'razor':
-                workerUrl = new URL('monaco-editor/esm/vs/language/html/html.worker?worker', import.meta.url);
-                break;
-            case 'typescript':
-            case 'javascript':
-                workerUrl = new URL('monaco-editor/esm/vs/language/typescript/ts.worker?worker', import.meta.url);
-                break;
-            default:
-                workerUrl = new URL('monaco-editor/esm/vs/editor/editor.worker?worker', import.meta.url);
-                break;
-        }
-        // The `?worker` query suffix is a Vite convention to load the module as a web worker
-        return new Worker(workerUrl, { type: 'module' });
-    }
-};
+// self.MonacoEnvironment = {
+//     getWorker: function (_moduleId: any, label: string) {
+//         let workerUrl: URL;
+//         switch (label) {
+//             case 'json':
+//                 workerUrl = new URL('monaco-editor/esm/vs/language/json/json.worker?worker', import.meta.url);
+//                 break;
+//             case 'css':
+//             case 'scss':
+//             case 'less':
+//                 workerUrl = new URL('monaco-editor/esm/vs/language/css/css.worker?worker', import.meta.url);
+//                 break;
+//             case 'html':
+//             case 'handlebars':
+//             case 'razor':
+//                 workerUrl = new URL('monaco-editor/esm/vs/language/html/html.worker?worker', import.meta.url);
+//                 break;
+//             case 'typescript':
+//             case 'javascript':
+//                 workerUrl = new URL('monaco-editor/esm/vs/language/typescript/ts.worker?worker', import.meta.url);
+//                 break;
+//             default:
+//                 workerUrl = new URL('monaco-editor/esm/vs/editor/editor.worker?worker', import.meta.url);
+//                 break;
+//         }
+//         // The `?worker` query suffix is a Vite convention to load the module as a web worker
+//         return new Worker(workerUrl, { type: 'module' });
+//     }
+// };
 
 
 console.log('Preload script fully loaded and configured.');
