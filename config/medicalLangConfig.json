@@ -1,0 +1,68 @@
+{
+  "tokenizer": {
+    "root": [
+      ["^//\\s*.*", "header"],
+      ["^#\\s*.*", "issue"],
+      ["\\b(chase|examine|request|addon)\\b", "action"],
+      [".*[A-Z]\\d{7}.*", "umrn"],
+      ["\\[x\\]", "green"],
+      ["\\[xx\\]", "dark-green"],
+      ["\\[\\s*\\]", "red"]
+    ]
+  },
+  "theme": {
+    "base": "vs",
+    "inherit": true,
+    "rules": [
+      {
+        "token": "header",
+        "foreground": "0033cc",
+        "fontStyle": "bold"
+      },
+      {
+        "token": "issue",
+        "foreground": "000000"
+      },
+      {
+        "token": "action",
+        "foreground": "000066"
+      },
+      {
+        "token": "umrn",
+        "fontStyle": "bold",
+        "foreground": "991f00"
+      },
+      {
+        "token": "green",
+        "foreground": "008000"
+      },
+      {
+        "token": "dark-green",
+        "foreground": "006400"
+      },
+      {
+        "token": "red",
+        "foreground": "FF0000"
+      }
+    ],
+    "colors": {}
+  },
+  "keyTerms": [
+    "increase dosage",
+    "decrease dosage",
+    "chase bloods",
+    "chase CXR",
+    "repeat CXR",
+    "review results",
+    "ongoing disposition planning",
+    "continue antibiotics",
+    "wound care nurse review",
+    "IV fluids",
+    "request echo + holter as outpatient",
+    "commence docusate/senna",
+    "await placement"
+  ],
+  "templates": {
+    "wardRoundTitle": "RATU WR - O'Brien (Cons), C.Woods (Reg), S.Pradhan (RMO)"
+  }
+}

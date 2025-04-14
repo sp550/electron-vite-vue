@@ -1,75 +1,7 @@
 import * as monaco from "monaco-editor";
-import path from "path";
 
 // Dummy config – replace with your app’s config if needed.
-const medicalLangConfig = {
-  tokenizer: {
-    root: [
-      ["^//\\s*.*", "header"],
-      ["^#\\s*.*", "issue"],
-      ["\\b(chase|examine|request|addon)\\b", "action"],
-      [".*[A-Z]\\d{7}.*", "umrn"],
-      ["\\[x\\]", "green"],
-      ["\\[xx\\]", "dark-green"],
-      ["\\[\\s*\\]", "red"],
-    ],
-  },
-  theme: {
-    base: "vs",
-    inherit: true,
-    rules: [
-      {
-        token: "header",
-        foreground: "0033cc",
-        fontStyle: "bold",
-      },
-      {
-        token: "issue",
-        foreground: "000000",
-      },
-      {
-        token: "action",
-        foreground: "000066",
-      },
-      {
-        token: "umrn",
-        fontStyle: "bold",
-        foreground: "991f00",
-      },
-      {
-        token: "green",
-        foreground: "008000",
-      },
-      {
-        token: "dark-green",
-        foreground: "006400",
-      },
-      {
-        token: "red",
-        foreground: "FF0000",
-      },
-    ],
-    colors: {},
-  },
-  keyTerms: [
-    "increase dosage",
-    "decrease dosage",
-    "chase bloods",
-    "chase CXR",
-    "repeat CXR",
-    "review results",
-    "ongoing disposition planning",
-    "continue antibiotics",
-    "wound care nurse review",
-    "IV fluids",
-    "request echo + holter as outpatient",
-    "commence docusate/senna",
-    "await placement",
-  ],
-  templates: {
-    wardRoundTitle: "RATU WR - O'Brien (Cons), C.Woods (Reg), S.Pradhan (RMO)",
-  },
-};
+import medicalLangConfig from "../config/medicalLangConfig.json";
 
 export interface Template {
   label: string;
@@ -86,7 +18,10 @@ export async function initializeMedicalLanguage() {
   configureMedicalLanguage();
   configureMedicalTokenizer();
   setupMedicalFoldingRangeProvider();
-  monaco.editor.defineTheme("medicalTheme", medicalLangConfig.theme);
+  monaco.editor.defineTheme("medicalTheme", {
+    ...medicalLangConfig.theme,
+    base: medicalLangConfig.theme.base as monaco.editor.BuiltinTheme,
+  });
 }
 
 export function configureMedicalLanguage(): void {
@@ -111,14 +46,14 @@ export function configureMedicalLanguage(): void {
 export function configureMedicalTokenizer(): void {
   // Add a header rule if needed.
   const headerRegex = /^\/\/\s*.*/;
-  const headerRule = [headerRegex.source, "header"];
+  const headerRule = [headerRegex.source, "header", ""];
   if (Array.isArray(medicalLangConfig.tokenizer.root)) {
     medicalLangConfig.tokenizer.root.push(headerRule);
   } else {
     console.error("Tokenizer root configuration is not valid");
   }
   monaco.languages.setMonarchTokensProvider("medicalLang", {
-    tokenizer: medicalLangConfig.tokenizer,
+    tokenizer: medicalLangConfig.tokenizer as any,
   });
 }
 
@@ -179,29 +114,35 @@ export function calculateMedicalFoldingRanges(model: monaco.editor.ITextModel) {
 
 // Dummy function to get the current patient (adapt as needed)
 async function getCurrentPatient() {
+  // TODO: Replace with a real implementation to fetch the current patient data
   return { name: "John Doe" };
 }
 
 // Dummy formatter to replace placeholders (adapt as needed)
-function formatInsertText(text: string, patient: any): string {
-  return text.replace(/\{\{name\}\}/g, patient.name);
+function formatInsertText(text: string, data: any): string {
+  return text.replace(/\{\{(.*?)\}\}/g, (match, key) => {
+    const value = data[key];
+    return value !== undefined ? value : match;
+  });
 }
 
 export async function initializeMedicalTemplates() {
   try {
     // Assumes a templates.json file in your public folder
     const response = await fetch("/templates.json");
+    if (!response.ok) {
+      throw new Error(`Failed to load templates.json: ${response.status}`);
+    }
     const templates: Template[] = await response.json();
     templates.forEach((tpl) => {
       tpl.inline = !!tpl.inline;
-      switch (tpl.kind) {
-        case "Snippet":
-          tpl.kind = monaco.languages.CompletionItemKind.Snippet;
-          tpl.insertTextRules =
-            monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet;
-          break;
-        default:
-          tpl.kind = monaco.languages.CompletionItemKind.Text;
+      tpl.kind = tpl.kind ?? monaco.languages.CompletionItemKind.Text;
+      if ((tpl.kind as any) === "Snippet") {
+        tpl.kind = monaco.languages.CompletionItemKind.Snippet;
+        tpl.insertTextRules =
+          monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet;
+      } else {
+        tpl.kind = monaco.languages.CompletionItemKind.Text;
       }
     });
     monaco.languages.registerCompletionItemProvider("medicalLang", {
@@ -230,7 +171,7 @@ function provideCompletionItemsFunction(templates: Template[]) {
       (tpl) => ({
         label: tpl.label,
         insertText: tpl.insertText,
-        kind: tpl.kind,
+        kind: tpl.kind ?? monaco.languages.CompletionItemKind.Text,
         insertTextRules: tpl.insertTextRules,
         range: new monaco.Range(
           position.lineNumber,
