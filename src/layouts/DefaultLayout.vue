@@ -5,14 +5,6 @@
          <v-app-bar-nav-icon @click.stop="drawer = !drawer"></v-app-bar-nav-icon>
          <v-toolbar-title>Medical Notepad</v-toolbar-title>
          <v-spacer></v-spacer>
-         <v-btn-toggle v-model="activeView" mandatory>
-            <v-btn value="editor" title="Editor View">
-               <v-icon>mdi-note-edit-outline</v-icon>
-            </v-btn>
-            <v-btn value="card" title="Card View">
-               <v-icon>mdi-card-outline</v-icon>
-            </v-btn>
-         </v-btn-toggle>
          <v-btn @click="selectDataDirectory" title="Select Data Directory" icon>
             <v-icon :color="configState.isDataDirectorySet.value ? 'white' : 'yellow'">
                {{ configState.isDataDirectorySet.value ? 'mdi-folder-check-outline' : 'mdi-folder-alert-outline' }}
@@ -34,24 +26,26 @@
       <!-- === Navigation Drawer (Patient List) === -->
       <v-navigation-drawer app v-model="drawer" :permanent="smAndUp" class="drawer">
          <v-list v-sortable="{ list: patientData.patients, onSortEnd: onSortEnd }">
-            <v-list-item v-for="patient in patientData.patients.value" :key="patient.id" :value="patient.id"
-               :active="patient.id === selectedPatientId" @click="handlePatientClick(patient.id)" link>
+            <v-list-item class="patient-list-item" v-for="patient in patientData.patients.value" :key="patient.id"
+               :value="patient.id" :active="patient.id === selectedPatientId" @click="handlePatientClick(patient.id)"
+               link>
                <v-list-item-title>{{ patient.name }}</v-list-item-title>
                <v-list-item-subtitle v-if="patient.umrn || patient.ward">
                   {{ patient.umrn ? `UMRN: ${patient.umrn}` : '' }} {{ patient.ward ? `Ward: ${patient.ward}` : '' }}
                </v-list-item-subtitle>
                <template #append>
-                  <v-btn icon="mdi-delete-outline" size="x-small" variant="text" color="grey"
-                     @click.stop="confirmRemovePatient(patient)" title="Remove Patient"
-                     :disabled="!configState.isDataDirectorySet.value"></v-btn>
                </template>
             </v-list-item>
          </v-list>
 
 
          <!-- Add New Patient -->
-         <v-list-item @click="addNewPatient" :disabled="!configState.isDataDirectorySet.value" title="Add New Patient">
-            <v-list-item-title>Add New Patient</v-list-item-title>
+         <v-list-item @click="addNewPatient" :disabled="!configState.isDataDirectorySet.value"
+            class="add-new-patient-button">
+            <v-list-item-title>
+               <v-icon start>mdi-account-plus-outline</v-icon>
+               Add New Patient
+            </v-list-item-title>
          </v-list-item>
          <!-- Data Directory Info aligned at bottom -->
          <div class="drawer-bottom">
@@ -111,6 +105,7 @@
                            title="Save Note">
                            <v-icon start>mdi-content-save</v-icon> Save
                         </v-btn>
+                        <v-btn icon="mdi-delete" @click="confirmRemovePatient(selectedPatient)" title="Delete Patient"></v-btn>
                      </v-toolbar>
                      <v-card-text class="pa-0 editor-wrapper">
                         <div v-if="noteEditor.isLoading.value && !isNoteLoaded" class="loading-overlay">
@@ -123,55 +118,13 @@
                            <v-btn @click="loadSelectedNote" small variant="tonal" class="ml-2">Retry</v-btn>
                         </div>
                         <MonacoEditorComponent ref="monacoEditorRef" v-model="noteContent" language="markdown"
-                           :options="{ theme: 'vs' }" class="editor-component" @editor-mounted="onGlobalEditorReady" />
+                           :options="{ theme: 'vs' }" class="editor-component pa-4" @editor-mounted="
+                           onGlobalEditorReady" />
                      </v-card-text>
                   </v-card>
                </div>
             </div>
 
-            <!-- Card View (each patient has its own editor) -->
-            <v-container v-else-if="activeView === 'card' && configState.isDataDirectorySet.value" class="card-layout"
-               style="max-height: 1200px; overflow-y: auto;">
-               <v-sheet v-for="patient in patientData.patients.value" :key="patient.id"
-                  :id="'patient-card-' + patient.id" class="ma-2">
-                  <v-card>
-                     <v-card-item>
-                        <v-card-title v-if="editingPatientId !== patient.id" @dblclick="startEditing(patient.id)">
-                           {{ patient.name }}
-                           <v-icon small color="grey" class="ml-1" @mouseover.stop="showEditIcon[patient.id] = true"
-                              @mouseleave.stop="showEditIcon[patient.id] = false" v-if="showEditIcon[patient.id]">
-                              mdi-pencil-outline
-                           </v-icon>
-                        </v-card-title>
-                        <v-text-field v-else v-model="editedPatient.name" label="Patient Name" single-line hide-details
-                           @blur="savePatient(patient)" @keydown.enter="savePatient(patient)"
-                           @keydown.esc="cancelEdit()" autofocus></v-text-field>
-                     </v-card-item>
-                     <v-card-item>
-                        <v-card-subtitle v-if="editingPatientId !== patient.id" @dblclick="startEditing(patient.id)">
-                           UMRN: {{ patient.umrn }} Ward: {{ patient.ward }}
-                           <v-icon small color="grey" class="ml-1" @mouseover.stop="showEditIcon[patient.id] = true"
-                              @mouseleave.stop="showEditIcon[patient.id] = false" v-if="showEditIcon[patient.id]">
-                              mdi-pencil-outline
-                           </v-icon>
-                        </v-card-subtitle>
-                        <div v-else>
-                           <v-text-field v-model="editedPatient.umrn" label="UMRN" single-line hide-details
-                              @blur="savePatient(patient)" @keydown.enter="savePatient(patient)"
-                              @keydown.esc="cancelEdit()"></v-text-field>
-                           <v-text-field v-model="editedPatient.ward" label="Ward" single-line hide-details
-                              @blur="savePatient(patient)" @keydown.enter="savePatient(patient)"
-                              @keydown.esc="cancelEdit()"></v-text-field>
-                        </div>
-                     </v-card-item>
-                     <v-card-text>
-                        <MonacoEditorComponent v-model="patientNotes[patient.id]" language="markdown"
-                           :options="{ theme: 'vs', readOnly: true, automaticLayout: true }" class="editor-component"
-                           @editor-mounted="(editor) => onCardEditorReady(editor, patient.id)" />
-                     </v-card-text>
-                  </v-card>
-               </v-sheet>
-            </v-container>
          </v-container>
       </v-main>
 
@@ -195,7 +148,7 @@ import type { Patient, Note } from '@/types';
 import MonacoEditorComponent from '@/components/MonacoEditorComponent.vue';
 import { useDisplay } from 'vuetify';
 
-const activeView = ref('editor');
+const activeView = ref('editor'); // Ensure default view is editor
 const drawer = ref(false);
 const snackbar = ref({ show: false, text: '', color: 'success' });
 const selectedPatientId = ref<string | null>(null);
@@ -209,8 +162,6 @@ const editingPatientId = ref<string | null>(null);
 const editedPatient = ref<Partial<Patient>>({});
 const showEditIcon = ref<{ [patientId: string]: boolean }>({});
 
-// New state for card view notes (each patient’s note)
-const patientNotes = ref<Record<string, string>>({});
 
 // Composables
 const configState = useConfig();
@@ -356,38 +307,9 @@ const onSortEnd = async (newOrderedList: Patient[]) => {
 };
 
 
-const loadNoteForPatient = async (patientId: string) => {
-   try {
-      const loadedNote = await noteEditor.loadNote(patientId, selectedDate.value);
-      if (loadedNote) {
-         patientNotes.value[patientId] = loadedNote.content;
-         console.log(`Note loaded for patient ${patientId}`);
-      } else {
-         patientNotes.value[patientId] = '';
-         console.error(`Failed to load note for patient ${patientId}`);
-      }
-   } catch (error) {
-      console.error(`Error loading note for patient ${patientId}:`, error);
-      patientNotes.value[patientId] = '';
-   }
-};
 
 const onGlobalEditorReady = (editorInstance: any) => {
    console.log("Global Monaco Editor is ready.");
-};
-
-const onCardEditorReady = (editorInstance: any, patientId: string) => {
-   console.log("Card Monaco Editor is ready for patient:", patientId);
-   const updateEditorHeight = () => {
-      const contentHeight = editorInstance.getContentHeight();
-      const domNode = editorInstance.getDomNode();
-      if (domNode) {
-         domNode.style.height = contentHeight + 'px';
-         editorInstance.layout();
-      }
-   };
-   editorInstance.onDidChangeModelContent(updateEditorHeight);
-   updateEditorHeight();
 };
 
 const goToSettings = () => {
@@ -499,6 +421,19 @@ watch(configState.error, (newError) => {
 
 <style scoped lang="scss">
 /* Existing styles remain */
+.patient-list-item {
+  .v-btn {
+    opacity: 0;
+    transition: opacity 0.2s ease-in-out;
+  }
+
+  &:hover {
+    .v-btn {
+      opacity: 1;
+    }
+  }
+}
+
 .wrap-text {
    white-space: normal;
    overflow-wrap: break-word;
@@ -571,7 +506,12 @@ watch(configState.error, (newError) => {
    padding: 1rem;
 }
 
-.drawer-bottom {
+.add-new-patient-button {
    margin-top: auto;
+   border-top: 1px solid rgba(0, 0, 0, 0.12);
+}
+
+.drawer-bottom {
+   margin-top: 0;
 }
 </style>
