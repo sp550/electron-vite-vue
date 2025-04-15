@@ -1,13 +1,5 @@
 
 
-# next up
-
-
-## monaco
- - insert options from previous project
- - implement templates and snippets from previous
- - change font to non-monospace
-
 
 
 ## small features
@@ -21,6 +13,16 @@ button with dropdown menu for open various dirs
 settings and config implementation
 Basic common hotkeys
 # After minimal functional product
+
+
+
+## monaco
+ - insert options from previous project
+ - implement templates and snippets from previous
+ - change font to non-monospace
+
+
+
 ### UI
 settings icon which opens up a modal/card. move the "change data directory" button to inside this modal
  - sidebar on hover edge
@@ -30,6 +32,7 @@ settings icon which opens up a modal/card. move the "change data directory" butt
   
 # medium features
 parse other patient content such as issues and plan
+quick add feature stolen from bloodproducts generator
 # Large Features
 todo for patients
 issues extractor

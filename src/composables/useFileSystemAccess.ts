@@ -110,6 +110,20 @@ export function useFileSystemAccess() {
     }
   };
 
+  const listFiles = async (absolutePath: string): Promise<string[] | null> => {
+    try {
+      if (!absolutePath)
+        throw new Error("listFiles requires a valid absolute path.");
+      return await window.electronAPI.listFiles(absolutePath);
+    } catch (error) {
+      console.error(
+        `Error listing files in directory (absolute) ${absolutePath} via IPC:`,
+        error
+      );
+      throw error;
+    }
+  };
+
   const showConfirmDialog = async (
     options: Electron.MessageBoxOptions
   ): Promise<Electron.MessageBoxReturnValue> => {
@@ -180,6 +194,7 @@ export function useFileSystemAccess() {
     showConfirmDialog,
     showOpenDialog,
     joinPaths,
-    moveFiles
+    moveFiles,
+    listFiles
   };
 }

@@ -80,7 +80,6 @@
       <v-main>
          <v-container fluid class="main-content-container pa-0">
             <!-- Editor View (global single editor) -->
-            <div v-if="activeView === 'editor'">
                <div v-if="!selectedPatientId || !configState.isDataDirectorySet.value" class="placeholder-content">
                   <v-icon size="64" :color="!configState.isDataDirectorySet.value ? 'orange' : 'grey-lighten-1'">
                      {{ !configState.isDataDirectorySet.value ? 'mdi-folder-alert-outline' : 'mdi-account-heart-outline'
@@ -105,12 +104,23 @@
                      <v-toolbar density="compact" color="grey-lighten-3">
                         <v-toolbar-title class="text-subtitle-1">
                            <v-icon start>mdi-account-circle-outline</v-icon>
-                           {{ selectedPatient?.name || 'Loading...' }}
-                           <span v-if="selectedPatient?.umrn" class="text-caption grey--text"> ({{ selectedPatient?.umrn
-                              }})</span>
-                           <span v-if="selectedPatient?.ward" class="text-caption grey--text"> - Ward {{
-                              selectedPatient?.ward }}</span>
                         </v-toolbar-title>
+                           <v-text-field
+                             v-if="selectedPatient"
+                             v-model="selectedPatient.name"
+                             label="Patient Name"
+                             hide-details
+                             single-line
+                             @blur="updatePatientName"
+                           ></v-text-field>
+                           <v-text-field
+                             v-if="selectedPatient"
+                             v-model="selectedPatient.umrn"
+                             label="Patient UMRN"
+                             hide-details
+                             single-line
+                             @blur="updatePatientUmrn"
+                           ></v-text-field>
                         <v-spacer></v-spacer>
                         <span class="text-subtitle-1 mr-4">
                            <v-icon start>mdi-calendar</v-icon>
@@ -139,7 +149,6 @@
                      </v-card-text>
                   </v-card>
                </div>
-            </div>
 
          </v-container>
       </v-main>
@@ -184,7 +193,7 @@
 <script setup lang="ts">
 declare const window: any;
 import packageJson from '../../package.json';
-import { ref, provide, computed, watch, } from 'vue';
+import { ref, provide, computed, watch, nextTick } from 'vue';
 import { usePatientData } from '@/composables/usePatientData';
 import { useNoteEditor } from '@/composables/useNoteEditor';
 import { useConfig } from '@/composables/useConfig';
@@ -193,7 +202,6 @@ import type { Patient, Note } from '@/types';
 import MonacoEditorComponent from '@/components/MonacoEditorComponent.vue';
 import { useDisplay } from 'vuetify';
 
-const activeView = ref('editor'); // Ensure default view is editor
 const drawer = ref(false);
 const snackbar = ref({ show: false, text: '', color: 'success' });
 const selectedPatientId = ref<string | null>(null);
@@ -443,6 +451,70 @@ watch(configState.error, (newError) => {
       showSnackbar(`Configuration Error: ${newError}`, 'error');
    }
 });
+
+const updatePatientName = async () => {
+ if (selectedPatient.value) {
+   const updatedPatient = { ...selectedPatient.value };
+   const success = await patientData.updatePatient(updatedPatient);
+   if (!success) {
+     showSnackbar(`Failed to update patient name: ${patientData.error.value || 'Unknown error'}`, 'error');
+   } else {
+     showSnackbar(`Patient name updated to: ${selectedPatient.value.name}`, 'success');
+   }
+ }
+};
+
+const updatePatientUmrn = async () => {
+  if (selectedPatient.value) {
+    console.log("updatePatientUmrn: selectedPatient.value:", selectedPatient.value);
+    const updatedPatient = { ...selectedPatient.value };
+    console.log("updatePatientUmrn: updatedPatient:", updatedPatient);
+    const oldPatientType = selectedPatient.value.type;
+    console.log("updatePatientUmrn: oldPatientType:", oldPatientType);
+
+    const success = await patientData.updatePatient(updatedPatient);
+    console.log("updatePatientUmrn: success:", success);
+    // Refetch the patient data to update selectedPatient
+    if (!success) {
+      showSnackbar(`Failed to update patient UMRN: ${patientData.error.value || 'Unknown error'}`, 'error');
+    } else {
+      const tempId = selectedPatientId.value;
+      selectedPatientId.value = null;
+      await nextTick();
+      selectedPatientId.value = tempId;
+      const patient = selectedPatient.value;
+      if (patient) {
+        await nextTick(async () => {
+          showSnackbar(`Patient UMRN updated to: ${patient.umrn}`, 'success');
+
+          // Call mergePatientData if the patient was initially a UUID and now has a UMRN
+          if (oldPatientType === 'uuid' && patient.umrn) {
+            try {
+              console.log("updatePatientUmrn: Calling mergePatientData with id:", patient.id, "and umrn:", patient.umrn);
+              const mergeSuccess = await patientData.mergePatientData(patient.id, patient.umrn);
+              console.log("updatePatientUmrn: mergeSuccess:", mergeSuccess);
+              if (mergeSuccess) {
+                showSnackbar(`Patient data merged to UMRN ${patient.umrn}.`, 'success');
+                // Refetch patient data after merge
+                selectedPatientId.value = null;
+                nextTick(() => {
+                  selectedPatientId.value = patient.id;
+                });
+              } else {
+                showSnackbar(`Failed to merge patient data: ${patientData.error.value || 'Unknown error'}`, 'error');
+              }
+            } catch (error: any) {
+              console.error("Error merging patient data:", error);
+              showSnackbar(`Error merging patient data: ${error.message || 'Unknown error'}`, 'error');
+            }
+          }
+        });
+      }
+    }
+  } else {
+    console.log("updatePatientUmrn: selectedPatient.value is undefined");
+  }
+};
 </script>
 
 <style scoped lang="scss">
@@ -541,3 +613,4 @@ watch(configState.error, (newError) => {
    margin-top: 0;
 }
 </style>
+

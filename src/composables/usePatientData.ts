@@ -17,6 +17,7 @@ export function usePatientData() {
     rmdirAbsolute,
     showConfirmDialog,
     joinPaths,
+    listFiles
   } = useFileSystemAccess();
   const { config, isConfigLoaded, isDataDirectorySet } = useConfig();
 
@@ -38,7 +39,7 @@ export function usePatientData() {
     if (!isDataDirectorySet.value || !config.value.dataDirectory) return null;
     try {
       const notesDir = await joinPaths(config.value.dataDirectory, "notes");
-      const byTypeDir = await joinPaths(notesDir, `by_${patientType}`);
+      const byTypeDir = await joinPaths(notesDir, `by-${patientType}`);
       const patientDir = await joinPaths(byTypeDir, patientId);
       return patientDir;
     } catch (error: any) {
@@ -134,12 +135,12 @@ export function usePatientData() {
       // Prompt user to merge patients
       const mergeConfirmation = await showConfirmDialog({
         type: "warning",
-        buttons: ["Cancel", "Merge Patients"],
+        buttons: ["Cancel", "Merge Patients", "Create New"],
         defaultId: 0,
         cancelId: 0,
         title: "Potential Duplicate Patient",
-        message: `A patient with the name "${patientData.name}" already exists. Do you want to merge the new patient with the existing patient?`,
-        detail: "This action cannot be undone.",
+        message: `A patient with the name "${patientData.name}" already exists. What do you want to do?`,
+        detail: "Merge will combine the patients. Create New will create a new patient with a new UUID.",
       });
 
       if (mergeConfirmation.response === 1) {
@@ -147,15 +148,21 @@ export function usePatientData() {
         console.log("Merging patients...");
         // Implement merge logic here
         return existingPatient;
-      } else {
+      } else if (mergeConfirmation.response === 2) {
+        // Create new patient
+        console.log("Creating new patient with new UUID...");
+        let patientId = uuidv4();
+        let patientType = "uuid";
+      }
+       else {
         console.log("Patient creation cancelled by user.");
         return null;
       }
     }
   }
 
-    let patientId: string;
-    let patientType: "umrn" | "uuid";
+    let patientId: string = uuidv4();
+    let patientType: "umrn" | "uuid" = "uuid";
     let umrnExists = false;
 
     if (patientData.umrn) {
@@ -174,7 +181,7 @@ export function usePatientData() {
 
     const newPatient: Patient = { ...patientData, id: patientId, type: patientType };
     if (!newPatientDir) {
-      newPatientDir = await getPatientNotesDir(newPatient.id, newPatient.type);
+      newPatientDir = await getPatientNotesDir(patientId, patientType);
     }
 
       if (!newPatientDir) {
@@ -237,6 +244,129 @@ export function usePatientData() {
       isLoading.value = false;
     }
   };
+
+const moveFiles = async (sourceDir: string, targetDir: string): Promise<void> => {
+  const { listFiles, readFileAbsolute, writeFileAbsolute } = useFileSystemAccess();
+
+  try {
+    // Ensure the target directory exists
+    await useFileSystemAccess().mkdirAbsolute(targetDir);
+
+    // List all files in the source directory
+    const files = await listFiles(sourceDir);
+
+    if (files) {
+      for (const file of files) {
+        const sourcePath = await useFileSystemAccess().joinPaths(sourceDir, file);
+        const targetPath = await useFileSystemAccess().joinPaths(targetDir, file);
+
+        // Read the content of the file from the source path
+        const fileContent = await readFileAbsolute(sourcePath);
+
+        if (fileContent !== null) {
+          // Write the content to the target path
+          await writeFileAbsolute(targetPath, fileContent);
+        } else {
+          console.warn(`Could not read file: ${file}`);
+        }
+      }
+    }
+
+    // Optionally, remove the source directory after moving all files
+    await useFileSystemAccess().rmdirAbsolute(sourceDir);
+  } catch (error: any) {
+    console.error("Error moving files:", error);
+    throw error; // Re-throw the error to be caught by the caller
+  }
+};
+
+const mergePatientData = async (uuid: string, umrn: string): Promise<boolean> => {
+  isLoading.value = true;
+  error.value = null;
+
+  try {
+    const uuidNotesDir = await getPatientNotesDir(uuid, "uuid");
+    const umrnNotesDir = await getPatientNotesDir(umrn, "umrn");
+
+    if (!uuidNotesDir) {
+      error.value = "UUID notes directory not found.";
+      return false;
+    }
+
+    if (!umrnNotesDir) {
+      // Create the UMRN notes directory if it doesn't exist
+      try {
+        if (umrnNotesDir) {
+          console.log("Creating UMRN notes directory:", umrnNotesDir);
+          await useFileSystemAccess().mkdirAbsolute(umrnNotesDir);
+          console.log("UMRN notes directory created:", umrnNotesDir);
+        } else {
+          console.error("UMRN notes directory is null.");
+          error.value = "Could not create UMRN notes directory.";
+          return false;
+        }
+      } catch (mkdirError) {
+        console.error("Error creating UMRN notes directory:", mkdirError);
+        error.value = "Could not create UMRN notes directory.";
+        return false;
+      }
+    }
+
+    // Use a file system operation to move the files
+    if (uuidNotesDir && umrnNotesDir) {
+      await moveFiles(uuidNotesDir, umrnNotesDir);
+    }
+
+    // Update the patient in patients.json
+    const absolutePath = await getPatientsFilePath();
+    if (!absolutePath) {
+      error.value = "Could not determine patients file path.";
+      return false;
+    }
+
+    const fileContent = await readFileAbsolute(absolutePath);
+    if (!fileContent) {
+      error.value = "Patients file not found or empty.";
+      return false;
+    }
+
+    let parsedPatients = JSON.parse(fileContent) as Patient[];
+    const patientIndex = parsedPatients.findIndex((p) => p.id === uuid);
+
+    if (patientIndex === -1) {
+      error.value = `Patient with UUID ${uuid} not found.`;
+      return false;
+    }
+
+    // Update the patient's ID, type, and UMRN
+    parsedPatients[patientIndex] = {
+      ...parsedPatients[patientIndex],
+      id: umrn,
+      type: "umrn",
+      umrn: umrn // Add umrn to the patient object
+    };
+
+    // Save the updated patients array back to the file
+    await writeFileAbsolute(absolutePath, JSON.stringify(parsedPatients, null, 2));
+    patients.value = parsedPatients;
+
+    // Remove the old UUID directory
+    try {
+      await useFileSystemAccess().rmdirAbsolute(uuidNotesDir);
+    } catch (rmdirError) {
+      console.warn("Could not remove UUID notes directory:", rmdirError);
+      // It's not critical if this fails, so don't return false
+    }
+
+    return true;
+  } catch (err: any) {
+    console.error("Error merging patient data:", err);
+    error.value = `Failed to merge patient data: ${err.message || err}`;
+    return false;
+  } finally {
+    isLoading.value = false;
+  }
+};
 const updatePatient = async (updatedPatient: Patient): Promise<boolean> => {
   const absolutePath = await getPatientsFilePath();
   if (!absolutePath) {
@@ -274,72 +404,6 @@ const updatePatient = async (updatedPatient: Patient): Promise<boolean> => {
   }
 };
 
-const mergePatientData = async (uuid: string, umrn: string): Promise<boolean> => {
-  isLoading.value = true;
-  error.value = null;
-
-  try {
-    const uuidNotesDir = await getPatientNotesDir(uuid, "uuid");
-    const umrnNotesDir = await getPatientNotesDir(umrn, "umrn");
-
-    if (!uuidNotesDir) {
-      error.value = "UUID notes directory not found.";
-      return false;
-    }
-
-    if (!umrnNotesDir) {
-      error.value = "UMRN notes directory not found.";
-      return false;
-    }
-
-    // Use a file system operation to move the files
-    await useFileSystemAccess().moveFiles(uuidNotesDir, umrnNotesDir);
-
-    // Update the patient in patients.json
-    const absolutePath = await getPatientsFilePath();
-    if (!absolutePath) {
-      error.value = "Could not determine patients file path.";
-      return false;
-    }
-
-    const fileContent = await readFileAbsolute(absolutePath);
-    if (!fileContent) {
-      error.value = "Patients file not found or empty.";
-      return false;
-    }
-
-    let parsedPatients = JSON.parse(fileContent) as Patient[];
-    const patientIndex = parsedPatients.findIndex((p) => p.id === uuid);
-
-    if (patientIndex === -1) {
-      error.value = `Patient with UUID ${uuid} not found.`;
-      return false;
-    }
-
-    // Update the patient's ID and type
-    parsedPatients[patientIndex] = {
-      ...parsedPatients[patientIndex],
-      id: umrn,
-      type: "umrn",
-      umrn: umrn // Add umrn to the patient object
-    };
-
-    // Save the updated patients array back to the file
-    await writeFileAbsolute(absolutePath, JSON.stringify(parsedPatients, null, 2));
-    patients.value = parsedPatients;
-
-    // Remove the old UUID directory
-    await rmdirAbsolute(uuidNotesDir);
-
-    return true;
-  } catch (err: any) {
-    console.error("Error merging patient data:", err);
-    error.value = `Failed to merge patient data: ${err.message || err}`;
-    return false;
-  } finally {
-    isLoading.value = false;
-  }
-};
   // --- REMOVE PATIENT ---
   const removePatient = async (patientId: string): Promise<boolean> => {
     const patientToRemove = patients.value.find((p) => p.id === patientId);
@@ -474,6 +538,8 @@ const mergePatientData = async (uuid: string, umrn: string): Promise<boolean> =>
     getPatientById,
     updatePatient,
     savePatients,
-    mergePatientData
+    mergePatientData,
+    listFiles
+
   };
 }

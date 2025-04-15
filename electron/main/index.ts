@@ -319,6 +319,26 @@ ipcMain.handle(
 );
 
 ipcMain.handle(
+  "list-files",
+  async (_event: Electron.IpcMainInvokeEvent, absolutePath: string): Promise<string[] | null> => {
+    console.log("IPC Handling: Listing files in directory (absolute):", absolutePath);
+    try {
+      const files = await fs.promises.readdir(absolutePath);
+      console.log("IPC Handling: Files found:", files);
+      return files;
+    } catch (error: any) {
+      console.error(`IPC Handling: Error listing files in directory ${absolutePath}:`, error);
+      // Handle specific errors like directory not found
+      if (error.code === 'ENOENT') {
+        console.warn(`Directory not found: ${absolutePath}`);
+        return null; // Or return an empty array if preferred
+      }
+      throw new Error(`Failed to list files in directory: ${path.basename(absolutePath)}`);
+    }
+  }
+);
+
+ipcMain.handle(
   "show-confirm-dialog",
   async (
     _event: Electron.IpcMainInvokeEvent,
