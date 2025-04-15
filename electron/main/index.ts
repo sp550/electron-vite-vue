@@ -11,10 +11,6 @@ import path from "node:path";
 import fs from "node:fs";
 // electron/main.ts
 import { screen } from "electron"; // Add screen
-// Handle creating/removing shortcuts on Windows when installing/uninstalling.
-// if (require('electron-squirrel-startup')) { // Keep if you need Squirrel support
-//   app.quit();
-// }
 
 let mainWindow: BrowserWindow | null;
 
@@ -36,15 +32,13 @@ const createWindow = () => {
     width: windowWidth,
     height: windowHeight,
     webPreferences: {
-      // --- FIX THIS LINE ---
-      // It needs to point from dist-electron/main/ up one level and into /preload/
       preload: path.join(__dirname, "../preload/index.js"), // <-- Corrected path
-      // --- END FIX ---
       contextIsolation: true,
       nodeIntegration: false,
       devTools: !app.isPackaged,
       // devTools: false,
     },
+    autoHideMenuBar: true
     // Add other options like icon if needed
     // icon: path.join(__dirname, '../../public/logo.svg') // Example icon path
   });
@@ -115,7 +109,6 @@ ipcMain.handle("join-paths", (_event: Electron.IpcMainInvokeEvent, ...paths: str
   }
 });
 
-// NEW: Handler for getting specific Electron paths
 ipcMain.handle(
   "get-path",
   (_event: Electron.IpcMainInvokeEvent, name: Parameters<typeof app.getPath>[0]): string => {
@@ -128,7 +121,6 @@ ipcMain.handle(
   }
 );
 
-// NEW: Handler for showing the open directory dialog
 ipcMain.handle(
   "show-open-dialog",
   async (_event: Electron.IpcMainInvokeEvent, options: OpenDialogOptions): Promise<OpenDialogReturnValue> => {
@@ -138,7 +130,6 @@ ipcMain.handle(
   }
 );
 
-// UPDATED: File System Handlers - Now expect ABSOLUTE paths
 
 ipcMain.handle(
   "read-file-absolute",
@@ -313,7 +304,6 @@ ipcMain.handle(
   }
 );
 
-// Keep the confirmation dialog handler
 ipcMain.handle(
   "show-confirm-dialog",
   async (
@@ -327,8 +317,6 @@ ipcMain.handle(
   }
 );
 
-// Add other IPC handlers (deleteFile, exists, mkdir, rmdir, showConfirmDialog) here,
-// ensuring they use `path.join(dataPath, relativePath)`
 
 // --- App Lifecycle ---
 

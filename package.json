@@ -1,9 +1,9 @@
 {
   "name": "medical-notepad",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "private": true,
   "description": "Simple Medical Notepad Application",
-  "author": "Your Name",
+  "author": "Sahil Pradhan",
   "main": "dist-electron/main/index.js",
   "debug": {
     "env": {
