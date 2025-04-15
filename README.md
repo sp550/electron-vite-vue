@@ -2,6 +2,7 @@
 
 # next up
 
+
 ## monaco
  - insert options from previous project
  - implement templates and snippets from previous
@@ -17,17 +18,18 @@ async save
   - automated regular export
 button with dropdown menu for open various dirs
 
+settings and config implementation
+Basic common hotkeys
+# After minimal functional product
 ### UI
+settings icon which opens up a modal/card. move the "change data directory" button to inside this modal
  - sidebar on hover edge
   - toggle sidebar left and right
   3 dot menu
   s,m,l display optons for title bar
   
 # medium features
-settings and config implementation
 parse other patient content such as issues and plan
-Basic common hotkeys
-
 # Large Features
 todo for patients
 issues extractor
