@@ -58,6 +58,8 @@ contextBridge.exposeInMainWorld("electronAPI", {
     ipcRenderer.invoke("join-paths", ...paths),
   getAppPath: (): Promise<string> => ipcRenderer.invoke("get-app-path"),
   isPackaged: ():Boolean => app.isPackaged,
+  moveFiles: (sourceDir: string, destDir: string): Promise<void> =>
+    ipcRenderer.invoke("move-files", sourceDir, destDir),
 });
 
 
@@ -99,6 +101,7 @@ declare global {
       // MODIFIED: joinPaths now returns a Promise
       joinPaths: (...paths: string[]) => Promise<string>;
       getAppPath: () => Promise<string>;
+      moveFiles: (sourceDir: string, destDir: string) => Promise<void>;
     };
     // monaco: typeof monaco; // Optional
   }

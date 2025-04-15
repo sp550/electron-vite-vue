@@ -305,6 +305,20 @@ ipcMain.handle(
 );
 
 ipcMain.handle(
+  "move-files",
+  async (_event: Electron.IpcMainInvokeEvent, sourceDir: string, destDir: string): Promise<void> => {
+    console.log(`IPC Handling: Moving files from ${sourceDir} to ${destDir}`);
+    try {
+      await fs.promises.rename(sourceDir, destDir);
+      console.log(`IPC Handling: Files moved successfully from ${sourceDir} to ${destDir}`);
+    } catch (error: any) {
+      console.error(`IPC Handling: Error moving files from ${sourceDir} to ${destDir}:`, error);
+      throw new Error(`Failed to move files from ${sourceDir} to ${destDir}: ${error.message}`);
+    }
+  }
+);
+
+ipcMain.handle(
   "show-confirm-dialog",
   async (
     _event: Electron.IpcMainInvokeEvent,

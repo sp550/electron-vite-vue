@@ -5,6 +5,7 @@ export interface Patient {
   name: string;
   umrn?: string;
   ward?: string;
+  type: "umrn" | "uuid";
 }
 
 export interface Note {

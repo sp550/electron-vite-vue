@@ -11,24 +11,33 @@ export function useNoteEditor() {
   const error = ref<string | null>(null);
 
   // --- Helper to get absolute path ---
-  const getNotePath = async (patientId: string, date: string): Promise<string | null> => {
+  const getNotePath = async (patient: { id: string; umrn?: string }, date: string): Promise<string | null> => {
     if (!isDataDirectorySet.value || !config.value.dataDirectory) return null;
     try {
-    const formattedDate = date.split('T')[0]; // Ensure YYYY-MM-DD
-        return await joinPaths(
-            config.value.dataDirectory,
-            config.value.notesBaseDir,
-            patientId,
-            `${formattedDate}.json`
-        );
+      const formattedDate = date.split('T')[0]; // Ensure YYYY-MM-DD
+      const basePath = config.value.dataDirectory;
+      const notesBaseDir = config.value.notesBaseDir;
+
+      let patientDir;
+      if (patient.umrn) {
+        patientDir = await joinPaths(notesBaseDir, 'by-umrn', patient.umrn);
+      } else {
+        patientDir = await joinPaths(notesBaseDir, 'by-uuid', patient.id);
+      }
+
+      return await joinPaths(
+        basePath,
+        patientDir,
+        `${formattedDate}.json`
+      );
     } catch (e) {
-        console.log("There was an error" + e)
-        return null
+      console.log("There was an error" + e);
+      return null;
     }
   };
   // --- End Helper ---
 
-  const loadNote = async (patientId: string, date: string): Promise<Note | null> => {
+  const loadNote = async (patient: { id: string; umrn?: string }, date: string): Promise<Note | null> => {
     if (!isDataDirectorySet.value) {
       error.value = "Data directory not configured.";
       return null;
@@ -36,14 +45,13 @@ export function useNoteEditor() {
 
     isLoading.value = true;
     error.value = null;
-    const absolutePath = await getNotePath(patientId, date);
+    const absolutePath = await getNotePath(patient, date);
 
     if (!absolutePath) {
       error.value = "Could not determine note path.";
       isLoading.value = false;
       return null;
     }
-
 
     console.log("Loading note from:", absolutePath);
 
@@ -57,7 +65,7 @@ export function useNoteEditor() {
       return { date: date.split('T')[0], content: '' };
     } catch (err: any) {
       // Let readFileAbsolute handle ENOENT as null, catch other errors
-      console.error(`Error loading note for ${patientId} on ${date}:`, err);
+      console.error(`Error loading note for ${patient.id} on ${date}:`, err);
       error.value = `Failed to load note: ${err.message || err}`;
       return null; // Indicate error
     } finally {
@@ -65,7 +73,7 @@ export function useNoteEditor() {
     }
   };
 
-  const saveNote = async (patientId: string, note: Note): Promise<boolean> => {
+  const saveNote = async (patient: { id: string; umrn?: string }, note: Note): Promise<boolean> => {
     if (!isDataDirectorySet.value) {
       error.value = "Cannot save note: Data directory not configured.";
       return false;
@@ -73,7 +81,7 @@ export function useNoteEditor() {
 
     isLoading.value = true;
     error.value = null;
-    const absolutePath = await getNotePath(patientId, note.date); // <-- await here
+    const absolutePath = await getNotePath(patient, note.date); // <-- await here
 
     if (!absolutePath) {
       error.value = "Could not determine note path for saving.";
@@ -87,7 +95,7 @@ export function useNoteEditor() {
       await writeFileAbsolute(absolutePath, JSON.stringify(noteToSave, null, 2));
       return true;
     } catch (err: any) {
-      console.error(`Error saving note for ${patientId} on ${note.date}:`, err);
+      console.error(`Error saving note for ${patient.id} on ${note.date}:`, err);
       error.value = `Failed to save note: ${err.message || err}`;
       return false;
     } finally {

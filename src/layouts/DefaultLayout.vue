@@ -4,6 +4,14 @@
       <v-app-bar app color="primary" dark density="compact">
          <v-app-bar-nav-icon @click.stop="drawer = !drawer"></v-app-bar-nav-icon>
          <v-toolbar-title>Medical Notepad</v-toolbar-title>
+         <v-text-field
+           v-model="searchQuery"
+           label="Search Patient (Name/UMRN)"
+           hide-details
+           single-line
+           class="ml-4"
+           @input="searchPatients"
+         ></v-text-field>
          <v-spacer></v-spacer>
          <v-btn @click="selectDataDirectory" title="Select Data Directory" icon>
             <v-icon :color="configState.isDataDirectorySet.value ? 'white' : 'yellow'">
@@ -143,13 +151,40 @@
             <v-btn color="white" variant="text" @click="snackbar.show = false">Close</v-btn>
          </template>
       </v-snackbar>
-   </v-app>
+
+   <!-- Duplicate Patient Dialog -->
+   <v-dialog v-model="duplicateDialog" max-width="500">
+     <v-card>
+       <v-card-title class="text-h5">
+         Duplicate Patient Detected
+       </v-card-title>
+       <v-card-text>
+         A patient with similar information already exists.
+         <br>
+         Name: <b>{{ duplicatePatient?.name }}</b>
+         <br>
+         UMRN: <b>{{ duplicatePatient?.umrn }}</b>
+         <br>
+         Do you want to load the existing record?
+       </v-card-text>
+       <v-card-actions>
+         <v-spacer></v-spacer>
+         <v-btn color="blue-grey" text @click="duplicateDialog = false">
+           Cancel
+         </v-btn>
+         <v-btn color="primary" text @click="loadDuplicatePatient">
+           Load Patient
+         </v-btn>
+       </v-card-actions>
+     </v-card>
+   </v-dialog>
+ </v-app>
 </template>
 
 <script setup lang="ts">
 declare const window: any;
 import packageJson from '../../package.json';
-import { ref, provide, computed, watch, nextTick } from 'vue';
+import { ref, provide, computed, watch, } from 'vue';
 import { usePatientData } from '@/composables/usePatientData';
 import { useNoteEditor } from '@/composables/useNoteEditor';
 import { useConfig } from '@/composables/useConfig';
@@ -163,8 +198,11 @@ const drawer = ref(false);
 const snackbar = ref({ show: false, text: '', color: 'success' });
 const selectedPatientId = ref<string | null>(null);
 const selectedDate = ref<string>(new Date().toISOString().split('T')[0]);
+const searchQuery = ref('');
 const noteContent = ref<string>('');
 const currentNote = ref<Note | null>(null);
+const duplicateDialog = ref(false);
+const duplicatePatient = ref<Patient | null>(null);
 const isNoteLoaded = ref(false);
 const version = packageJson.version;
 const isPackaged = (window as any).electronAPI.isPackaged
@@ -208,14 +246,6 @@ const selectPatient = (patientId: string) => {
 
 const handlePatientClick = (patientId: string) => {
    selectPatient(patientId);
-   if (activeView.value === 'card') {
-      nextTick(() => {
-         const el = document.getElementById('patient-card-' + patientId);
-         if (el) {
-            el.scrollIntoView({ behavior: 'smooth' });
-         }
-      });
-   }
 };
 
 const addNewPatient = async () => {
@@ -224,7 +254,7 @@ const addNewPatient = async () => {
       return;
    }
    try {
-      const newPatientData: Omit<Patient, 'id'> = { name: 'New Patient', umrn: '', ward: '' };
+      const newPatientData: Omit<Patient, 'id'> = { name: 'New Patient', umrn: '', ward: '', type: 'uuid' };
       const newPatient = await patientData.addPatient(newPatientData);
       if (newPatient) {
          showSnackbar(`New patient "${newPatient.name}" created.`, 'success');
@@ -234,6 +264,34 @@ const addNewPatient = async () => {
       }
    } catch (e) {
       console.log("Error:" + e);
+   }
+};
+
+const searchPatients = () => {
+   const query = searchQuery.value.toLowerCase();
+   if (!query) {
+       duplicateDialog.value = false;
+       duplicatePatient.value = null;
+       return;
+   }
+
+   const foundPatient = patientData.patients.value.find(patient =>
+       patient.name.toLowerCase().includes(query) || (patient.umrn && patient.umrn.toLowerCase().includes(query))
+   );
+
+   if (foundPatient) {
+       duplicatePatient.value = foundPatient;
+       duplicateDialog.value = true;
+   } else {
+       duplicateDialog.value = false;
+       duplicatePatient.value = null;
+   }
+};
+
+const loadDuplicatePatient = () => {
+   if (duplicatePatient.value) {
+       selectPatient(duplicatePatient.value.id);
+       duplicateDialog.value = false;
    }
 };
 
@@ -264,7 +322,11 @@ const loadSelectedNote = async () => {
    console.log(`Loading note for patient ID: ${selectedPatientId.value} and date: ${selectedDate.value}`);
    isNoteLoaded.value = false; // Set to false before loading
    try {
-      const loadedNote = await noteEditor.loadNote(selectedPatientId.value, selectedDate.value);
+      if (!selectedPatient.value) {
+         console.warn('No patient selected, cannot load note.');
+         return;
+      }
+      const loadedNote = await noteEditor.loadNote(selectedPatient.value, selectedDate.value);
       if (loadedNote) {
          noteContent.value = loadedNote.content;
          currentNote.value = loadedNote;
@@ -292,7 +354,11 @@ const saveCurrentNote = async () => {
       return;
    }
    const noteToSave: Note = { date: selectedDate.value, content: noteContent.value };
-   const success = await noteEditor.saveNote(selectedPatientId.value, noteToSave);
+   if (!selectedPatient.value) {
+      showSnackbar('Please select a patient first.', 'error');
+      return;
+   }
+   const success = await noteEditor.saveNote(selectedPatient.value, noteToSave);
    if (success) {
       showSnackbar('Note saved successfully.', 'success');
       currentNote.value = { ...noteToSave };

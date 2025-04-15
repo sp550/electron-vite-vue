@@ -98,6 +98,17 @@ export function useFileSystemAccess() {
   };
 
   // Dialog functions remain the same as they don't depend on paths in the same way
+  const moveFiles = async (sourceDir: string, destDir: string): Promise<void> => {
+    try {
+      if (!sourceDir || !destDir) {
+        throw new Error("moveFiles requires valid source and destination directories.");
+      }
+      await window.electronAPI.moveFiles(sourceDir, destDir);
+    } catch (error) {
+      console.error(`Error moving files from ${sourceDir} to ${destDir} via IPC:`, error);
+      throw error;
+    }
+  };
 
   const showConfirmDialog = async (
     options: Electron.MessageBoxOptions
@@ -169,5 +180,6 @@ export function useFileSystemAccess() {
     showConfirmDialog,
     showOpenDialog,
     joinPaths,
+    moveFiles
   };
 }
