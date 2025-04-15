@@ -4,7 +4,6 @@
 
 ## small features
 display config.json (for debugging)
-uuid vs umrn issue
 async save
   - .txt export
   - automated regular export
@@ -13,7 +12,7 @@ button with dropdown menu for open various dirs
 settings and config implementation
 Basic common hotkeys
 # After minimal functional product
-
+1. Refactor and reoptimise for understanding before everything gets too complex for me
 
 
 ## monaco

@@ -19,6 +19,9 @@ const config = ref<AppConfig>({ ...defaultConfig });
 // Flag to indicate if config has been loaded initially
 const isConfigLoaded = ref(false);
 
+// Flag to trigger data directory change
+const dataDirectoryChangeFlag = ref(0);
+
 export function useConfig() {
   // We need file system access specific to userData for the config file itself
   // Let's add dedicated functions for this specific purpose, separate from the
@@ -113,7 +116,9 @@ export function useConfig() {
     if (config.value.dataDirectory !== newPath) {
       config.value.dataDirectory = newPath;
       // Immediately save the config change
-      return await saveConfig();
+      const saved = await saveConfig();
+      dataDirectoryChangeFlag.value++; // Trigger update
+      return saved;
     }
     return true; // No change needed
   };
@@ -135,5 +140,6 @@ export function useConfig() {
     loadConfig,
     saveConfig, // Expose save if needed externally
     setDataDirectory,
+    dataDirectoryChangeFlag: readonly(dataDirectoryChangeFlag),
   };
 }

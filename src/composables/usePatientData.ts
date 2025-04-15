@@ -495,21 +495,18 @@ const updatePatient = async (updatedPatient: Patient): Promise<boolean> => {
   };
 
   // Watch for config changes (specifically dataDirectory being set/unset) and reload patients
+  const { dataDirectoryChangeFlag } = useConfig();
+
   watch(
-    [isConfigLoaded, isDataDirectorySet],
-    ([loaded, dirSet], [oldLoaded, oldDirSet]) => {
+    [isConfigLoaded, dataDirectoryChangeFlag],
+    ([loaded, changeFlag]) => {
       console.log(
-        `Config watcher triggered: loaded=${loaded}, dirSet=${dirSet}`
+        `Config watcher triggered: loaded=${loaded}, changeFlag=${changeFlag}`
       );
-      if (loaded && dirSet) {
-        // Reload patients only if the directory was *just* set or changed
-        // Or if the config just finished loading and the directory *is* set
-        if (dirSet !== oldDirSet || (loaded && !oldLoaded)) {
-          console.log("Config loaded and directory set, reloading patients...");
-          loadPatients();
-        }
-      } else if (loaded && !dirSet) {
-        // Config loaded, but no directory set
+      if (loaded) {
+        console.log("Config loaded and directory set, reloading patients...");
+        loadPatients();
+      } else {
         console.log(
           "Config loaded, but no data directory set. Clearing patients."
         );
