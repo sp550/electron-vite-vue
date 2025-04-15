@@ -91,7 +91,7 @@ const createWindow = () => {
 const configBaseDir = app.getPath("userData"); // Config stored directly in userData
 console.log("Config file base directory:", configBaseDir);
 
-ipcMain.handle("join-paths", (event, ...paths: string[]): string => {
+ipcMain.handle("join-paths", (_event: Electron.IpcMainInvokeEvent, ...paths: string[]): string => {
   try {
     // Basic validation
     if (!paths || paths.length === 0) {
@@ -118,7 +118,7 @@ ipcMain.handle("join-paths", (event, ...paths: string[]): string => {
 // NEW: Handler for getting specific Electron paths
 ipcMain.handle(
   "get-path",
-  (event, name: Parameters<typeof app.getPath>[0]): string => {
+  (_event: Electron.IpcMainInvokeEvent, name: Parameters<typeof app.getPath>[0]): string => {
     try {
       return app.getPath(name);
     } catch (error) {
@@ -131,7 +131,7 @@ ipcMain.handle(
 // NEW: Handler for showing the open directory dialog
 ipcMain.handle(
   "show-open-dialog",
-  async (event, options: OpenDialogOptions): Promise<OpenDialogReturnValue> => {
+  async (_event: Electron.IpcMainInvokeEvent, options: OpenDialogOptions): Promise<OpenDialogReturnValue> => {
     const mainWindow = BrowserWindow.getFocusedWindow(); // Or get from event sender if preferred
     if (!mainWindow) return { canceled: true, filePaths: [] };
     return await dialog.showOpenDialog(mainWindow, options);
@@ -142,7 +142,7 @@ ipcMain.handle(
 
 ipcMain.handle(
   "read-file-absolute",
-  async (event, absolutePath: string): Promise<string | null> => {
+  async (_event: Electron.IpcMainInvokeEvent, absolutePath: string): Promise<string | null> => {
     console.log("IPC Handling: Reading absolute file:", absolutePath);
     try {
       const fileExists = await fs.promises
@@ -167,7 +167,11 @@ ipcMain.handle(
 
 ipcMain.handle(
   "write-file-absolute",
-  async (event, absolutePath: string, content: string): Promise<void> => {
+  async (
+    _event: Electron.IpcMainInvokeEvent,
+    absolutePath: string,
+    content: string
+  ): Promise<void> => {
     console.log("IPC Handling: Writing absolute file:", absolutePath);
     try {
       const dir = path.dirname(absolutePath);
@@ -189,7 +193,10 @@ ipcMain.handle(
 
 ipcMain.handle(
   "delete-file-absolute",
-  async (event, absolutePath: string): Promise<void> => {
+  async (
+    _event: Electron.IpcMainInvokeEvent,
+    absolutePath: string
+  ): Promise<void> => {
     console.log("IPC Handling: Deleting absolute file:", absolutePath);
     try {
       const fileExists = await fs.promises
@@ -216,7 +223,7 @@ ipcMain.handle(
 
 ipcMain.handle(
   "exists-absolute",
-  async (event, absolutePath: string): Promise<boolean> => {
+  async (_event: Electron.IpcMainInvokeEvent,absolutePath: string): Promise<boolean> => {
     console.log("IPC Handling: Checking existence (absolute):", absolutePath);
     try {
       await fs.promises.access(absolutePath, fs.constants.F_OK);
@@ -239,7 +246,7 @@ ipcMain.handle(
 
 ipcMain.handle(
   "mkdir-absolute",
-  async (event, absolutePath: string): Promise<void> => {
+  async (_event: Electron.IpcMainInvokeEvent, absolutePath: string): Promise<void> => {
     console.log("IPC Handling: Creating directory (absolute):", absolutePath);
     try {
       const dirExists = await fs.promises
@@ -272,7 +279,10 @@ ipcMain.handle(
 
 ipcMain.handle(
   "rmdir-absolute",
-  async (event, absolutePath: string): Promise<void> => {
+  async (
+    _event: Electron.IpcMainInvokeEvent,
+    absolutePath: string
+  ): Promise<void> => {
     console.log("IPC Handling: Removing directory (absolute):", absolutePath);
     try {
       const dirExists = await fs.promises
@@ -306,7 +316,10 @@ ipcMain.handle(
 // Keep the confirmation dialog handler
 ipcMain.handle(
   "show-confirm-dialog",
-  async (event, options: Electron.MessageBoxOptions) => {
+  async (
+    _event: Electron.IpcMainInvokeEvent,
+    options: Electron.MessageBoxOptions
+  ) => {
     const mainWindow = BrowserWindow.getFocusedWindow();
     if (!mainWindow) return null;
     const result = await dialog.showMessageBox(mainWindow, options);

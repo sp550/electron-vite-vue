@@ -4,7 +4,7 @@
 
 <script setup lang="ts">
 import { ref, onMounted, onBeforeUnmount, watch, nextTick } from 'vue';
-import { editor, languages, KeyMod, KeyCode } from 'monaco-editor';
+import { editor, Range } from 'monaco-editor';
 import { initializeMedicalTemplates,initializeMedicalLanguage } from '@/monacoLanguage';
 // Props using defineProps
 const props = defineProps({
@@ -90,7 +90,7 @@ watch(() => props.modelValue, (newValue) => {
          preventUpdate = true; // Prevent emitting the change back
          // Use pushEditOperations for better undo/redo stack handling
          editorInstance.executeEdits('external', [{
-            range: editorInstance.getModel()?.getFullModelRange() ?? new editor.Range(1, 1, 1, 1),
+            range: editorInstance.getModel()?.getFullModelRange() ?? new Range(1, 1, 1, 1),
             text: newValue,
             forceMoveMarkers: true
          }]);

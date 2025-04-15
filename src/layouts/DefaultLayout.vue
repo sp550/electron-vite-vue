@@ -105,7 +105,7 @@
                            title="Save Note">
                            <v-icon start>mdi-content-save</v-icon> Save
                         </v-btn>
-                        <v-btn icon="mdi-delete" @click="confirmRemovePatient(selectedPatient)" title="Delete Patient"></v-btn>
+                        <v-btn icon="mdi-delete" :disabled="!selectedPatient" @click="selectedPatient && confirmRemovePatient(selectedPatient)" title="Delete Patient"></v-btn>
                      </v-toolbar>
                      <v-card-text class="pa-0 editor-wrapper">
                         <div v-if="noteEditor.isLoading.value && !isNoteLoaded" class="loading-overlay">
@@ -118,8 +118,7 @@
                            <v-btn @click="loadSelectedNote" small variant="tonal" class="ml-2">Retry</v-btn>
                         </div>
                         <MonacoEditorComponent ref="monacoEditorRef" v-model="noteContent" language="markdown"
-                           :options="{ theme: 'vs' }" class="editor-component pa-4" @editor-mounted="
-                           onGlobalEditorReady" />
+                           :options="{ theme: 'vs' }" class="editor-component pa-4" />
                      </v-card-text>
                   </v-card>
                </div>
@@ -157,10 +156,6 @@ const noteContent = ref<string>('');
 const currentNote = ref<Note | null>(null);
 const isNoteLoaded = ref(false);
 
-// Editing state (for patient list)
-const editingPatientId = ref<string | null>(null);
-const editedPatient = ref<Partial<Patient>>({});
-const showEditIcon = ref<{ [patientId: string]: boolean }>({});
 
 
 // Composables
@@ -308,9 +303,6 @@ const onSortEnd = async (newOrderedList: Patient[]) => {
 
 
 
-const onGlobalEditorReady = (editorInstance: any) => {
-   console.log("Global Monaco Editor is ready.");
-};
 
 const goToSettings = () => {
    showSnackbar('Settings not implemented yet.', 'info');
@@ -354,48 +346,6 @@ const selectDataDirectory = async () => {
    }
 };
 
-// --- Editing Patient Methods ---
-const startEditing = (patientId: string) => {
-   editingPatientId.value = patientId;
-   const patient = patientData.getPatientById(patientId);
-   if (patient) {
-      editedPatient.value = { ...patient }; // Make a copy for editing
-   }
-
-};
-
-const cancelEdit = () => {
-   editingPatientId.value = null;
-   editedPatient.value = {};
-};
-
-const savePatient = async (originalPatient: Patient) => {
-   if (!editingPatientId.value || editingPatientId.value !== originalPatient.id) {
-      return;
-   }
-
-   try {
-      const updatedPatient: Patient = {
-         ...originalPatient,
-         name: editedPatient.value.name || originalPatient.name,
-         umrn: editedPatient.value.umrn,
-         ward: editedPatient.value.ward,
-      };
-
-      const success = await patientData.updatePatient(updatedPatient);
-
-      if (success) {
-         showSnackbar(`Patient "${updatedPatient.name}" updated.`, 'success');
-         editingPatientId.value = null;
-         editedPatient.value = {};
-      } else {
-         showSnackbar(`Failed to update patient: ${patientData.error.value || 'Unknown error'}`, 'error');
-      }
-   } catch (err: any) {
-      console.error("Error updating patient:", err);
-      showSnackbar(`Error updating patient: ${err.message || 'Unknown error'}`, 'error');
-   }
-};
 
 // --- Watchers ---
 watch(() => [selectedPatientId.value, selectedDate.value, configState.isDataDirectorySet.value], async ([newPatientId, newDate, isDirSet]) => {

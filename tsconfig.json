@@ -29,6 +29,6 @@
     "src/**/*.vue",
     "electron/**/*.ts", // Include Electron main/preload
     "vite.config.ts"
-  ],
+, "sortabejs.d.ts"  ],
   "exclude": ["node_modules", "dist", "dist-electron", "release"]
 }
