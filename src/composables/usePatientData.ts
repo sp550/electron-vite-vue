@@ -151,8 +151,6 @@ export function usePatientData() {
       } else if (mergeConfirmation.response === 2) {
         // Create new patient
         console.log("Creating new patient with new UUID...");
-        let patientId = uuidv4();
-        let patientType = "uuid";
       }
        else {
         console.log("Patient creation cancelled by user.");
