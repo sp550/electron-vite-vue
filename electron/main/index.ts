@@ -82,7 +82,7 @@ const createWindow = () => {
 };
 // --- Get User Data Path (Only for the config file itself) ---
 // This is now less critical as data paths depend on config, but keep for config saving
-const configBaseDir = app.getPath("userData"); // Config stored directly in userData
+const configBaseDir = app.getPath("exe");
 console.log("Config file base directory:", configBaseDir);
 
 ipcMain.handle("join-paths", (_event: Electron.IpcMainInvokeEvent, ...paths: string[]): string => {
@@ -317,10 +317,51 @@ ipcMain.handle(
   }
 );
 
-
+ipcMain.handle("get-app-path", () => {
+  const appPath = app.getPath("exe");
+  return path.dirname(appPath);
+});
 // --- App Lifecycle ---
 
-app.whenReady().then(createWindow); // Use whenReady() promise
+const DEFAULT_CONFIG = {
+  dataDirectory: "./data",
+  patientsFilename: "patients.json",
+  notesBaseDir: "notes",
+  theme: "light",
+};
+
+async function ensureConfigExists() {
+  const appPath = app.getPath("exe");
+  const appDir = path.dirname(appPath);
+  const configPath = path.join(appDir, "resources", "config.json");
+
+  try {
+    await fs.promises.access(configPath, fs.constants.F_OK);
+    console.log("Config file exists:", configPath);
+  } catch (error: any) {
+    if (error.code === "ENOENT") {
+      // Config file doesn't exist, create it
+      console.log("Config file does not exist, creating:", configPath);
+      try {
+        await fs.promises.writeFile(
+          configPath,
+          JSON.stringify(DEFAULT_CONFIG, null, 2),
+          "utf-8"
+        );
+        console.log("Config file created successfully:", configPath);
+      } catch (writeError: any) {
+        console.error("Error creating config file:", writeError);
+      }
+    } else {
+      console.error("Error accessing config file:", error);
+    }
+  }
+}
+
+app.whenReady().then(async () => {
+  await ensureConfigExists();
+  createWindow();
+}); // Use whenReady() promise
 
 app.on("window-all-closed", () => {
   if (process.platform !== "darwin") {

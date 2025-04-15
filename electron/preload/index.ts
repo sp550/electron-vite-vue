@@ -1,6 +1,7 @@
 // electron/preload/index.ts
 
 import {
+  app,
   contextBridge,
   ipcRenderer,
   MessageBoxOptions,
@@ -55,43 +56,9 @@ contextBridge.exposeInMainWorld("electronAPI", {
   // MODIFIED: Use IPC for joining paths
   joinPaths: (...paths: string[]): Promise<string> =>
     ipcRenderer.invoke("join-paths", ...paths),
-  // WAS: joinPaths: (...paths: string[]): string => path.join(...paths),
+  getAppPath: (): Promise<string> => ipcRenderer.invoke("get-app-path"),
+  isPackaged: ():Boolean => app.isPackaged,
 });
-
-// --- Monaco Editor Worker Setup (Keep as before) ---
-// This ensures the Monaco Editor worker scripts can be loaded correctly in Electron.
-// Needs `monaco-editor` installed.
-// Using dynamic import for the worker URLs to help Vite with bundling.
-// @ts-ignore - MonacoEnvironment is expected on self/window by the editor loader
-// self.MonacoEnvironment = {
-//     getWorker: function (_moduleId: any, label: string) {
-//         let workerUrl: URL;
-//         switch (label) {
-//             case 'json':
-//                 workerUrl = new URL('monaco-editor/esm/vs/language/json/json.worker?worker', import.meta.url);
-//                 break;
-//             case 'css':
-//             case 'scss':
-//             case 'less':
-//                 workerUrl = new URL('monaco-editor/esm/vs/language/css/css.worker?worker', import.meta.url);
-//                 break;
-//             case 'html':
-//             case 'handlebars':
-//             case 'razor':
-//                 workerUrl = new URL('monaco-editor/esm/vs/language/html/html.worker?worker', import.meta.url);
-//                 break;
-//             case 'typescript':
-//             case 'javascript':
-//                 workerUrl = new URL('monaco-editor/esm/vs/language/typescript/ts.worker?worker', import.meta.url);
-//                 break;
-//             default:
-//                 workerUrl = new URL('monaco-editor/esm/vs/editor/editor.worker?worker', import.meta.url);
-//                 break;
-//         }
-//         // The `?worker` query suffix is a Vite convention to load the module as a web worker
-//         return new Worker(workerUrl, { type: 'module' });
-//     }
-// };
 
 
 console.log('Preload script fully loaded and configured.');
@@ -131,6 +98,7 @@ declare global {
       ) => Promise<string>;
       // MODIFIED: joinPaths now returns a Promise
       joinPaths: (...paths: string[]) => Promise<string>;
+      getAppPath: () => Promise<string>;
     };
     // monaco: typeof monaco; // Optional
   }

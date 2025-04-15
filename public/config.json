@@ -1,0 +1,6 @@
+{
+  "dataDirectory": "./data",
+  "patientsFilename": "patients.json",
+  "notesBaseDir": "notes",
+  "theme": "light"
+}

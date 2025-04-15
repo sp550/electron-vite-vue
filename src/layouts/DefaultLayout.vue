@@ -47,6 +47,15 @@
                Add New Patient
             </v-list-item-title>
          </v-list-item>
+         <!-- App Info -->
+         <v-list-item lines="two" density="compact">
+            <v-list-item-subtitle>App Info:</v-list-item-subtitle>
+            <v-list-item-title class="text-caption">
+               Version: {{ version }}<br>
+               Packaged: {{ isPackaged ? 'Yes' : 'No' }}<br>
+               Environment: {{ nodeEnv }}
+            </v-list-item-title>
+         </v-list-item>
          <!-- Data Directory Info aligned at bottom -->
          <div class="drawer-bottom">
             <v-list-item v-if="configState.config.value.dataDirectory" lines="two" density="compact">
@@ -138,6 +147,8 @@
 </template>
 
 <script setup lang="ts">
+declare const window: any;
+import packageJson from '../../package.json';
 import { ref, provide, computed, watch, nextTick } from 'vue';
 import { usePatientData } from '@/composables/usePatientData';
 import { useNoteEditor } from '@/composables/useNoteEditor';
@@ -155,15 +166,15 @@ const selectedDate = ref<string>(new Date().toISOString().split('T')[0]);
 const noteContent = ref<string>('');
 const currentNote = ref<Note | null>(null);
 const isNoteLoaded = ref(false);
-
-
-
+const version = packageJson.version;
+const isPackaged = (window as any).electronAPI.isPackaged
 // Composables
 const configState = useConfig();
 const patientData = usePatientData();
 const noteEditor = useNoteEditor();
 const { showOpenDialog } = useFileSystemAccess();
-const { smAndUp } = useDisplay()
+const { smAndUp } = useDisplay();
+const nodeEnv = computed(() => process.env.NODE_ENV);
 
 // --- Computed ---
 const selectedPatient = computed<Patient | undefined>(() => {
@@ -300,7 +311,6 @@ const onSortEnd = async (newOrderedList: Patient[]) => {
       showSnackbar('Failed to update patient order.', 'error');
    }
 };
-
 
 
 

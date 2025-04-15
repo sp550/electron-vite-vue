@@ -1,6 +1,0 @@
-{
-  "dataDirectory": "/home/sahil/Documents/Coding/Javascript/medical-notepad/public/data_dir",
-  "patientsFilename": "patients.json",
-  "notesBaseDir": "notes",
-  "theme": "light"
-}
