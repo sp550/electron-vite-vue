@@ -497,9 +497,12 @@ const updatePatientUmrn = async () => {
                 showSnackbar(`Patient data merged to UMRN ${patient.umrn}.`, 'success');
                 // Refetch patient data after merge
                 selectedPatientId.value = null;
-                nextTick(() => {
-                  selectedPatientId.value = patient.id;
-                });
+                await nextTick(() => {
+                   console.log("selecting patient again")
+                   selectPatient(patient.umrn ?? "")
+                //   selectedPatientId.value = patient.id;
+               })
+
               } else {
                 showSnackbar(`Failed to merge patient data: ${patientData.error.value || 'Unknown error'}`, 'error');
               }
@@ -508,7 +511,8 @@ const updatePatientUmrn = async () => {
               showSnackbar(`Error merging patient data: ${error.message || 'Unknown error'}`, 'error');
             }
           }
-        });
+        })
+
       }
     }
   } else {
