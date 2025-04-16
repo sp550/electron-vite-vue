@@ -4,423 +4,358 @@ import {
   ipcMain,
   shell,
   dialog,
+  screen, // Added screen import
   OpenDialogOptions,
   OpenDialogReturnValue,
-} from "electron"; // Add dialog types
+  MessageBoxOptions,
+  MessageBoxReturnValue,
+} from "electron";
 import path from "node:path";
 import fs from "node:fs";
-// electron/main.ts
-import { screen } from "electron"; // Add screen
 
 let mainWindow: BrowserWindow | null;
+
+// --- Window Creation ---
 
 const createWindow = () => {
   const { width, height } = screen.getPrimaryDisplay().workAreaSize;
 
-  // Calculate window dimensions
-  const windowWidth = process.env.NODE_ENV === 'development' ? Math.round((width / 3) * 1.) : Math.round(width / 3); // 2/3 of screen width in development, 1/3 otherwise
-  const windowHeight = height; // 100% of screen height
+  // Window dimensions (2/3 width in dev, 1/3 otherwise, full height)
+  const widthFraction = process.env.NODE_ENV === 'development' ? 2 / 3 : 1 / 3;
+  const windowWidth = Math.round(width * widthFraction);
+  const windowHeight = height;
 
-  // Calculate window position (top right)
+  // Window position (top right)
   const windowX = width - windowWidth;
-  const windowY = 0; // Top edge of screen
+  const windowY = 0;
 
-  // Create the browser window.
   mainWindow = new BrowserWindow({
     x: windowX,
     y: windowY,
     width: windowWidth,
     height: windowHeight,
     webPreferences: {
-      preload: path.join(__dirname, "../preload/index.js"), // <-- Corrected path
+      preload: path.join(__dirname, "../preload/index.js"),
       contextIsolation: true,
       nodeIntegration: false,
-      devTools: !app.isPackaged,
-      // devTools: false,
+      devTools: !app.isPackaged, // Enable DevTools only if not packaged
     },
-    autoHideMenuBar: true
-    // Add other options like icon if needed
-    // icon: path.join(__dirname, '../../public/logo.svg') // Example icon path
+    autoHideMenuBar: true,
+    // icon: path.join(__dirname, '../../public/logo.svg') // Optional: Uncomment and set path if you have an icon
   });
 
-  // Load the index.html of the app.
+  // Load the app content
   if (process.env.VITE_DEV_SERVER_URL) {
-    // VITE_DEV_SERVER_URL is set by Vite >= 3.x.x
     mainWindow.loadURL(process.env.VITE_DEV_SERVER_URL);
-    // Open the DevTools.
     if (!app.isPackaged) {
-      // Only open dev tools if not packaged
       mainWindow.webContents.openDevTools();
     }
   } else {
-    // Load the index.html file from the dist folder (adjust path if needed)
     mainWindow.loadFile(path.join(__dirname, "../../dist/index.html"));
   }
 
-  // Optional: Open external links in default browser
+  // Open external links in the default browser
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
-    if (
-      url.startsWith("http:") ||
-      url.startsWith("https:") ||
-      url.startsWith("mailto:")
-    ) {
-      try {
-        // Use shell module which should be imported: import { shell } from 'electron';
-        shell.openExternal(url);
-      } catch (e) {
-        console.error("Failed to open external URL:", e);
-      }
-      return { action: "deny" }; // Prevent Electron from opening a new window
+    if (url.startsWith("http:") || url.startsWith("https:") || url.startsWith("mailto:")) {
+      shell.openExternal(url).catch(e => console.error("Failed to open external URL:", e));
     }
-    // Handle other protocols or deny if necessary
-    return { action: "deny" };
+    return { action: "deny" }; // Prevent Electron from opening new windows
   });
 
   mainWindow.on("closed", () => {
     mainWindow = null;
   });
 };
-// --- Get User Data Path (Only for the config file itself) ---
-// This is now less critical as data paths depend on config, but keep for config saving
-const configBaseDir = app.getPath("exe");
-console.log("Config file base directory:", configBaseDir);
 
-ipcMain.handle("join-paths", (_event: Electron.IpcMainInvokeEvent, ...paths: string[]): string => {
+// --- IPC Helper for File System Operations ---
+
+/**
+ * Handles common logic for file system IPC calls (try/catch, logging, error standardization).
+ * @param operationName Descriptive name of the operation (e.g., "read file").
+ * @param fsFunction The `fs.promises` function to execute.
+ * @param args Arguments for the `fs.promises` function.
+ * @returns The result of the fsFunction, or null/empty array for handled errors (like ENOENT).
+ */
+async function handleFsOperation<T>(
+  operationName: string,
+  fsFunction: (...args: any[]) => Promise<T>,
+  ...args: any[]
+): Promise<T | null | string[]> { // Adjusted return type for list-files
+  // Use the first argument if it's a path for logging, otherwise use a generic name
+  const targetDesc = typeof args[0] === 'string' ? path.basename(args[0]) : operationName.split(' ')[0];
+  console.log(`IPC: Starting ${operationName}: ${targetDesc}`); // Minimal log
+
   try {
-    // Basic validation
-    if (!paths || paths.length === 0) {
-      throw new Error("No paths provided to join.");
-    }
-    // Filter out any potentially null/undefined/empty strings just in case
-    const validPaths = paths.filter(
-      (p) => typeof p === "string" && p.length > 0
-    );
-    if (validPaths.length === 0) {
-      throw new Error("No valid path segments provided to join.");
-    }
-    const joinedPath = path.join(...validPaths);
-    // console.log("IPC Handling: Joining paths:", validPaths, "->", joinedPath); // Optional debug log
-    return joinedPath;
+    const result = await fsFunction(...args);
+    console.log(`IPC: ${operationName} successful: ${targetDesc}`);
+    return result;
   } catch (error: any) {
-    console.error(`IPC Handling: Error joining paths (${paths}):`, error);
-    // Depending on desired behavior, return empty string or re-throw
-    // Throwing is better as the promise will reject in the renderer
-    throw new Error(`Failed to join paths: ${error.message}`);
+    console.error(`IPC Error during ${operationName} for ${targetDesc}:`, error.message);
+
+    // Handle common non-fatal errors gracefully
+    if (error.code === 'ENOENT') {
+      // For operations that expect something to exist (read, delete, list)
+      if (operationName.includes('read') || operationName.includes('delete') || operationName.includes('list')) {
+        console.warn(`IPC: Target not found for ${operationName}, returning null/empty.`);
+        // Return empty array for list, null otherwise
+        return operationName.includes('list') ? [] : null;
+      }
+      // For mkdir/rmdir/write, ENOENT might be handled by options (recursive:true, force:true) or is an actual error upstream.
+      // Let it fall through to the generic error throw unless handled by options.
+    }
+
+    // Rethrow a standardized error for the renderer
+    throw new Error(`[IPC] Failed to ${operationName} '${targetDesc}': ${error.message}`);
+  }
+}
+
+// --- IPC Handlers ---
+
+// -- Path Handling --
+ipcMain.handle("join-paths", (_event, ...paths: string[]): string => {
+  try {
+    const validPaths = paths.filter(p => typeof p === "string" && p.length > 0);
+    if (validPaths.length === 0) {
+      throw new Error("No valid path segments provided.");
+    }
+    return path.join(...validPaths);
+  } catch (error: any) {
+    console.error(`IPC Error joining paths (${paths}):`, error);
+    throw new Error(`[IPC] Failed to join paths: ${error.message}`);
   }
 });
 
-ipcMain.handle(
-  "get-path",
-  (_event: Electron.IpcMainInvokeEvent, name: Parameters<typeof app.getPath>[0]): string => {
-    try {
-      return app.getPath(name);
-    } catch (error) {
-      console.error(`Error getting path '${name}':`, error);
-      return ""; // Return empty string or throw error
-    }
+ipcMain.handle("get-path", (_event, name: Parameters<typeof app.getPath>[0]): string => {
+  try {
+    return app.getPath(name);
+  } catch (error: any) {
+    console.error(`IPC Error getting path '${name}':`, error);
+    throw new Error(`[IPC] Failed to get path '${name}': ${error.message}`);
   }
-);
+});
 
+ipcMain.handle("get-app-path", (): string => {
+    try {
+        const appExePath = app.getPath("exe");
+        return path.dirname(appExePath);
+    } catch (error: any) {
+        console.error(`IPC Error getting app path:`, error);
+        throw new Error(`[IPC] Failed to get app path: ${error.message}`);
+    }
+});
+
+
+// -- Dialogs --
 ipcMain.handle(
   "show-open-dialog",
-  async (_event: Electron.IpcMainInvokeEvent, options: OpenDialogOptions): Promise<OpenDialogReturnValue> => {
-    const mainWindow = BrowserWindow.getFocusedWindow(); // Or get from event sender if preferred
-    if (!mainWindow) return { canceled: true, filePaths: [] };
-    return await dialog.showOpenDialog(mainWindow, options);
-  }
-);
-
-
-ipcMain.handle(
-  "read-file-absolute",
-  async (_event: Electron.IpcMainInvokeEvent, absolutePath: string): Promise<string | null> => {
-    console.log("IPC Handling: Reading absolute file:", absolutePath);
-    try {
-      const fileExists = await fs.promises
-        .access(absolutePath, fs.constants.F_OK)
-        .then(() => true)
-        .catch(() => false);
-      if (fileExists) {
-        return await fs.promises.readFile(absolutePath, "utf-8");
-      }
-      return null; // File doesn't exist
-    } catch (error: any) {
-      console.error(
-        `IPC Handling: Error reading absolute file ${absolutePath}:`,
-        error
-      );
-      // Only throw specific errors maybe? Or let renderer handle ENOENT
-      if (error.code === "ENOENT") return null; // Treat not found as null
-      throw new Error(`Failed to read file: ${path.basename(absolutePath)}`);
+  async (_event, options: OpenDialogOptions): Promise<OpenDialogReturnValue> => {
+    const ownerWindow = BrowserWindow.getFocusedWindow();
+    if (!ownerWindow) {
+        console.warn("IPC: show-open-dialog called with no focused window.");
+        return { canceled: true, filePaths: [] };
     }
-  }
-);
-
-ipcMain.handle(
-  "write-file-absolute",
-  async (
-    _event: Electron.IpcMainInvokeEvent,
-    absolutePath: string,
-    content: string
-  ): Promise<void> => {
-    console.log("IPC Handling: Writing absolute file:", absolutePath);
     try {
-      const dir = path.dirname(absolutePath);
-      await fs.promises.mkdir(dir, { recursive: true });
-      await fs.promises.writeFile(absolutePath, content, "utf-8");
-      console.log("IPC Handling: File write successful:", absolutePath); // Add success log
+        return await dialog.showOpenDialog(ownerWindow, options);
     } catch (error: any) {
-      // Log the *specific* error object caught here
-      console.error(
-        `IPC Handling: fs.promises.writeFile failed for ${absolutePath}:`,
-        error
-      ); // Detailed log
-      console.error("Error Code:", error.code); // Log specific error code if available (e.g., EPERM, EACCES)
-      console.error("Error Message:", error.message);
-      throw new Error(`Failed to write file: ${path.basename(absolutePath)}`);
-    }
-  }
-);
-
-ipcMain.handle(
-  "delete-file-absolute",
-  async (
-    _event: Electron.IpcMainInvokeEvent,
-    absolutePath: string
-  ): Promise<void> => {
-    console.log("IPC Handling: Deleting absolute file:", absolutePath);
-    try {
-      const fileExists = await fs.promises
-        .access(absolutePath, fs.constants.F_OK)
-        .then(() => true)
-        .catch(() => false);
-      if (fileExists) {
-        await fs.promises.unlink(absolutePath);
-      } else {
-        console.log(
-          "IPC Handling: File not found, skipping delete:",
-          absolutePath
-        );
-      }
-    } catch (error: any) {
-      console.error(
-        `IPC Handling: Error deleting absolute file ${absolutePath}:`,
-        error
-      );
-      throw new Error(`Failed to delete file: ${path.basename(absolutePath)}`);
-    }
-  }
-);
-
-ipcMain.handle(
-  "exists-absolute",
-  async (_event: Electron.IpcMainInvokeEvent,absolutePath: string): Promise<boolean> => {
-    console.log("IPC Handling: Checking existence (absolute):", absolutePath);
-    try {
-      await fs.promises.access(absolutePath, fs.constants.F_OK);
-      return true;
-    } catch (error: any) {
-      // If error code is ENOENT, file doesn't exist, return false. Otherwise, log/throw.
-      if (error.code === "ENOENT") {
-        return false;
-      }
-      console.error(
-        `IPC Handling: Error checking existence for ${absolutePath}:`,
-        error
-      );
-      throw new Error(
-        `Failed to check existence for file: ${path.basename(absolutePath)}`
-      );
-    }
-  }
-);
-
-ipcMain.handle(
-  "mkdir-absolute",
-  async (_event: Electron.IpcMainInvokeEvent, absolutePath: string): Promise<void> => {
-    console.log("IPC Handling: Creating directory (absolute):", absolutePath);
-    try {
-      const dirExists = await fs.promises
-        .access(absolutePath, fs.constants.F_OK)
-        .then(() => true)
-        .catch(() => false);
-      if (!dirExists) {
-        await fs.promises.mkdir(absolutePath, { recursive: true });
-        console.log(
-          "IPC Handling: Directory created successfully (absolute):",
-          absolutePath
-        );
-      } else {
-        console.log(
-          "IPC Handling: Directory already exists (absolute):",
-          absolutePath
-        );
-      }
-    } catch (error: any) {
-      console.error(
-        `IPC Handling: Error creating directory ${absolutePath}:`,
-        error
-      );
-      throw new Error(
-        `Failed to create directory: ${path.basename(absolutePath)}`
-      );
-    }
-  }
-);
-
-ipcMain.handle(
-  "rmdir-absolute",
-  async (
-    _event: Electron.IpcMainInvokeEvent,
-    absolutePath: string
-  ): Promise<void> => {
-    console.log("IPC Handling: Removing directory (absolute):", absolutePath);
-    try {
-      const dirExists = await fs.promises
-        .access(absolutePath, fs.constants.F_OK)
-        .then(() => true)
-        .catch(() => false);
-      if (dirExists) {
-        await fs.promises.rm(absolutePath, { recursive: true, force: true });
-        console.log(
-          "IPC Handling: Directory removed successfully (absolute):",
-          absolutePath
-        );
-      } else {
-        console.log(
-          "IPC Handling: Directory not found, skipping remove:",
-          absolutePath
-        );
-      }
-    } catch (error: any) {
-      console.error(
-        `IPC Handling: Error removing directory ${absolutePath}:`,
-        error
-      );
-      throw new Error(
-        `Failed to remove directory: ${path.basename(absolutePath)}`
-      );
-    }
-  }
-);
-
-ipcMain.handle(
-  "move-files",
-  async (_event: Electron.IpcMainInvokeEvent, sourceDir: string, destDir: string): Promise<void> => {
-    console.log(`IPC Handling: Moving files from ${sourceDir} to ${destDir}`);
-    try {
-      await fs.promises.rename(sourceDir, destDir);
-      console.log(`IPC Handling: Files moved successfully from ${sourceDir} to ${destDir}`);
-    } catch (error: any) {
-      console.error(`IPC Handling: Error moving files from ${sourceDir} to ${destDir}:`, error);
-      throw new Error(`Failed to move files from ${sourceDir} to ${destDir}: ${error.message}`);
-    }
-  }
-);
-
-ipcMain.handle(
-  "list-files",
-  async (_event: Electron.IpcMainInvokeEvent, absolutePath: string): Promise<string[] | null> => {
-    console.log("IPC Handling: Listing files in directory (absolute):", absolutePath);
-    try {
-      const files = await fs.promises.readdir(absolutePath);
-      console.log("IPC Handling: Files found:", files);
-      return files;
-    } catch (error: any) {
-      console.error(`IPC Handling: Error listing files in directory ${absolutePath}:`, error);
-      // Handle specific errors like directory not found
-      if (error.code === 'ENOENT') {
-        console.warn(`Directory not found: ${absolutePath}`);
-        return null; // Or return an empty array if preferred
-      }
-      throw new Error(`Failed to list files in directory: ${path.basename(absolutePath)}`);
+        console.error(`IPC Error showing open dialog:`, error);
+        throw new Error(`[IPC] Failed to show open dialog: ${error.message}`);
     }
   }
 );
 
 ipcMain.handle(
   "show-confirm-dialog",
-  async (
-    _event: Electron.IpcMainInvokeEvent,
-    options: Electron.MessageBoxOptions
-  ) => {
-    const mainWindow = BrowserWindow.getFocusedWindow();
-    if (!mainWindow) return null;
-    const result = await dialog.showMessageBox(mainWindow, options);
-    return result;
+  async (_event, options: MessageBoxOptions): Promise<MessageBoxReturnValue> => {
+    const ownerWindow = BrowserWindow.getFocusedWindow();
+     if (!ownerWindow) {
+        console.warn("IPC: show-confirm-dialog called with no focused window.");
+        // Provide a default response indicating cancellation or failure
+        return { response: -1, checkboxChecked: false }; // -1 or appropriate default
+    }
+    try {
+        return await dialog.showMessageBox(ownerWindow, options);
+    } catch (error: any) {
+        console.error(`IPC Error showing confirm dialog:`, error);
+        throw new Error(`[IPC] Failed to show confirm dialog: ${error.message}`);
+    }
   }
 );
 
-ipcMain.handle("get-app-path", () => {
-  const appPath = app.getPath("exe");
-  return path.dirname(appPath);
-});
+// -- File System Operations (using helper) --
 
-ipcMain.handle("get-config-value", async (_event: Electron.IpcMainInvokeEvent, key: string): Promise<any> => {
-  const appPath = app.getPath("exe");
-  const appDir = path.dirname(appPath);
-  const configPath = path.join(appDir, "resources", "config.json");
+ipcMain.handle(
+  "read-file-absolute",
+  (_event, absolutePath: string) =>
+    handleFsOperation(
+        "read file",
+        (p: string) => fs.promises.readFile(p, "utf-8"), // Wrap to specify encoding
+        absolutePath
+    )
+);
 
-  try {
-    const configContent = await fs.promises.readFile(configPath, "utf-8");
-    const config = JSON.parse(configContent);
-    return config[key];
-  } catch (error: any) {
-    console.error(`Error getting config value for key ${key}:`, error);
-    throw new Error(`Failed to get config value for key ${key}`);
+ipcMain.handle(
+  "write-file-absolute",
+  async (_event, absolutePath: string, content: string): Promise<void> => {
+    // Ensure directory exists first (mkdir handles existing dirs gracefully)
+    const dir = path.dirname(absolutePath);
+    await handleFsOperation("create directory for write", fs.promises.mkdir, dir, { recursive: true });
+    // Now write the file
+    await handleFsOperation(
+        "write file",
+        fs.promises.writeFile, // fsFunction
+        absolutePath,          // args for fsFunction...
+        content,
+        "utf-8"
+    );
+    // Returns Promise<void>, so result is implicitly null on success via handleFsOperation
   }
-});
-// --- App Lifecycle ---
+);
 
+ipcMain.handle(
+  "delete-file-absolute",
+  (_event, absolutePath: string) =>
+    handleFsOperation("delete file", fs.promises.unlink, absolutePath)
+);
+
+// Use fs.promises.access for explicit existence check, as it's the standard way
+ipcMain.handle(
+  "exists-absolute",
+  async (_event, absolutePath: string): Promise<boolean> => {
+    console.log(`IPC: Checking existence: ${path.basename(absolutePath)}`);
+    try {
+      await fs.promises.access(absolutePath, fs.constants.F_OK);
+      console.log(`IPC: Existence check successful (exists): ${path.basename(absolutePath)}`);
+      return true;
+    } catch (error: any) {
+      if (error.code === "ENOENT") {
+        console.log(`IPC: Existence check successful (does not exist): ${path.basename(absolutePath)}`);
+        return false; // File does not exist
+      }
+      // Other errors (e.g., permissions) should be thrown
+      console.error(`IPC Error checking existence for ${absolutePath}:`, error);
+      throw new Error(`[IPC] Failed to check existence for ${path.basename(absolutePath)}: ${error.message}`);
+    }
+  }
+);
+
+
+ipcMain.handle(
+  "mkdir-absolute",
+  (_event, absolutePath: string) =>
+    // recursive: true handles already existing directory gracefully
+    handleFsOperation("create directory", fs.promises.mkdir, absolutePath, { recursive: true })
+);
+
+ipcMain.handle(
+  "rmdir-absolute",
+  (_event, absolutePath: string) =>
+    // recursive: true and force: true handle non-existence and non-empty dirs
+    handleFsOperation("remove directory", fs.promises.rm, absolutePath, { recursive: true, force: true })
+);
+
+ipcMain.handle(
+  "move-files", // Can rename/move files or directories
+  (_event, sourcePath: string, destPath: string) =>
+    handleFsOperation("move/rename", fs.promises.rename, sourcePath, destPath)
+);
+
+ipcMain.handle(
+  "list-files",
+  (_event, absolutePath: string) =>
+    handleFsOperation("list files", fs.promises.readdir, absolutePath)
+);
+
+// -- Config Handling --
 const DEFAULT_CONFIG = {
-  dataDirectory: "./data",
+  dataDirectory: "./data", // Relative to app resources path
   patientsFilename: "patients.json",
   notesBaseDir: "notes",
   theme: "light",
 };
 
+function getConfigPath(): string {
+    const appExePath = app.getPath("exe");
+    const appDir = path.dirname(appExePath);
+    // Place config inside a 'resources' subdirectory relative to the executable
+    // This is a common pattern, adjust if your build process places it elsewhere
+    return path.join(appDir, "resources", "config.json");
+}
+
+
 async function ensureConfigExists() {
-  const appPath = app.getPath("exe");
-  const appDir = path.dirname(appPath);
-  const configPath = path.join(appDir, "resources", "config.json");
+  const configPath = getConfigPath();
+  const configDir = path.dirname(configPath);
 
   try {
+    // Ensure directory exists first
+    await fs.promises.mkdir(configDir, { recursive: true });
+    // Try accessing the file
     await fs.promises.access(configPath, fs.constants.F_OK);
     console.log("Config file exists:", configPath);
   } catch (error: any) {
     if (error.code === "ENOENT") {
-      // Config file doesn't exist, create it
-      console.log("Config file does not exist, creating:", configPath);
+      // Config file doesn't exist, create it with defaults
+      console.log("Config file not found, creating with defaults:", configPath);
       try {
         await fs.promises.writeFile(
           configPath,
-          JSON.stringify(DEFAULT_CONFIG, null, 2),
+          JSON.stringify(DEFAULT_CONFIG, null, 2), // Pretty print JSON
           "utf-8"
         );
-        console.log("Config file created successfully:", configPath);
+        console.log("Default config file created successfully:", configPath);
       } catch (writeError: any) {
-        console.error("Error creating config file:", writeError);
+        console.error("Fatal: Error creating default config file:", writeError);
+        // Consider showing an error dialog to the user here
+        dialog.showErrorBox("Configuration Error", `Failed to create the configuration file at ${configPath}. Please check permissions. Error: ${writeError.message}`);
+        app.quit(); // Exit if config cannot be created
       }
     } else {
-      console.error("Error accessing config file:", error);
+      // Other access errors (e.g., permissions)
+      console.error("Fatal: Error accessing config file:", error);
+      dialog.showErrorBox("Configuration Error", `Failed to access the configuration file at ${configPath}. Please check permissions. Error: ${error.message}`);
+      app.quit(); // Exit if config cannot be accessed
     }
   }
 }
 
+ipcMain.handle("get-config-value", async (_event, key: string): Promise<any> => {
+  const configPath = getConfigPath();
+  try {
+    const configContent = await fs.promises.readFile(configPath, "utf-8");
+    const config = JSON.parse(configContent);
+    if (key in config) {
+        return config[key];
+    } else {
+        console.warn(`IPC: Config key "${key}" not found, returning default or null.`);
+        // Return default value if available, otherwise null/undefined
+        return key in DEFAULT_CONFIG ? DEFAULT_CONFIG[key as keyof typeof DEFAULT_CONFIG] : undefined;
+    }
+  } catch (error: any) {
+    console.error(`IPC Error getting config value for key "${key}" from ${configPath}:`, error);
+    // Don't throw here, maybe return default or undefined
+    // throw new Error(`[IPC] Failed to get config value for key ${key}: ${error.message}`);
+     return key in DEFAULT_CONFIG ? DEFAULT_CONFIG[key as keyof typeof DEFAULT_CONFIG] : undefined;
+  }
+});
+
+
+// --- App Lifecycle ---
+
 app.whenReady().then(async () => {
-  await ensureConfigExists();
+  await ensureConfigExists(); // Ensure config is ready before creating window
   createWindow();
-}); // Use whenReady() promise
+});
 
 app.on("window-all-closed", () => {
+  // Quit when all windows are closed, except on macOS
   if (process.platform !== "darwin") {
     app.quit();
   }
 });
 
 app.on("activate", () => {
-  // On OS X it's common to re-create a window in the app when the
-  // dock icon is clicked and there are no other windows open.
+  // On macOS it's common to re-create a window when the dock icon is clicked
+  // and there are no other windows open.
   if (BrowserWindow.getAllWindows().length === 0) {
     createWindow();
   }
