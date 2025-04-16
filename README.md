@@ -1,10 +1,9 @@
 **Priority 1: Core Functionality & Stability**
 - 
-- Import patient list from external program.
-- Asynchronous saves.
-- Auto-backup for each note (own DB with one-minute backups and history revert icon).
+- Auto (async) saves, and functionality to toggle autosave on or off
 - Save status icon (indicates if note has been saved).
 - Confirmation dialog on window close if unsaved changes.
+- Import patient list from external program.
 - Manual plain text export/import (including .txt export and automated regular export).
 
 **Priority 2: Basic UI & Configuration**
@@ -24,6 +23,7 @@
   - Change font to non-monospace.
 
 **Priority 4: Additional Features**
+- Auto-backup for each note (own DB with one-minute backups and history revert icon).
 - Parse additional patient content (issues and plan).
 - Quick add feature (inspired by bloodproducts generator).
 

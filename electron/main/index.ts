@@ -82,24 +82,30 @@ async function handleFsOperation<T>(
   ...args: any[]
 ): Promise<T | null | string[]> {
   const targetDesc = typeof args[0] === 'string' ? path.basename(args[0]) : operationName.split(' ')[0];
-  try {
-    const result = await fsFunction(...args);
-    // console.log(`IPC: ${operationName} successful: ${targetDesc}`); // Removed success log
-    return result;
-  } catch (error: any) {
-    // Handle common non-fatal errors gracefully first
-    if (error.code === 'ENOENT') {
-      if (operationName.includes('read') || operationName.includes('delete') || operationName.includes('list')) {
-        console.warn(`IPC: Target not found for ${operationName} on ${targetDesc}, returning null/empty.`);
-        return operationName.includes('list') ? [] : null;
+  try { // Outer try block to catch any unexpected errors in the handler logic
+    try { // Inner try block specifically for the fs operation
+      const result = await fsFunction(...args);
+      // console.log(`IPC: ${operationName} successful: ${targetDesc}`); // Removed success log
+      return result;
+    } catch (error: any) { // Inner catch block for fs operation errors
+      // Handle common non-fatal errors gracefully first
+      if (error.code === 'ENOENT') {
+        if (operationName.includes('read') || operationName.includes('delete') || operationName.includes('list')) {
+          console.warn(`IPC: Target not found for ${operationName} on ${targetDesc}, returning null/empty.`);
+          return operationName.includes('list') ? [] : null;
+        }
+        // For mkdir/rmdir/write, ENOENT might be handled by options or is an actual error.
+        // Let it fall through if not handled by options like recursive:true.
       }
-      // For mkdir/rmdir/write, ENOENT might be handled by options or is an actual error.
-      // Let it fall through if not handled by options like recursive:true.
-    }
 
-    // Log other errors and rethrow a standardized error
-    console.error(`IPC Error during ${operationName} for ${targetDesc}:`, error.message);
-    throw new Error(`[IPC] Failed to ${operationName} '${targetDesc}': ${error.message}`);
+      // Log other errors and rethrow a standardized error
+      console.error(`IPC Error during ${operationName} for ${targetDesc}:`, error.message);
+      console.error(`IPC Error during ${operationName} for ${targetDesc} (stack):`, error.stack); // Log stack trace
+      throw new Error(`[IPC] Failed to ${operationName} '${targetDesc}': ${error.message}`);
+    }
+  } catch (e: any) { // Outer catch block for unexpected handler errors
+    console.error(`Unexpected Error in handleFsOperation during ${operationName} for ${targetDesc}:`, e);
+    throw e; // Rethrow the unexpected error
   }
 }
 
@@ -223,10 +229,13 @@ ipcMain.handle(
 ipcMain.handle(
   "write-file-absolute",
   async (_event, absolutePath: string, content: string): Promise<void> => {
+   console.log(`IPC: writeFileAbsolute called with absolutePath: ${absolutePath}`);
+   console.log(`IPC: writeFileAbsolute received content: ${JSON.stringify(content)}`); // Log received content
     // Ensure directory exists first (mkdir handles existing dirs gracefully)
     const dir = path.dirname(absolutePath);
     await handleFsOperation("create directory for write", fs.promises.mkdir, dir, { recursive: true });
     // Now write the file
+    console.log(`IPC: Writing file to ${absolutePath}`);
     await handleFsOperation(
         "write file",
         fs.promises.writeFile, // fsFunction
@@ -234,6 +243,7 @@ ipcMain.handle(
         content,
         "utf-8"
     );
+    console.log(`IPC: writeFileAbsolute completed successfully: ${absolutePath}`);
     // Returns Promise<void>, so result is implicitly null on success via handleFsOperation
   }
 );

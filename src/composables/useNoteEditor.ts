@@ -1,101 +1,126 @@
-// src/composables/useNoteEditor.ts
-import { ref } from 'vue';
+import { ref, watch, computed } from 'vue';
 import type { Note } from '@/types';
 import { useFileSystemAccess } from './useFileSystemAccess';
 import { useConfig } from './useConfig';
+
+function debounce<T extends (...args: any[]) => any>(func: T, wait: number): (...args: Parameters<T>) => void {
+  let timeout: ReturnType<typeof setTimeout> | null = null;
+  return (...args: Parameters<T>): void => {
+    if (timeout !== null) {
+      clearTimeout(timeout);
+    }
+    timeout = setTimeout(() => func(...args), wait);
+  };
+}
 
 export function useNoteEditor() {
   const { readFileAbsolute, writeFileAbsolute, joinPaths } = useFileSystemAccess();
   const { config, isDataDirectorySet } = useConfig();
   const isLoading = ref(false);
   const error = ref<string | null>(null);
+  const currentNote = ref<Note | null>(null);
+  const currentPatient = ref<{ id: string; umrn?: string } | null>(null);
+  const isAutoSaveEnabled = ref(true);
+  const hasUnsavedChanges = ref(false);
 
-  // --- Helper to get absolute path ---
   const getNotePath = async (patient: { id: string; umrn?: string }, date: string): Promise<string | null> => {
-    if (!isDataDirectorySet.value || !config.value.dataDirectory) return null;
+    if (!isDataDirectorySet.value || !config.value.dataDirectory) {
+        error.value = "Data directory not configured.";
+        return null;
+    }
     try {
-      const formattedDate = date.split('T')[0]; // Ensure YYYY-MM-DD
+      const formattedDate = date.split('T')[0];
       const basePath = config.value.dataDirectory;
       const notesBaseDir = config.value.notesBaseDir;
 
-      let patientDir;
-      if (patient.umrn) {
-        patientDir = await joinPaths(notesBaseDir, 'by-umrn', patient.umrn);
-      } else {
-        patientDir = await joinPaths(notesBaseDir, 'by-uuid', patient.id);
-      }
+      const patientIdentifier = patient.umrn ? ['by-umrn', patient.umrn] : ['by-uuid', patient.id];
+      const patientDir = await joinPaths(notesBaseDir, ...patientIdentifier);
 
-      return await joinPaths(
-        basePath,
-        patientDir,
-        `${formattedDate}.json`
-      );
-    } catch (e) {
-      console.log("There was an error" + e);
+      return await joinPaths(basePath, patientDir, `${formattedDate}.json`);
+    } catch (e: any) {
+      console.error("Error determining note path:", e);
+      error.value = `Failed to determine note path: ${e.message || e}`;
       return null;
     }
   };
-  // --- End Helper ---
 
-  const loadNote = async (patient: { id: string; umrn?: string }, date: string): Promise<Note | null> => {
-    if (!isDataDirectorySet.value) {
-      error.value = "Data directory not configured.";
-      return null;
-    }
+  const resetState = () => {
+    currentNote.value = null;
+    currentPatient.value = null;
+    hasUnsavedChanges.value = false;
+    isLoading.value = false;
+  };
 
+  const loadNote = async (patient: { id: string; umrn?: string }, date: string): Promise<void> => {
+    console.log('loadNote called', patient, date);
     isLoading.value = true;
     error.value = null;
+    hasUnsavedChanges.value = false;
+
     const absolutePath = await getNotePath(patient, date);
 
     if (!absolutePath) {
-      error.value = "Could not determine note path.";
-      isLoading.value = false;
-      return null;
+      resetState(); // Resets loading state as well
+      // error is set within getNotePath
+      return;
     }
 
-    console.log("Loading note from:", absolutePath);
+    currentPatient.value = patient;
 
     try {
       const fileContent = await readFileAbsolute(absolutePath);
       if (fileContent) {
-        return JSON.parse(fileContent) as Note;
+        currentNote.value = JSON.parse(fileContent) as Note;
+      } else {
+        // File doesn't exist, create a new note structure
+        currentNote.value = { date: date.split('T')[0], content: '' };
       }
-      // Return a default empty note if file doesn't exist
-      console.log(`Note file (${absolutePath}) not found. Creating new note structure.`);
-      return { date: date.split('T')[0], content: '' };
     } catch (err: any) {
-      // Let readFileAbsolute handle ENOENT as null, catch other errors
       console.error(`Error loading note for ${patient.id} on ${date}:`, err);
       error.value = `Failed to load note: ${err.message || err}`;
-      return null; // Indicate error
+      resetState();
     } finally {
-      isLoading.value = false;
+      isLoading.value = false; // Ensure loading is false even if resetState wasn't called
     }
   };
 
-  const saveNote = async (patient: { id: string; umrn?: string }, note: Note): Promise<boolean> => {
-    if (!isDataDirectorySet.value) {
-      error.value = "Cannot save note: Data directory not configured.";
+  // Modified to accept patient and the full note object to save
+  const saveCurrentNote = async (patient: { id: string; umrn?: string }, noteToSave: Note): Promise<boolean> => {
+    console.log('useNoteEditor: saveCurrentNote called');
+    // Validate inputs directly
+    if (!patient || !noteToSave) {
+      error.value = "Invalid patient or note data provided for saving.";
       return false;
     }
+    // Keep internal currentNote and currentPatient refs updated for consistency if needed elsewhere,
+    // but primarily use the passed arguments for the save operation.
+    currentPatient.value = patient; // Update internal ref
+    currentNote.value = { ...noteToSave }; // Update internal ref (might be useful for UI state)
 
+    // const patient = currentPatient.value; // Use argument instead
+    // const note = currentNote.value; // Use argument instead
     isLoading.value = true;
     error.value = null;
-    const absolutePath = await getNotePath(patient, note.date); // <-- await here
+
+    // Use the date from the noteToSave argument
+    const absolutePath = await getNotePath(patient, noteToSave.date);
 
     if (!absolutePath) {
-      error.value = "Could not determine note path for saving.";
       isLoading.value = false;
+      // error is set within getNotePath
       return false;
     }
-    console.log("Saving note to:", absolutePath);
 
     try {
-      const noteToSave = { ...note, date: note.date.split('T')[0] };
-      await writeFileAbsolute(absolutePath, JSON.stringify(noteToSave, null, 2));
+      // Prepare the note object from the argument, ensuring date format is correct
+      const finalNoteToSave = { ...noteToSave, date: noteToSave.date.split('T')[0] };
+      console.log('useNoteEditor: Content being sent to writeFileAbsolute:', JSON.stringify(finalNoteToSave.content)); // Log the content being saved
+      await writeFileAbsolute(absolutePath, JSON.stringify(finalNoteToSave, null, 2));
+      hasUnsavedChanges.value = false;
       return true;
     } catch (err: any) {
-      console.error(`Error saving note for ${patient.id} on ${note.date}:`, err);
+      // Use the date from the noteToSave argument in error message
+      console.error(`Error saving note for ${patient.id} on ${noteToSave.date}:`, err);
       error.value = `Failed to save note: ${err.message || err}`;
       return false;
     } finally {
@@ -103,10 +128,20 @@ export function useNoteEditor() {
     }
   };
 
+  // --- REMOVED old watch and debouncedSave logic ---
+  // The auto-save logic will now be handled in the component (App.vue)
+  // that has direct access to the v-model state.
+  // const debouncedSave = debounce(async () => { ... }, 2500);
+  // watch(() => currentNote.value?.content, ...);
+  // --- END REMOVED ---
+
   return {
     isLoading,
     error,
+    currentNote,
+    isAutoSaveEnabled,
+    hasUnsavedChanges: computed(() => hasUnsavedChanges.value),
     loadNote,
-    saveNote,
+    saveCurrentNote,
   };
 }

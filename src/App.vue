@@ -115,6 +115,23 @@
                         title="Save Note">
                         <v-icon start>mdi-content-save</v-icon> Save
                      </v-btn>
+                     <!-- Auto-Save Toggle -->
+                     <v-switch
+                       v-model="noteEditor.isAutoSaveEnabled.value"
+                       label="Auto-Save"
+                       color="primary"
+                       hide-details
+                       density="compact"
+                       class="ml-2 mr-2 flex-grow-0"
+                      title="Toggle Auto-Save"
+                    ></v-switch>
+                     <v-icon
+                       :icon="saveStatusIcon"
+                       :color="noteEditor.hasUnsavedChanges.value ? 'warning' : 'success'"
+                       size="small"
+                       class="ml-2"
+                       title="Save Status"
+                     ></v-icon>
                      <v-btn icon="mdi-delete" :disabled="!selectedPatient"
                         @click="selectedPatient && confirmRemovePatient(selectedPatient)"
                         title="Delete Patient"></v-btn>
@@ -178,11 +195,12 @@
 <script setup lang="ts">
 declare const window: any;
 import packageJson from '../package.json';
-import { ref, provide, computed, watch, nextTick } from 'vue';
+import { ref, provide, computed, watch, nextTick, watchEffect } from 'vue'; // Added watchEffect if needed, or just use watch
 import { usePatientData } from '@/composables/usePatientData';
 import { useNoteEditor } from '@/composables/useNoteEditor';
 import { useConfig } from '@/composables/useConfig';
 import { useFileSystemAccess } from '@/composables/useFileSystemAccess';
+import { computed as computedRef } from 'vue';
 import type { Patient, Note } from '@/types';
 import MonacoEditorComponent from '@/components/MonacoEditorComponent.vue';
 import { useDisplay } from 'vuetify';
@@ -201,10 +219,25 @@ const isPackaged = (window as any).electronAPI.isPackaged
 
 const configState = useConfig();
 const patientData = usePatientData();
-const noteEditor = useNoteEditor();
+const noteEditor = useNoteEditor(); // Includes isAutoSaveEnabled now
 const fileSystemAccess = useFileSystemAccess(); // Instantiate the composable
 const { smAndUp } = useDisplay();
 const nodeEnv = computed(() => process.env.NODE_ENV);
+
+// --- Debounce Utility (copied from useNoteEditor) ---
+function debounce<T extends (...args: any[]) => any>(func: T, wait: number): (...args: Parameters<T>) => void {
+  let timeout: ReturnType<typeof setTimeout> | null = null;
+  return (...args: Parameters<T>): void => {
+    if (timeout !== null) {
+      clearTimeout(timeout);
+    }
+    timeout = setTimeout(() => func(...args), wait);
+  };
+}
+
+const saveStatusIcon = computed(() => {
+  return noteEditor.hasUnsavedChanges.value ? 'mdi-content-save-edit' : 'mdi-check-circle';
+});
 
 const selectedPatient = computed<Patient | undefined>(() => {
    if (!selectedPatientId.value) return undefined;
@@ -285,6 +318,7 @@ const confirmRemovePatient = async (patient: Patient) => {
 };
 
 const loadSelectedNote = async () => {
+  console.log('loadSelectedNote called');
    if (!selectedPatientId.value) {
       clearSelectedPatientState();
       return;
@@ -298,18 +332,26 @@ const loadSelectedNote = async () => {
          clearSelectedPatientState();
          return;
       }
-      const loadedNote = await noteEditor.loadNote(selectedPatient.value, selectedDate.value);
-      if (loadedNote) {
-         noteContent.value = loadedNote.content;
-         currentNote.value = loadedNote;
+      // Call loadNote - it updates internal state (currentNote, error, isLoading)
+      await noteEditor.loadNote(selectedPatient.value, selectedDate.value);
+
+      // Check the state *after* loadNote completes
+      if (noteEditor.currentNote.value && !noteEditor.error.value) {
+         // Successfully loaded or created a new note structure
+         noteContent.value = noteEditor.currentNote.value.content;
+         currentNote.value = noteEditor.currentNote.value; // Keep local ref synced if needed elsewhere
          isNoteLoaded.value = true;
       } else {
-         noteContent.value = ''; // Clear content on error
+         // Failed to load or determine path, or an error occurred
+         noteContent.value = ''; // Clear content on error/failure
          currentNote.value = null;
          isNoteLoaded.value = false;
-         // Avoid showing snackbar if error is simply 'Note not found' which is expected
-         if (noteEditor.error.value && !noteEditor.error.value.includes('ENOENT')) {
-            showSnackbar(`Failed to load note: ${noteEditor.error.value}`, 'error');
+         // Show snackbar only for actual errors, not 'file not found' which is handled by creating a new note
+         if (noteEditor.error.value && !noteEditor.error.value.includes('ENOENT') && !noteEditor.error.value.includes('Data directory not configured')) {
+             showSnackbar(`Failed to load note: ${noteEditor.error.value}`, 'error');
+         } else if (!noteEditor.currentNote.value && !noteEditor.error.value) {
+             // This case might indicate a logic error if loadNote finished without error but currentNote is null
+             console.warn("loadSelectedNote: loadNote completed without error, but currentNote is still null.");
          }
       }
    } catch (e: any) {
@@ -333,7 +375,7 @@ const saveCurrentNote = async () => {
       showSnackbar('Please select a patient first.', 'error');
       return;
    }
-   const success = await noteEditor.saveNote(selectedPatient.value, noteToSave);
+   const success = await noteEditor.saveCurrentNote(selectedPatient.value, noteToSave);
    if (success) {
       showSnackbar('Note saved successfully.', 'success');
       currentNote.value = { ...noteToSave };
@@ -426,6 +468,7 @@ const selectDataDirectory = async () => {
 
 
 watch(() => [selectedPatientId.value, selectedDate.value, configState.isDataDirectorySet.value], async ([newPatientId, , isDirSet]) => {
+  console.log('watch called', selectedPatientId.value, selectedDate.value, configState.isDataDirectorySet.value);
    // Destructure newDate but don't use it directly if loadSelectedNote handles it
    if (newPatientId && isDirSet) {
       await loadSelectedNote();
@@ -439,6 +482,36 @@ watch(configState.error, (newError) => {
       showSnackbar(`Configuration Error: ${newError}`, 'error');
    }
 });
+
+// --- Auto-Save Logic ---
+const debouncedSaveNote = debounce(async () => {
+  if (noteEditor.isAutoSaveEnabled.value && noteEditor.hasUnsavedChanges.value && selectedPatient.value && isNoteLoaded.value) {
+    console.log('App.vue: Triggering debounced auto-save...');
+    // Call the manual save function which now uses local noteContent implicitly via the argument preparation
+    await saveCurrentNote();
+    // saveCurrentNote already sets hasUnsavedChanges to false on success
+  }
+}, 2500); // 2.5 second debounce time
+
+watch(noteContent, (newContent, oldContent) => {
+  // Trigger save only on actual user edits after initial load and if auto-save is on
+  if (isNoteLoaded.value && newContent !== oldContent && oldContent !== undefined) {
+    console.log('App.vue: noteContent changed, marking unsaved.');
+    noteEditor.hasUnsavedChanges.value = true; // Mark changes
+    if (noteEditor.isAutoSaveEnabled.value) {
+      debouncedSaveNote(); // Trigger the debounced save
+    }
+  }
+});
+
+// Also watch auto-save toggle to trigger immediate save if turned on with pending changes
+watch(noteEditor.isAutoSaveEnabled, (isEnabled) => {
+   if (isEnabled && noteEditor.hasUnsavedChanges.value) {
+       console.log('App.vue: Auto-save enabled with pending changes, triggering save...');
+       debouncedSaveNote(); // Trigger save (or maybe immediate save?)
+   }
+});
+// --- End Auto-Save Logic ---
 
 const updatePatientName = async () => {
  if (selectedPatient.value) {
