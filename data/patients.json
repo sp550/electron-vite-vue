@@ -1,1 +1,16 @@
-[]
+[
+  {
+    "name": "New Patient",
+    "umrn": "",
+    "ward": "",
+    "type": "uuid",
+    "id": "7dae2942-974c-4dd2-ada9-9332a1e2f76a"
+  },
+  {
+    "name": "allhu",
+    "umrn": "",
+    "ward": "",
+    "type": "uuid",
+    "id": "8815477d-d614-42e2-952d-6518414d9241"
+  }
+]

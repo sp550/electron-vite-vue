@@ -1,5 +1,5 @@
 **Priority 1: Core Functionality & Stability**
-- Implement next/previous note navigation (current day notes display).
+- 
 - Import patient list from external program.
 - Asynchronous saves.
 - Auto-backup for each note (own DB with one-minute backups and history revert icon).

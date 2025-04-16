@@ -57,6 +57,10 @@ contextBridge.exposeInMainWorld("electronAPI", {
     ipcRenderer.invoke("list-files", absolutePath),
   getConfigValue: (key: string): Promise<any> => // Added getConfigValue implementation
     ipcRenderer.invoke("get-config-value", key),
+  getPreviousDayNote: (patientId: string, currentDate: string): Promise<string | null> =>
+    ipcRenderer.invoke("get-previous-day-note", patientId, currentDate),
+  getNextDayNote: (patientId: string, currentDate: string): Promise<string | null> =>
+    ipcRenderer.invoke("get-next-day-note", patientId, currentDate),
 });
 
 
@@ -99,6 +103,8 @@ declare global {
       moveFiles: (sourceDir: string, destDir: string) => Promise<void>;
       listFiles: (absolutePath: string) => Promise<string[] | null>;
       getConfigValue: (key: string) => Promise<any>;
+      getPreviousDayNote: (patientId: string, currentDate: string) => Promise<string | null>;
+      getNextDayNote: (patientId: string, currentDate: string) => Promise<string | null>;
     };
   }
 }

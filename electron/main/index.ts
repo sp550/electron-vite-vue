@@ -360,6 +360,41 @@ ipcMain.handle("get-config-value", async (_event, key: string): Promise<any> => 
   }
 });
 
+async function getPreviousDayNote(patientId: string, currentDate: string): Promise<string | null> {
+ // Logic to determine the previous day's note
+ // This is a placeholder, replace with your actual implementation
+ const currentDateObj = new Date(currentDate);
+ const previousDateObj = new Date(currentDateObj.setDate(currentDateObj.getDate() - 1));
+ const previousDate = previousDateObj.toISOString().split('T')[0];
+ return previousDate;
+}
+
+async function getNextDayNote(patientId: string, currentDate: string): Promise<string | null> {
+ // Logic to determine the next day's note
+ // This is a placeholder, replace with your actual implementation
+ const currentDateObj = new Date(currentDate);
+ const nextDateObj = new Date(currentDateObj.setDate(currentDateObj.getDate() + 1));
+ const nextDate = nextDateObj.toISOString().split('T')[0];
+ return nextDate;
+}
+
+ipcMain.handle('get-previous-day-note', async (_event, patientId: string, currentDate: string): Promise<string | null> => {
+ return handleAsyncIpcOperation(
+  "get previous day note",
+  getPreviousDayNote,
+  patientId,
+  currentDate
+ );
+});
+
+ipcMain.handle('get-next-day-note', async (_event, patientId: string, currentDate: string): Promise<string | null> => {
+ return handleAsyncIpcOperation(
+  "get next day note",
+  getNextDayNote,
+  patientId,
+  currentDate
+ );
+});
 
 // --- App Lifecycle ---
 

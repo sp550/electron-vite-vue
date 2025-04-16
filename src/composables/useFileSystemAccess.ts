@@ -159,6 +159,26 @@ export function useFileSystemAccess() {
     return writeFileAbsolute(filePath, content);
   };
 
+  const getPreviousDayNote = (patientId: string, currentDate: string): Promise<string | null> => {
+    if (!patientId || !currentDate) {
+      throw new Error("getPreviousDayNote requires patientId and currentDate.");
+    }
+    return callElectronApi(
+      () => window.electronAPI.getPreviousDayNote(patientId, currentDate),
+      `Error getting previous day note for patient ${patientId} from ${currentDate}`
+    );
+  };
+
+  const getNextDayNote = (patientId: string, currentDate: string): Promise<string | null> => {
+    if (!patientId || !currentDate) {
+      throw new Error("getNextDayNote requires patientId and currentDate.");
+    }
+    return callElectronApi(
+      () => window.electronAPI.getNextDayNote(patientId, currentDate),
+      `Error getting next day note for patient ${patientId} from ${currentDate}`
+    );
+  };
+
   return {
     readFileAbsolute,
     writeFileAbsolute,
@@ -173,5 +193,8 @@ export function useFileSystemAccess() {
     listFiles,
     readFileForDate,
     writeFileForDate,
+    // Export the new functions
+    getPreviousDayNote,
+    getNextDayNote,
   };
 }
