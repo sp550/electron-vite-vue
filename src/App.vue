@@ -192,7 +192,7 @@
 
 <script setup lang="ts">
 declare const window: any;
-import packageJson from '../../package.json';
+import packageJson from '../package.json';
 import { ref, provide, computed, watch, nextTick } from 'vue';
 import { usePatientData } from '@/composables/usePatientData';
 import { useNoteEditor } from '@/composables/useNoteEditor';

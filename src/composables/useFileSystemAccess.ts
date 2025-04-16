@@ -184,6 +184,51 @@ export function useFileSystemAccess() {
       throw error; // Re-throw to be handled by caller
     }
   };
+
+  const readFileForDate = async (
+    patientId: string,
+    date: Date
+  ): Promise<string | null> => {
+    try {
+      const dateString = date.toISOString().split('T')[0];
+      const fileName = `${dateString}.txt`;
+      const basePath = await window.electronAPI.getConfigValue('notesDirectory');
+      const patientDir = await joinPaths(basePath, patientId);
+      const filePath = await joinPaths(patientDir, fileName);
+
+      if (!(await existsAbsolute(filePath))) {
+        return null;
+      }
+
+      return await readFileAbsolute(filePath);
+    } catch (error) {
+      console.error(`Error reading file for date ${date} via IPC:`, error);
+      throw error;
+    }
+  };
+
+  const writeFileForDate = async (
+    patientId: string,
+    date: Date,
+    content: string
+  ): Promise<boolean> => {
+    try {
+      const dateString = date.toISOString().split('T')[0];
+      const fileName = `${dateString}.txt`;
+      const basePath = await window.electronAPI.getConfigValue('notesDirectory');
+      const patientDir = await joinPaths(basePath, patientId);
+      const filePath = await joinPaths(patientDir, fileName);
+
+      if (!(await existsAbsolute(patientDir))) {
+        await mkdirAbsolute(patientDir);
+      }
+
+      return await writeFileAbsolute(filePath, content);
+    } catch (error) {
+      console.error(`Error writing file for date ${date} via IPC:`, error);
+      throw error;
+    }
+  };
   return {
     readFileAbsolute,
     writeFileAbsolute,
@@ -195,6 +240,8 @@ export function useFileSystemAccess() {
     showOpenDialog,
     joinPaths,
     moveFiles,
-    listFiles
+    listFiles,
+    readFileForDate,
+    writeFileForDate,
   };
 }

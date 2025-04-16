@@ -26,47 +26,50 @@ export function useConfig() {
   // We need file system access specific to userData for the config file itself
   // Let's add dedicated functions for this specific purpose, separate from the
   // main data file access which will become path-aware.
-    const { joinPaths } = useFileSystemAccess(); // Get the async joinPaths
+  const { joinPaths } = useFileSystemAccess(); // Get the async joinPaths
 
-    const readConfigFile = async (): Promise<string | null> => {
-      try {
-        let configPath: string;
-        if ((window as any).electronAPI.isPackaged) {
-          // Production: Load from adjacent to the executable
-          const appPath = await window.electronAPI.getAppPath();
-          configPath = await joinPaths(appPath, "resources",CONFIG_FILENAME);
-        } else {
-          // Development: Load from public directory
-          configPath = await joinPaths(".", "public", CONFIG_FILENAME);
-        }
-        return await window.electronAPI.readFileAbsolute(configPath);
-      } catch (error: any) {
-        console.error("Error reading config file:", error);
-        return null;
+  const readConfigFile = async (): Promise<string | null> => {
+    try {
+      let configPath: string;
+      if ((window as any).electronAPI.isProduction()) {
+        let isProd = (window as any).electronAPI.isProduction() 
+        console.log(isProd);
+        const appPath = await window.electronAPI.getAppPath();
+        configPath = await joinPaths(appPath, "resources", CONFIG_FILENAME);
+        console.log("loading config.json for production from:" + configPath);
+      } else {
+        // Development: Load from public directory
+        configPath = await joinPaths(".", "public", CONFIG_FILENAME);
+        console.log("loading config.json for development from:" + configPath);
       }
-    };
-    
-    const writeConfigFile = async (configData: AppConfig): Promise<boolean> => {
-      try {
-        let configPath: string;
-        if ((window as any).electronAPI.isPackaged) {
-          // Production: Load from adjacent to the executable
-          const appPath = await window.electronAPI.getAppPath();
-          configPath = await joinPaths(appPath, "resources",CONFIG_FILENAME);
-        } else {
-          // Development: Load from public directory
-          configPath = await joinPaths(".", "public", CONFIG_FILENAME);
-        }
-        await window.electronAPI.writeFileAbsolute(
-          configPath,
-          JSON.stringify(configData, null, 2)
-        );
-        return true;
-      } catch (error: any) {
-        console.error("Error writing config file:", error);
-        return false;
+      return await window.electronAPI.readFileAbsolute(configPath);
+    } catch (error: any) {
+      console.error("Error reading config file:", error);
+      return null;
+    }
+  };
+
+  const writeConfigFile = async (configData: AppConfig): Promise<boolean> => {
+    try {
+      let configPath: string;
+      if ((window as any).electronAPI.isProduction()) {
+        // Production: Load from adjacent to the executable
+        const appPath = await window.electronAPI.getAppPath();
+        configPath = await joinPaths(appPath, "resources", CONFIG_FILENAME);
+      } else {
+        // Development: Load from public directory
+        configPath = await joinPaths(".", "public", CONFIG_FILENAME);
       }
-    };
+      await window.electronAPI.writeFileAbsolute(
+        configPath,
+        JSON.stringify(configData, null, 2)
+      );
+      return true;
+    } catch (error: any) {
+      console.error("Error writing config file:", error);
+      return false;
+    }
+  };
   const loadConfig = async () => {
     if (isConfigLoaded.value) return; // Don't reload if already loaded
     isLoading.value = true;

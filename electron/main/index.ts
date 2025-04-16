@@ -355,6 +355,21 @@ ipcMain.handle("get-app-path", () => {
   const appPath = app.getPath("exe");
   return path.dirname(appPath);
 });
+
+ipcMain.handle("get-config-value", async (_event: Electron.IpcMainInvokeEvent, key: string): Promise<any> => {
+  const appPath = app.getPath("exe");
+  const appDir = path.dirname(appPath);
+  const configPath = path.join(appDir, "resources", "config.json");
+
+  try {
+    const configContent = await fs.promises.readFile(configPath, "utf-8");
+    const config = JSON.parse(configContent);
+    return config[key];
+  } catch (error: any) {
+    console.error(`Error getting config value for key ${key}:`, error);
+    throw new Error(`Failed to get config value for key ${key}`);
+  }
+});
 // --- App Lifecycle ---
 
 const DEFAULT_CONFIG = {

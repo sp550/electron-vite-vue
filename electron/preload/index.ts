@@ -10,7 +10,9 @@ import {
   OpenDialogReturnValue,
 } from "electron";
 // import path from 'node:path'; // <-- REMOVE THIS IMPORT
-
+let isProduction: Boolean =
+  process.env.NODE_ENV === "production";
+console.log("preload thinks isProduction is:" + isProduction)
 // --- Expose Electron APIs to Renderer ---
 contextBridge.exposeInMainWorld("electronAPI", {
   // File System Operations using ABSOLUTE paths (keep these)
@@ -57,7 +59,8 @@ contextBridge.exposeInMainWorld("electronAPI", {
   joinPaths: (...paths: string[]): Promise<string> =>
     ipcRenderer.invoke("join-paths", ...paths),
   getAppPath: (): Promise<string> => ipcRenderer.invoke("get-app-path"),
-  isPackaged: ():Boolean => app.isPackaged,
+  isPackaged: (): Boolean => app.isPackaged,
+  isProduction: (): Boolean => isProduction,
   moveFiles: (sourceDir: string, destDir: string): Promise<void> =>
     ipcRenderer.invoke("move-files", sourceDir, destDir),
   listFiles: (absolutePath: string): Promise<string[] | null> =>
@@ -105,7 +108,8 @@ declare global {
       getAppPath: () => Promise<string>;
       moveFiles: (sourceDir: string, destDir: string) => Promise<void>;
       listFiles: (absolutePath: string) => Promise<string[] | null>;
-    };
-    // monaco: typeof monaco; // Optional
-  }
+    getConfigValue: (key: string) => Promise<any>;
+  };
+  // monaco: typeof monaco; // Optional
+}
 }
