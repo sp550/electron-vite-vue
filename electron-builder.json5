@@ -36,6 +36,7 @@
   },
   "linux": {
     "target": [
+      "dir"
     ],
     "artifactName": "${productName}-Linux-${version}.${ext}",
   "extraResources": [

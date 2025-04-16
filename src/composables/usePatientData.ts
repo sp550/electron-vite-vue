@@ -494,6 +494,11 @@ const updatePatient = async (updatedPatient: Patient): Promise<boolean> => {
     return patients.value.find((p) => p.id === patientId);
   };
 
+  const getPatientByUmrn = (umrn: string): Patient | undefined => {
+    // In this system, if type is 'umrn', the id *is* the umrn.
+    return patients.value.find((p) => p.type === 'umrn' && p.id === umrn);
+  };
+
   // Watch for config changes (specifically dataDirectory being set/unset) and reload patients
   const { dataDirectoryChangeFlag } = useConfig();
 
@@ -531,6 +536,7 @@ const updatePatient = async (updatedPatient: Patient): Promise<boolean> => {
     addPatient,
     removePatient,
     getPatientById,
+    getPatientByUmrn, // <-- Add export here
     updatePatient,
     savePatients,
     mergePatientData,

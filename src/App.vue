@@ -53,7 +53,8 @@
             <v-list-item-title class="text-caption">
                Version: {{ version }}<br>
                Packaged: {{ isPackaged ? 'Yes' : 'No' }}<br>
-               Environment: {{ nodeEnv }}
+               Environment: {{ nodeEnv }}<br>
+               Config Path: {{ configState.configPath.value || 'Loading...' }}
             </v-list-item-title>
          </v-list-item>
          <!-- Data Directory Info aligned at bottom -->
@@ -96,9 +97,9 @@
                   <v-toolbar density="compact" color="grey-lighten-3">
                      <v-toolbar-title class="text-subtitle-1">
                      </v-toolbar-title>
-                     <v-text-field v-model="selectedPatient.name" label="Patient Name" hide-details single-line
+                     <v-text-field v-model="selectedPatient!.name" label="Patient Name" hide-details single-line
                      @blur="updatePatientName"></v-text-field>
-                     <v-text-field v-model="selectedPatient.umrn" label="Patient UMRN" hide-details single-line
+                     <v-text-field v-model="selectedPatient!.umrn" label="Patient UMRN" hide-details single-line
                      @blur="updatePatientUmrn"></v-text-field>
                      <v-spacer></v-spacer>
                      <v-btn icon="mdi-chevron-left" @click="goToPreviousDay" :disabled="!selectedPatientId || noteEditor.isLoading.value" title="Previous Day" size="small"></v-btn>
@@ -398,7 +399,7 @@ const exportData = () => {
 const selectDataDirectory = async () => {
    showSnackbar("Select the folder where patient data should be stored.", "info");
    try {
-      const result = await showOpenDialog({
+      const result = await window.electronAPI.showOpenDialog({
          title: 'Select Data Directory',
          properties: ['openDirectory', 'createDirectory'],
       });

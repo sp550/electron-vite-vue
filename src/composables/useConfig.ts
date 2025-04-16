@@ -1,8 +1,6 @@
 import { ref, readonly, onMounted, computed } from "vue";
 import type { AppConfig } from "@/types";
-import { useFileSystemAccess } from "./useFileSystemAccess";
 
-const CONFIG_FILENAME = "config.json";
 const isLoading = ref(false);
 const error = ref<string | null>(null);
 
@@ -16,24 +14,20 @@ const defaultConfig: AppConfig = {
 const config = ref<AppConfig>({ ...defaultConfig });
 const isConfigLoaded = ref(false);
 const dataDirectoryChangeFlag = ref(0); // Used to trigger reactivity on path change
+const configPathDisplay = ref<string | null>(null); // Ref to store the config path for display
 
 export function useConfig() {
-  const { joinPaths } = useFileSystemAccess();
 
   // Helper function to determine the correct config file path
   const getConfigPath = async (): Promise<string> => {
-    if ((window as any).electronAPI.isProduction()) {
-      const appPath = await window.electronAPI.getAppPath();
-      return await joinPaths(appPath, "resources", CONFIG_FILENAME);
-    } else {
-      // Development: Load from public directory relative to project root
-      return await joinPaths(".", "public", CONFIG_FILENAME);
-    }
+    // Use the reliable IPC call to get the path from the ma   in process
+    return await window.electronAPI.getConfigPath();
   };
 
   const readConfigFile = async (): Promise<AppConfig | null> => {
     try {
       const configPath = await getConfigPath();
+      configPathDisplay.value = configPath; // Store the path
       const fileContent = await window.electronAPI.readFileAbsolute(configPath);
       return fileContent ? JSON.parse(fileContent) : null;
     } catch (error: any) {
@@ -74,6 +68,13 @@ export function useConfig() {
       console.error("Error loading or parsing config:", err);
       error.value = `Failed to load configuration: ${err.message}. Using defaults.`;
       config.value = { ...defaultConfig }; // Fallback to defaults on error
+      // Attempt to get path even on error, might still be useful for debugging
+      try {
+        configPathDisplay.value = await getConfigPath();
+      } catch (pathError) {
+        console.error("Could not determine config path on error:", pathError);
+        configPathDisplay.value = "Error determining path";
+      }
       isConfigLoaded.value = true; // Mark as loaded even on error
     } finally {
       isLoading.value = false;
@@ -121,5 +122,6 @@ export function useConfig() {
     saveConfig,
     setDataDirectory,
     dataDirectoryChangeFlag: readonly(dataDirectoryChangeFlag),
+    configPath: readonly(configPathDisplay), // Expose the config path
   };
 }

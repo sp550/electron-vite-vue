@@ -168,6 +168,10 @@ ipcMain.handle("get-app-path", (): string =>
     handleSyncIpcOperation("get app path", () => path.dirname(app.getPath("exe")))
 );
 
+ipcMain.handle("get-config-path", (): string =>
+    handleSyncIpcOperation("get config path", getConfigPath) // Use existing function
+);
+
 
 // -- Dialogs --
 ipcMain.handle(
@@ -360,7 +364,7 @@ ipcMain.handle("get-config-value", async (_event, key: string): Promise<any> => 
   }
 });
 
-async function getPreviousDayNote(patientId: string, currentDate: string): Promise<string | null> {
+async function getPreviousDayNote(_patientId: string, currentDate: string): Promise<string | null> {
  // Logic to determine the previous day's note
  // This is a placeholder, replace with your actual implementation
  const currentDateObj = new Date(currentDate);
@@ -369,7 +373,7 @@ async function getPreviousDayNote(patientId: string, currentDate: string): Promi
  return previousDate;
 }
 
-async function getNextDayNote(patientId: string, currentDate: string): Promise<string | null> {
+async function getNextDayNote(_patientId: string, currentDate: string): Promise<string | null> {
  // Logic to determine the next day's note
  // This is a placeholder, replace with your actual implementation
  const currentDateObj = new Date(currentDate);
