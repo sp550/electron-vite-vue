@@ -1,234 +1,164 @@
 // src/composables/useFileSystemAccess.ts
-// This composable now primarily just maps calls to the electronAPI using absolute paths
+// Provides composable functions for interacting with the filesystem via Electron's IPC.
 
-export function useFileSystemAccess() {
-  const readFileAbsolute = async (
-    absolutePath: string
-  ): Promise<string | null> => {
-    try {
-      // Basic validation
-      if (!absolutePath)
-        throw new Error("readFileAbsolute requires a valid absolute path.");
-      return await window.electronAPI.readFileAbsolute(absolutePath);
-    } catch (error) {
-      console.error(
-        `Error reading absolute file ${absolutePath} via IPC:`,
-        error
-      );
-      // Consider specific error handling or re-throwing
-      throw error; // Re-throw to be handled by caller
+// Helper function to wrap Electron API calls with error handling
+async function callElectronApi<T>(
+  apiCall: () => Promise<T>,
+  errorMessagePrefix: string
+): Promise<T> {
+  try {
+    return await apiCall();
+  } catch (error) {
+    // Re-throw the error for the caller to handle appropriately
+    throw new Error(`${errorMessagePrefix}: ${(error as Error).message || error}`);
+  }
+}
+
+// Helper function for validating absolute paths
+function validateAbsolutePath(path: string | undefined | null, functionName: string): void {
+    if (!path) {
+        throw new Error(`${functionName} requires a valid absolute path.`);
     }
+}
+
+
+// Main composable function
+export function useFileSystemAccess() {
+
+  // Define joinPaths first as it's used by getNoteFilePath
+  const joinPaths = async (...paths: string[]): Promise<string> => {
+    if (!paths || paths.length === 0) {
+        // Throw error instead of returning empty string for clarity
+        throw new Error("joinPaths requires at least one path argument.");
+    }
+    // Need to await here because getNoteFilePath uses it
+    const joined = await callElectronApi(
+      () => window.electronAPI.joinPaths(...paths),
+      `Error joining paths`
+    );
+    return joined;
   };
 
-  const writeFileAbsolute = async (
-    absolutePath: string,
-    content: string
-  ): Promise<boolean> => {
-    try {
-      if (!absolutePath)
-        throw new Error("writeFileAbsolute requires a valid absolute path.");
-      await window.electronAPI.writeFileAbsolute(absolutePath, content);
-      return true;
-    } catch (error) {
-      console.error(
-        `Error writing absolute file ${absolutePath} via IPC:`,
-        error
-      );
-      throw error; // Re-throw
-    }
+  // Helper function to construct the note file path (MOVED INSIDE)
+  async function getNoteFilePath(patientId: string, date: Date): Promise<string> {
+      const dateString = date.toISOString().split('T')[0];
+      const fileName = `${dateString}.txt`;
+      const basePath = await window.electronAPI.getConfigValue('notesDirectory');
+      // Now it can access joinPaths correctly
+      const patientDir = await joinPaths(basePath, patientId);
+      return joinPaths(patientDir, fileName);
+  }
+
+
+  const readFileAbsolute = (absolutePath: string): Promise<string | null> => {
+    validateAbsolutePath(absolutePath, 'readFileAbsolute');
+    return callElectronApi(
+      () => window.electronAPI.readFileAbsolute(absolutePath),
+      `Error reading file ${absolutePath}`
+    );
+  };
+
+  const writeFileAbsolute = async (absolutePath: string, content: string): Promise<boolean> => {
+    validateAbsolutePath(absolutePath, 'writeFileAbsolute');
+    await callElectronApi(
+      () => window.electronAPI.writeFileAbsolute(absolutePath, content),
+      `Error writing file ${absolutePath}`
+    );
+    return true; // Indicate success
   };
 
   const deleteFileAbsolute = async (absolutePath: string): Promise<boolean> => {
-    try {
-      if (!absolutePath)
-        throw new Error("deleteFileAbsolute requires a valid absolute path.");
-      await window.electronAPI.deleteFileAbsolute(absolutePath);
-      return true;
-    } catch (error) {
-      console.error(
-        `Error deleting absolute file ${absolutePath} via IPC:`,
-        error
-      );
-      throw error;
-    }
+    validateAbsolutePath(absolutePath, 'deleteFileAbsolute');
+    await callElectronApi(
+      () => window.electronAPI.deleteFileAbsolute(absolutePath),
+      `Error deleting file ${absolutePath}`
+    );
+    return true; // Indicate success
   };
 
-  const existsAbsolute = async (absolutePath: string): Promise<boolean> => {
-    try {
-      if (!absolutePath)
-        throw new Error("existsAbsolute requires a valid absolute path.");
-      return await window.electronAPI.existsAbsolute(absolutePath);
-    } catch (error) {
-      console.error(
-        `Error checking existence (absolute) for ${absolutePath} via IPC:`,
-        error
-      );
-      throw error;
-    }
+  const existsAbsolute = (absolutePath: string): Promise<boolean> => {
+    validateAbsolutePath(absolutePath, 'existsAbsolute');
+    return callElectronApi(
+      () => window.electronAPI.existsAbsolute(absolutePath),
+      `Error checking existence for ${absolutePath}`
+    );
   };
 
   const mkdirAbsolute = async (absolutePath: string): Promise<boolean> => {
-    try {
-      if (!absolutePath)
-        throw new Error("mkdirAbsolute requires a valid absolute path.");
-      await window.electronAPI.mkdirAbsolute(absolutePath);
-      return true;
-    } catch (error) {
-      console.error(
-        `Error creating directory (absolute) ${absolutePath} via IPC:`,
-        error
-      );
-      throw error;
-    }
+    validateAbsolutePath(absolutePath, 'mkdirAbsolute');
+    await callElectronApi(
+      () => window.electronAPI.mkdirAbsolute(absolutePath),
+      `Error creating directory ${absolutePath}`
+    );
+    return true; // Indicate success
   };
 
   const rmdirAbsolute = async (absolutePath: string): Promise<boolean> => {
-    try {
-      if (!absolutePath)
-        throw new Error("rmdirAbsolute requires a valid absolute path.");
-      await window.electronAPI.rmdirAbsolute(absolutePath);
-      return true;
-    } catch (error) {
-      console.error(
-        `Error removing directory (absolute) ${absolutePath} via IPC:`,
-        error
-      );
-      throw error;
-    }
+    validateAbsolutePath(absolutePath, 'rmdirAbsolute');
+    await callElectronApi(
+      () => window.electronAPI.rmdirAbsolute(absolutePath),
+      `Error removing directory ${absolutePath}`
+    );
+    return true; // Indicate success
   };
 
-  // Dialog functions remain the same as they don't depend on paths in the same way
-  const moveFiles = async (sourceDir: string, destDir: string): Promise<void> => {
-    try {
-      if (!sourceDir || !destDir) {
+  const moveFiles = (sourceDir: string, destDir: string): Promise<void> => {
+     if (!sourceDir || !destDir) {
         throw new Error("moveFiles requires valid source and destination directories.");
-      }
-      await window.electronAPI.moveFiles(sourceDir, destDir);
-    } catch (error) {
-      console.error(`Error moving files from ${sourceDir} to ${destDir} via IPC:`, error);
-      throw error;
-    }
+     }
+    return callElectronApi(
+      () => window.electronAPI.moveFiles(sourceDir, destDir),
+      `Error moving files from ${sourceDir} to ${destDir}`
+    );
   };
 
-  const listFiles = async (absolutePath: string): Promise<string[] | null> => {
-    try {
-      if (!absolutePath)
-        throw new Error("listFiles requires a valid absolute path.");
-      return await window.electronAPI.listFiles(absolutePath);
-    } catch (error) {
-      console.error(
-        `Error listing files in directory (absolute) ${absolutePath} via IPC:`,
-        error
-      );
-      throw error;
-    }
+  const listFiles = (absolutePath: string): Promise<string[] | null> => {
+    validateAbsolutePath(absolutePath, 'listFiles');
+    return callElectronApi(
+      () => window.electronAPI.listFiles(absolutePath),
+      `Error listing files in directory ${absolutePath}`
+    );
   };
 
-  const showConfirmDialog = async (
-    options: Electron.MessageBoxOptions
-  ): Promise<Electron.MessageBoxReturnValue> => {
-    try {
-      return await window.electronAPI.showConfirmDialog(options);
-    } catch (error) {
-      console.error(`Error showing confirm dialog via IPC:`, error);
-      // Return a default/error state if necessary, though invoke should handle rejection
-      return { response: -1, checkboxChecked: false }; // Example error state
-    }
-  };
-  const showOpenDialog = async (
-    options: Electron.OpenDialogOptions
-  ): Promise<Electron.OpenDialogReturnValue> => {
-    console.log(
-      "useFileSystemAccess: Calling window.electronAPI.showOpenDialog"
-    ); // Add log
-    try {
-      const dialogResult = await window.electronAPI.showOpenDialog(options);
-      console.log("useFileSystemAccess: Dialog result received:", dialogResult); // Add log
-      // Ensure a valid structure is always returned even if IPC somehow resolves weirdly
-      if (
-        typeof dialogResult !== "object" ||
-        dialogResult === null ||
-        typeof dialogResult.canceled !== "boolean" ||
-        !Array.isArray(dialogResult.filePaths)
-      ) {
-        console.error(
-          "useFileSystemAccess: Invalid result structure received from electronAPI.showOpenDialog:",
-          dialogResult
-        );
-        // Force a rejection or return a default cancelled state
-        throw new Error(
-          "Invalid response received from showOpenDialog IPC handler."
-        );
-        // OR return { canceled: true, filePaths: [] }; (less ideal as it hides errors)
-      }
-      return dialogResult;
-    } catch (error: any) {
-      console.error(
-        `useFileSystemAccess: Error during showOpenDialog IPC call:`,
-        error
-      ); // Log specific error location
-      throw error; // Re-throw the error to ensure the promise rejects
-    }
-  };
-  // MODIFIED: Make joinPaths async and await the IPC call
-  const joinPaths = async (...paths: string[]): Promise<string> => {
-    try {
-      // Ensure at least one path is provided, otherwise invoke might fail/be meaningless
-      if (!paths || paths.length === 0) {
-        console.warn("joinPaths called with no arguments.");
-        return ""; // Or throw an error
-      }
-      return await window.electronAPI.joinPaths(...paths);
-    } catch (error) {
-      console.error("Error invoking joinPaths via IPC:", error);
-      throw error; // Re-throw to be handled by caller
-    }
+  const showConfirmDialog = (options: Electron.MessageBoxOptions): Promise<Electron.MessageBoxReturnValue> => {
+    return callElectronApi(
+      () => window.electronAPI.showConfirmDialog(options),
+      `Error showing confirm dialog`
+    );
   };
 
-  const readFileForDate = async (
-    patientId: string,
-    date: Date
-  ): Promise<string | null> => {
-    try {
-      const dateString = date.toISOString().split('T')[0];
-      const fileName = `${dateString}.txt`;
-      const basePath = await window.electronAPI.getConfigValue('notesDirectory');
-      const patientDir = await joinPaths(basePath, patientId);
-      const filePath = await joinPaths(patientDir, fileName);
+  const showOpenDialog = (options: Electron.OpenDialogOptions): Promise<Electron.OpenDialogReturnValue> => {
+    return callElectronApi(
+      () => window.electronAPI.showOpenDialog(options),
+      `Error showing open dialog`
+    );
+  };
 
-      if (!(await existsAbsolute(filePath))) {
+  // --- Date-specific file operations ---
+
+  const readFileForDate = async (patientId: string, date: Date): Promise<string | null> => {
+    const filePath = await getNoteFilePath(patientId, date);
+    const fileExists = await existsAbsolute(filePath);
+    if (!fileExists) {
         return null;
-      }
-
-      return await readFileAbsolute(filePath);
-    } catch (error) {
-      console.error(`Error reading file for date ${date} via IPC:`, error);
-      throw error;
     }
+    return readFileAbsolute(filePath);
   };
 
-  const writeFileForDate = async (
-    patientId: string,
-    date: Date,
-    content: string
-  ): Promise<boolean> => {
-    try {
-      const dateString = date.toISOString().split('T')[0];
-      const fileName = `${dateString}.txt`;
-      const basePath = await window.electronAPI.getConfigValue('notesDirectory');
-      const patientDir = await joinPaths(basePath, patientId);
-      const filePath = await joinPaths(patientDir, fileName);
+  const writeFileForDate = async (patientId: string, date: Date, content: string): Promise<boolean> => {
+    const filePath = await getNoteFilePath(patientId, date);
+    // Need the directory path separately to check/create it
+    const basePath = await window.electronAPI.getConfigValue('notesDirectory');
+    const patientDir = await joinPaths(basePath, patientId);
 
-      if (!(await existsAbsolute(patientDir))) {
+    const dirExists = await existsAbsolute(patientDir);
+    if (!dirExists) {
         await mkdirAbsolute(patientDir);
-      }
-
-      return await writeFileAbsolute(filePath, content);
-    } catch (error) {
-      console.error(`Error writing file for date ${date} via IPC:`, error);
-      throw error;
     }
+
+    return writeFileAbsolute(filePath, content);
   };
+
   return {
     readFileAbsolute,
     writeFileAbsolute,
@@ -238,7 +168,7 @@ export function useFileSystemAccess() {
     rmdirAbsolute,
     showConfirmDialog,
     showOpenDialog,
-    joinPaths,
+    joinPaths, // Still expose joinPaths
     moveFiles,
     listFiles,
     readFileForDate,
