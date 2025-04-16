@@ -1,38 +1,36 @@
+**Priority 1: Core Functionality & Stability**
+- Import patient list from external program.
+- Implement next/previous note navigation (current day notes display).
+- Asynchronous saves.
+- Auto-backup for each note (own DB with one-minute backups and history revert icon).
+- Save status icon (indicates if note has been saved).
+- Confirmation dialog on window close if unsaved changes.
+- Manual plain text export/import (including .txt export and automated regular export).
 
+**Priority 2: Basic UI & Configuration**
+- Display config.json for debugging.
+- Basic settings/config implementation.
+- Basic common hotkeys.
+- Button with dropdown menu to open various directories.
 
+**Priority 3: Advanced UI & Editor Enhancements**
+- Three-dot menu with extended options (toggle auto-save, multiple directories, settings).
+- Settings icon opens modal/card (move "change data directory" button inside).
+- Sidebar on hover; toggle sidebar left/right.
+- Title bar display options (small, medium, large).
+- Monaco editor integration:
+  - Insert options from previous project.
+  - Implement templates and snippets.
+  - Change font to non-monospace.
 
+**Priority 4: Additional Features**
+- Parse additional patient content (issues and plan).
+- Quick add feature (inspired by bloodproducts generator).
 
-## small features
-display config.json (for debugging)
-async save
-  - .txt export
-  - automated regular export
-button with dropdown menu for open various dirs
+**Priority 5: Large-Scale Features**
+- Todo list for patients.
+- Issues extractor.
+- Report generator.
 
-settings and config implementation
-Basic common hotkeys
-# After minimal functional product
-1. Refactor and reoptimise for understanding before everything gets too complex for me
-
-
-## monaco
- - insert options from previous project
- - implement templates and snippets from previous
- - change font to non-monospace
-
-
-
-### UI
-settings icon which opens up a modal/card. move the "change data directory" button to inside this modal
- - sidebar on hover edge
-  - toggle sidebar left and right
-  3 dot menu
-  s,m,l display optons for title bar
-  
-# medium features
-parse other patient content such as issues and plan
-quick add feature stolen from bloodproducts generator
-# Large Features
-todo for patients
-issues extractor
-report generator
+**Post Minimal Functional Product**
+- Refactor and re-optimize code for clarity and maintainability.

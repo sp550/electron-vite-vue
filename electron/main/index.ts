@@ -18,7 +18,7 @@ const createWindow = () => {
   const { width, height } = screen.getPrimaryDisplay().workAreaSize;
 
   // Calculate window dimensions
-  const windowWidth = process.env.NODE_ENV === 'development' ? Math.round((width / 3) * 2) : Math.round(width / 3); // 2/3 of screen width in development, 1/3 otherwise
+  const windowWidth = process.env.NODE_ENV === 'development' ? Math.round((width / 3) * 1.) : Math.round(width / 3); // 2/3 of screen width in development, 1/3 otherwise
   const windowHeight = height; // 100% of screen height
 
   // Calculate window position (top right)
