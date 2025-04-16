@@ -338,9 +338,12 @@ const loadSelectedNote = async () => {
       // Check the state *after* loadNote completes
       if (noteEditor.currentNote.value && !noteEditor.error.value) {
          // Successfully loaded or created a new note structure
-         noteContent.value = noteEditor.currentNote.value.content;
+         noteEditor.hasUnsavedChanges.value = false; // Set BEFORE watcher trigger
+         await nextTick(); // Ensure state update propagates before changing noteContent
+         noteContent.value = noteEditor.currentNote.value.content; // Triggers watcher
          currentNote.value = noteEditor.currentNote.value; // Keep local ref synced if needed elsewhere
          isNoteLoaded.value = true;
+         // noteEditor.hasUnsavedChanges.value = false; // Moved up
       } else {
          // Failed to load or determine path, or an error occurred
          noteContent.value = ''; // Clear content on error/failure
@@ -377,10 +380,11 @@ const saveCurrentNote = async () => {
    }
    const success = await noteEditor.saveCurrentNote(selectedPatient.value, noteToSave);
    if (success) {
-      showSnackbar('Note saved successfully.', 'success');
+      // showSnackbar('Note saved successfully.', 'success');
       currentNote.value = { ...noteToSave };
    } else {
       showSnackbar(`Failed to save note: ${noteEditor.error.value || 'Unknown error'}`, 'error');
+      noteEditor.hasUnsavedChanges.value = false; // Reset on failure
    }
 };
 
@@ -497,8 +501,12 @@ watch(noteContent, (newContent, oldContent) => {
   // Trigger save only on actual user edits after initial load and if auto-save is on
   if (isNoteLoaded.value && newContent !== oldContent && oldContent !== undefined) {
     console.log('App.vue: noteContent changed, marking unsaved.');
-    noteEditor.hasUnsavedChanges.value = true; // Mark changes
-    if (noteEditor.isAutoSaveEnabled.value) {
+     console.log('App.vue watch(noteContent): isAutoSaveEnabled =', noteEditor.isAutoSaveEnabled.value);
+    noteEditor.setUnsavedChanges(true)
+   //   noteEditor.hasUnsavedChanges.value = true
+     // Mark changes
+     if (noteEditor.isAutoSaveEnabled.value) {
+        console.log("lets deBOUNCE, hasunsaved changes:", noteEditor.hasUnsavedChanges.value)
       debouncedSaveNote(); // Trigger the debounced save
     }
   }

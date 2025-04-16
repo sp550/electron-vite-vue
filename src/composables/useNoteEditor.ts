@@ -97,8 +97,6 @@ export function useNoteEditor() {
     currentPatient.value = patient; // Update internal ref
     currentNote.value = { ...noteToSave }; // Update internal ref (might be useful for UI state)
 
-    // const patient = currentPatient.value; // Use argument instead
-    // const note = currentNote.value; // Use argument instead
     isLoading.value = true;
     error.value = null;
 
@@ -115,7 +113,8 @@ export function useNoteEditor() {
       // Prepare the note object from the argument, ensuring date format is correct
       const finalNoteToSave = { ...noteToSave, date: noteToSave.date.split('T')[0] };
       console.log('useNoteEditor: Content being sent to writeFileAbsolute:', JSON.stringify(finalNoteToSave.content)); // Log the content being saved
-      await writeFileAbsolute(absolutePath, JSON.stringify(finalNoteToSave, null, 2));
+      const writeResult = await writeFileAbsolute(absolutePath, JSON.stringify(finalNoteToSave, null, 2)); // ADDED LOG
+      console.log('useNoteEditor: writeFileAbsolute result = ', writeResult); // ADDED LOG
       hasUnsavedChanges.value = false;
       return true;
     } catch (err: any) {
@@ -128,12 +127,9 @@ export function useNoteEditor() {
     }
   };
 
-  // --- REMOVED old watch and debouncedSave logic ---
-  // The auto-save logic will now be handled in the component (App.vue)
-  // that has direct access to the v-model state.
-  // const debouncedSave = debounce(async () => { ... }, 2500);
-  // watch(() => currentNote.value?.content, ...);
-  // --- END REMOVED ---
+function setUnsavedChanges(bool: boolean) {
+  hasUnsavedChanges.value = bool;
+}
 
   return {
     isLoading,
@@ -141,7 +137,9 @@ export function useNoteEditor() {
     currentNote,
     isAutoSaveEnabled,
     hasUnsavedChanges: computed(() => hasUnsavedChanges.value),
+    setUnsavedChanges,
     loadNote,
     saveCurrentNote,
+    debounce
   };
 }
