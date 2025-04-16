@@ -41,8 +41,6 @@
                <v-list-item-subtitle v-if="patient.umrn || patient.ward">
                   {{ patient.umrn ? `UMRN: ${patient.umrn}` : '' }} {{ patient.ward ? `Ward: ${patient.ward}` : '' }}
                </v-list-item-subtitle>
-               <template #append>
-               </template>
             </v-list-item>
          </v-list>
 
@@ -106,7 +104,6 @@
                            <v-icon start>mdi-account-circle-outline</v-icon>
                         </v-toolbar-title>
                            <v-text-field
-                             v-if="selectedPatient"
                              v-model="selectedPatient.name"
                              label="Patient Name"
                              hide-details
@@ -114,7 +111,6 @@
                              @blur="updatePatientName"
                            ></v-text-field>
                            <v-text-field
-                             v-if="selectedPatient"
                              v-model="selectedPatient.umrn"
                              label="Patient UMRN"
                              hide-details
@@ -214,7 +210,7 @@ const duplicatePatient = ref<Patient | null>(null);
 const isNoteLoaded = ref(false);
 const version = packageJson.version;
 const isPackaged = (window as any).electronAPI.isPackaged
-// Composables
+
 const configState = useConfig();
 const patientData = usePatientData();
 const noteEditor = useNoteEditor();
@@ -222,7 +218,6 @@ const { showOpenDialog } = useFileSystemAccess();
 const { smAndUp } = useDisplay();
 const nodeEnv = computed(() => process.env.NODE_ENV);
 
-// --- Computed ---
 const selectedPatient = computed<Patient | undefined>(() => {
    if (!selectedPatientId.value) return undefined;
    return patientData.getPatientById(selectedPatientId.value);
@@ -238,7 +233,6 @@ const noteDateDisplay = computed(() => {
    }
 });
 
-// --- Methods ---
 const showSnackbar = (text: string, color: 'success' | 'error' | 'info' = 'info') => {
    snackbar.value.text = text;
    snackbar.value.color = color;
@@ -247,7 +241,6 @@ const showSnackbar = (text: string, color: 'success' | 'error' | 'info' = 'info'
 provide('showSnackbar', showSnackbar);
 
 const selectPatient = (patientId: string) => {
-   console.log('Selecting patient:', patientId);
    selectedPatientId.value = patientId;
    loadSelectedNote();
 };
@@ -270,8 +263,8 @@ const addNewPatient = async () => {
       } else {
          showSnackbar(`Failed to add patient: ${patientData.error.value || 'Unknown error'}`, 'error');
       }
-   } catch (e) {
-      console.log("Error:" + e);
+   } catch (e: any) {
+      showSnackbar(`Error adding patient: ${e.message || e}`, 'error');
    }
 };
 
@@ -303,16 +296,20 @@ const loadDuplicatePatient = () => {
    }
 };
 
+const clearSelectedPatientState = () => {
+   selectedPatientId.value = null;
+   noteContent.value = '';
+   currentNote.value = null;
+   isNoteLoaded.value = false;
+};
+
 const confirmRemovePatient = async (patient: Patient) => {
    const success = await patientData.removePatient(patient.id);
    if (success) {
       showSnackbar(`Patient "${patient.name}" removed.`, 'info');
       // If the removed patient was selected, clear selection
       if (selectedPatientId.value === patient.id) {
-         selectedPatientId.value = null;
-         noteContent.value = '';
-         currentNote.value = null;
-         isNoteLoaded.value = false;
+         clearSelectedPatientState();
       }
    } else {
       showSnackbar(`Failed to remove patient: ${patientData.error.value || 'Unknown error'}`, 'error');
@@ -321,17 +318,16 @@ const confirmRemovePatient = async (patient: Patient) => {
 
 const loadSelectedNote = async () => {
    if (!selectedPatientId.value) {
-      noteContent.value = '';
-      currentNote.value = null;
-      isNoteLoaded.value = false;
+      clearSelectedPatientState();
       return;
    }
 
-   console.log(`Loading note for patient ID: ${selectedPatientId.value} and date: ${selectedDate.value}`);
    isNoteLoaded.value = false; // Set to false before loading
    try {
       if (!selectedPatient.value) {
-         console.warn('No patient selected, cannot load note.');
+         // This case should ideally not happen if selectedPatientId is set, but good for safety
+         showSnackbar('Cannot load note: Patient data not found.', 'error');
+         clearSelectedPatientState();
          return;
       }
       const loadedNote = await noteEditor.loadNote(selectedPatient.value, selectedDate.value);
@@ -339,15 +335,18 @@ const loadSelectedNote = async () => {
          noteContent.value = loadedNote.content;
          currentNote.value = loadedNote;
          isNoteLoaded.value = true;
-         console.log('Note loaded successfully!');
       } else {
          noteContent.value = ''; // Clear content on error
          currentNote.value = null;
          isNoteLoaded.value = false;
-         showSnackbar(`Failed to load note: ${noteEditor.error.value || 'Unknown error'}`, 'error');
+         // Avoid showing snackbar if error is simply 'Note not found' which is expected
+         if (noteEditor.error.value && !noteEditor.error.value.includes('ENOENT')) {
+            showSnackbar(`Failed to load note: ${noteEditor.error.value}`, 'error');
+         }
       }
-   } catch (e) {
-      console.log("Error:" + e)
+   } catch (e: any) {
+      showSnackbar(`Error loading note: ${e.message || e}`, 'error');
+      clearSelectedPatientState();
    }
 };
 
@@ -399,21 +398,18 @@ const exportData = () => {
 const selectDataDirectory = async () => {
    showSnackbar("Select the folder where patient data should be stored.", "info");
    try {
-      console.log("Awaiting showOpenDialog...");
       const result = await showOpenDialog({
          title: 'Select Data Directory',
          properties: ['openDirectory', 'createDirectory'],
       });
-      console.log("showOpenDialog resolved with:", result);
 
       if (result === undefined) {
-         console.error("showOpenDialog resolved with undefined!");
-         throw new Error("Dialog did not return a valid result.");
+         // This case indicates an internal issue with the dialog function
+         throw new Error("Dialog interaction failed unexpectedly.");
       }
 
       if (!result.canceled && result.filePaths.length > 0) {
          const selectedPath = result.filePaths[0];
-         console.log('Directory selected:', selectedPath);
          const success = await configState.setDataDirectory(selectedPath);
          if (success) {
             showSnackbar(`Data directory set to: ${selectedPath}`, 'success');
@@ -421,28 +417,19 @@ const selectDataDirectory = async () => {
          } else {
             showSnackbar('Failed to save the selected data directory.', 'error');
          }
-      } else {
-         console.log('Directory selection cancelled.');
-      }
+      } // No need for an else block for cancellation, just do nothing.
    } catch (error: any) {
-      console.error('Error selecting directory:', error);
       showSnackbar(`Error selecting directory: ${error.message || 'Unknown error'}`, 'error');
    }
 };
 
 
-// --- Watchers ---
-watch(() => [selectedPatientId.value, selectedDate.value, configState.isDataDirectorySet.value], async ([newPatientId, newDate, isDirSet]) => {
-   console.log(`Watcher triggered: patientId=${newPatientId}, date=${newDate}, isDirSet=${isDirSet}`);
-
+watch(() => [selectedPatientId.value, selectedDate.value, configState.isDataDirectorySet.value], async ([newPatientId, , isDirSet]) => {
+   // Destructure newDate but don't use it directly if loadSelectedNote handles it
    if (newPatientId && isDirSet) {
-      console.log(`Loading note due to change in patient/date or data directory being set.`);
       await loadSelectedNote();
    } else {
-      console.log(`Clearing note: no patient selected or data directory not set.`);
-      noteContent.value = '';
-      currentNote.value = null;
-      isNoteLoaded.value = false;
+      clearSelectedPatientState();
    }
 });
 
@@ -465,66 +452,63 @@ const updatePatientName = async () => {
 };
 
 const updatePatientUmrn = async () => {
-  if (selectedPatient.value) {
-    console.log("updatePatientUmrn: selectedPatient.value:", selectedPatient.value);
-    const updatedPatient = { ...selectedPatient.value };
-    console.log("updatePatientUmrn: updatedPatient:", updatedPatient);
-    const oldPatientType = selectedPatient.value.type;
-    console.log("updatePatientUmrn: oldPatientType:", oldPatientType);
+   if (!selectedPatient.value) return;
 
-    const success = await patientData.updatePatient(updatedPatient);
-    console.log("updatePatientUmrn: success:", success);
-    // Refetch the patient data to update selectedPatient
-    if (!success) {
+   const patientBeforeUpdate = { ...selectedPatient.value }; // Capture state before potential update
+   const oldPatientType = patientBeforeUpdate.type;
+   const oldPatientId = patientBeforeUpdate.id; // Use this for merge check
+
+   // The v-model already updated selectedPatient.value.umrn
+   const success = await patientData.updatePatient(selectedPatient.value);
+
+   if (!success) {
       showSnackbar(`Failed to update patient UMRN: ${patientData.error.value || 'Unknown error'}`, 'error');
-    } else {
-      const tempId = selectedPatientId.value;
-      selectedPatientId.value = null;
-      await nextTick();
-      selectedPatientId.value = tempId;
-      const patient = selectedPatient.value;
-      if (patient) {
-        await nextTick(async () => {
-          showSnackbar(`Patient UMRN updated to: ${patient.umrn}`, 'success');
+      // Optionally revert the change in the UI if save failed
+      // selectedPatient.value.umrn = patientBeforeUpdate.umrn;
+   } else {
+      showSnackbar(`Patient UMRN updated to: ${selectedPatient.value.umrn}`, 'success');
 
-          // Call mergePatientData if the patient was initially a UUID and now has a UMRN
-          if (oldPatientType === 'uuid' && patient.umrn) {
-            try {
-              console.log("updatePatientUmrn: Calling mergePatientData with id:", patient.id, "and umrn:", patient.umrn);
-              const mergeSuccess = await patientData.mergePatientData(patient.id, patient.umrn);
-              console.log("updatePatientUmrn: mergeSuccess:", mergeSuccess);
-              if (mergeSuccess) {
-                showSnackbar(`Patient data merged to UMRN ${patient.umrn}.`, 'success');
-                // Refetch patient data after merge
-                selectedPatientId.value = null;
-                await nextTick(() => {
-                   console.log("selecting patient again")
-                   selectPatient(patient.umrn ?? "")
-                //   selectedPatientId.value = patient.id;
-               })
-
-              } else {
-                showSnackbar(`Failed to merge patient data: ${patientData.error.value || 'Unknown error'}`, 'error');
-              }
-            } catch (error: any) {
-              console.error("Error merging patient data:", error);
-              showSnackbar(`Error merging patient data: ${error.message || 'Unknown error'}`, 'error');
+      // Check if merge is needed (was UUID, now has UMRN)
+      if (oldPatientType === 'uuid' && selectedPatient.value.umrn) {
+         try {
+            const mergeSuccess = await patientData.mergePatientData(oldPatientId, selectedPatient.value.umrn);
+            if (mergeSuccess) {
+               showSnackbar(`Patient data merged to UMRN ${selectedPatient.value.umrn}.`, 'success');
+               // Important: Select the *new* UMRN-based patient ID after merge
+               // The merge function should handle removing the old UUID entry and updating the list
+               // We need to ensure the patient list is refreshed and then select the correct patient.
+               // Assuming patientData.patients updates reactively after merge:
+               await nextTick(); // Wait for potential DOM/data updates
+               const newPatientRecord = patientData.getPatientByUmrn(selectedPatient.value.umrn);
+               if (newPatientRecord) {
+                  selectPatient(newPatientRecord.id); // Select using the potentially new ID (which might be the UMRN itself)
+               } else {
+                  // Fallback if lookup fails, maybe clear selection
+                  clearSelectedPatientState();
+                  showSnackbar('Could not find merged patient record.', 'error');
+               }
+            } else {
+               showSnackbar(`Failed to merge patient data: ${patientData.error.value || 'Unknown error'}`, 'error');
             }
-          }
-        })
-
+         } catch (error: any) {
+            showSnackbar(`Error merging patient data: ${error.message || 'Unknown error'}`, 'error');
+         }
+      } else {
+         // If no merge was needed, but UMRN changed, we might still need to refresh the selectedPatient
+         // to ensure consistency if the ID is derived from UMRN.
+         // Re-selecting ensures the computed `selectedPatient` is definitely up-to-date.
+         const currentId = selectedPatientId.value;
+         selectedPatientId.value = null; // Force computed recalculation
+         await nextTick();
+         selectedPatientId.value = currentId;
       }
-    }
-  } else {
-    console.log("updatePatientUmrn: selectedPatient.value is undefined");
-  }
+   }
 };
 </script>
 
 <style scoped lang="scss">
-/* Existing styles remain */
 .patient-list-item {
-  .v-btn {
+   .v-btn {
     opacity: 0;
     transition: opacity 0.2s ease-in-out;
   }

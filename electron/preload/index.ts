@@ -1,7 +1,5 @@
-// electron/preload/index.ts
-
 import {
-  app,
+  // app, // Removed 'app' import
   contextBridge,
   ipcRenderer,
   MessageBoxOptions,
@@ -9,13 +7,8 @@ import {
   OpenDialogOptions,
   OpenDialogReturnValue,
 } from "electron";
-// import path from 'node:path'; // <-- REMOVE THIS IMPORT
-let isProduction: Boolean =
-  process.env.NODE_ENV === "production";
-console.log("preload thinks isProduction is:" + isProduction)
-// --- Expose Electron APIs to Renderer ---
+
 contextBridge.exposeInMainWorld("electronAPI", {
-  // File System Operations using ABSOLUTE paths (keep these)
   readFileAbsolute: (absolutePath: string): Promise<string | null> =>
     ipcRenderer.invoke("read-file-absolute", absolutePath),
   writeFileAbsolute: (absolutePath: string, content: string): Promise<void> =>
@@ -29,7 +22,6 @@ contextBridge.exposeInMainWorld("electronAPI", {
   rmdirAbsolute: (absolutePath: string): Promise<void> =>
     ipcRenderer.invoke("rmdir-absolute", absolutePath),
 
-  // Dialogs (keep these)
   showConfirmDialog: (
     options: MessageBoxOptions
   ): Promise<MessageBoxReturnValue> =>
@@ -39,7 +31,6 @@ contextBridge.exposeInMainWorld("electronAPI", {
   ): Promise<OpenDialogReturnValue> =>
     ipcRenderer.invoke("show-open-dialog", options),
 
-  // Path Utilities (keep getPath)
   getPath: (
     name:
       | "home"
@@ -55,22 +46,20 @@ contextBridge.exposeInMainWorld("electronAPI", {
       | "videos"
   ): Promise<string> => ipcRenderer.invoke("get-path", name),
 
-  // MODIFIED: Use IPC for joining paths
   joinPaths: (...paths: string[]): Promise<string> =>
     ipcRenderer.invoke("join-paths", ...paths),
   getAppPath: (): Promise<string> => ipcRenderer.invoke("get-app-path"),
-  isPackaged: (): Boolean => app.isPackaged,
-  isProduction: (): Boolean => isProduction,
+  isPackaged: (): Promise<boolean> => ipcRenderer.invoke("is-packaged"), // Changed to invoke IPC
+  isProduction: (): boolean => process.env.NODE_ENV === "production",
   moveFiles: (sourceDir: string, destDir: string): Promise<void> =>
     ipcRenderer.invoke("move-files", sourceDir, destDir),
   listFiles: (absolutePath: string): Promise<string[] | null> =>
     ipcRenderer.invoke("list-files", absolutePath),
+  getConfigValue: (key: string): Promise<any> => // Added getConfigValue implementation
+    ipcRenderer.invoke("get-config-value", key),
 });
 
 
-console.log('Preload script fully loaded and configured.');
-
-// --- TypeScript Declarations for Renderer ---
 declare global {
   interface Window {
     electronAPI: {
@@ -103,13 +92,13 @@ declare global {
           | "pictures"
           | "videos"
       ) => Promise<string>;
-      // MODIFIED: joinPaths now returns a Promise
       joinPaths: (...paths: string[]) => Promise<string>;
       getAppPath: () => Promise<string>;
+      isPackaged: () => Promise<boolean>; // Updated type for isPackaged
+      isProduction: () => boolean;
       moveFiles: (sourceDir: string, destDir: string) => Promise<void>;
       listFiles: (absolutePath: string) => Promise<string[] | null>;
-    getConfigValue: (key: string) => Promise<any>;
-  };
-  // monaco: typeof monaco; // Optional
-}
+      getConfigValue: (key: string) => Promise<any>;
+    };
+  }
 }

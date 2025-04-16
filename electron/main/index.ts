@@ -80,104 +80,127 @@ async function handleFsOperation<T>(
   operationName: string,
   fsFunction: (...args: any[]) => Promise<T>,
   ...args: any[]
-): Promise<T | null | string[]> { // Adjusted return type for list-files
-  // Use the first argument if it's a path for logging, otherwise use a generic name
+): Promise<T | null | string[]> {
   const targetDesc = typeof args[0] === 'string' ? path.basename(args[0]) : operationName.split(' ')[0];
-  console.log(`IPC: Starting ${operationName}: ${targetDesc}`); // Minimal log
-
   try {
     const result = await fsFunction(...args);
-    console.log(`IPC: ${operationName} successful: ${targetDesc}`);
+    // console.log(`IPC: ${operationName} successful: ${targetDesc}`); // Removed success log
     return result;
   } catch (error: any) {
-    console.error(`IPC Error during ${operationName} for ${targetDesc}:`, error.message);
-
-    // Handle common non-fatal errors gracefully
+    // Handle common non-fatal errors gracefully first
     if (error.code === 'ENOENT') {
-      // For operations that expect something to exist (read, delete, list)
       if (operationName.includes('read') || operationName.includes('delete') || operationName.includes('list')) {
-        console.warn(`IPC: Target not found for ${operationName}, returning null/empty.`);
-        // Return empty array for list, null otherwise
+        console.warn(`IPC: Target not found for ${operationName} on ${targetDesc}, returning null/empty.`);
         return operationName.includes('list') ? [] : null;
       }
-      // For mkdir/rmdir/write, ENOENT might be handled by options (recursive:true, force:true) or is an actual error upstream.
-      // Let it fall through to the generic error throw unless handled by options.
+      // For mkdir/rmdir/write, ENOENT might be handled by options or is an actual error.
+      // Let it fall through if not handled by options like recursive:true.
     }
 
-    // Rethrow a standardized error for the renderer
+    // Log other errors and rethrow a standardized error
+    console.error(`IPC Error during ${operationName} for ${targetDesc}:`, error.message);
     throw new Error(`[IPC] Failed to ${operationName} '${targetDesc}': ${error.message}`);
   }
 }
 
+/**
+ * Handles common logic for non-FS IPC calls (try/catch, logging, error standardization).
+ * @param operationName Descriptive name of the operation (e.g., "join paths").
+ * @param syncFunction The synchronous function to execute.
+ * @param args Arguments for the function.
+ * @returns The result of the function.
+ */
+function handleSyncIpcOperation<T>(
+    operationName: string,
+    syncFunction: (...args: any[]) => T,
+    ...args: any[]
+): T {
+    try {
+        return syncFunction(...args);
+    } catch (error: any) {
+        console.error(`IPC Error during ${operationName}:`, error);
+        throw new Error(`[IPC] Failed to ${operationName}: ${error.message}`);
+    }
+}
+
+/**
+ * Handles common logic for async non-FS IPC calls (try/catch, logging, error standardization).
+ * @param operationName Descriptive name of the operation (e.g., "show dialog").
+ * @param asyncFunction The asynchronous function to execute.
+ * @param args Arguments for the function.
+ * @returns The result of the function.
+ */
+async function handleAsyncIpcOperation<T>(
+    operationName: string,
+    asyncFunction: (...args: any[]) => Promise<T>,
+    ...args: any[]
+): Promise<T> {
+    try {
+        return await asyncFunction(...args);
+    } catch (error: any) {
+        console.error(`IPC Error during ${operationName}:`, error);
+        throw new Error(`[IPC] Failed to ${operationName}: ${error.message}`);
+    }
+}
+
+
 // --- IPC Handlers ---
 
+// -- Environment --
+ipcMain.handle("is-packaged", () => app.isPackaged);
+
 // -- Path Handling --
-ipcMain.handle("join-paths", (_event, ...paths: string[]): string => {
-  try {
-    const validPaths = paths.filter(p => typeof p === "string" && p.length > 0);
-    if (validPaths.length === 0) {
-      throw new Error("No valid path segments provided.");
-    }
-    return path.join(...validPaths);
-  } catch (error: any) {
-    console.error(`IPC Error joining paths (${paths}):`, error);
-    throw new Error(`[IPC] Failed to join paths: ${error.message}`);
-  }
-});
+ipcMain.handle("join-paths", (_event, ...paths: string[]): string =>
+    handleSyncIpcOperation("join paths", (...args: string[]) => {
+        const validPaths = args.filter(p => typeof p === "string" && p.length > 0);
+        if (validPaths.length === 0) {
+            throw new Error("No valid path segments provided.");
+        }
+        return path.join(...validPaths);
+    }, ...paths)
+);
 
-ipcMain.handle("get-path", (_event, name: Parameters<typeof app.getPath>[0]): string => {
-  try {
-    return app.getPath(name);
-  } catch (error: any) {
-    console.error(`IPC Error getting path '${name}':`, error);
-    throw new Error(`[IPC] Failed to get path '${name}': ${error.message}`);
-  }
-});
+ipcMain.handle("get-path", (_event, name: Parameters<typeof app.getPath>[0]): string =>
+    handleSyncIpcOperation(`get path '${name}'`, app.getPath, name)
+);
 
-ipcMain.handle("get-app-path", (): string => {
-    try {
-        const appExePath = app.getPath("exe");
-        return path.dirname(appExePath);
-    } catch (error: any) {
-        console.error(`IPC Error getting app path:`, error);
-        throw new Error(`[IPC] Failed to get app path: ${error.message}`);
-    }
-});
+ipcMain.handle("get-app-path", (): string =>
+    handleSyncIpcOperation("get app path", () => path.dirname(app.getPath("exe")))
+);
 
 
 // -- Dialogs --
 ipcMain.handle(
   "show-open-dialog",
-  async (_event, options: OpenDialogOptions): Promise<OpenDialogReturnValue> => {
+  (_event, options: OpenDialogOptions): Promise<OpenDialogReturnValue> => {
     const ownerWindow = BrowserWindow.getFocusedWindow();
     if (!ownerWindow) {
         console.warn("IPC: show-open-dialog called with no focused window.");
-        return { canceled: true, filePaths: [] };
+        return Promise.resolve({ canceled: true, filePaths: [] }); // Return resolved promise
     }
-    try {
-        return await dialog.showOpenDialog(ownerWindow, options);
-    } catch (error: any) {
-        console.error(`IPC Error showing open dialog:`, error);
-        throw new Error(`[IPC] Failed to show open dialog: ${error.message}`);
-    }
+    return handleAsyncIpcOperation(
+        "show open dialog",
+        dialog.showOpenDialog,
+        ownerWindow,
+        options
+    );
   }
 );
 
 ipcMain.handle(
   "show-confirm-dialog",
-  async (_event, options: MessageBoxOptions): Promise<MessageBoxReturnValue> => {
+  (_event, options: MessageBoxOptions): Promise<MessageBoxReturnValue> => {
     const ownerWindow = BrowserWindow.getFocusedWindow();
      if (!ownerWindow) {
         console.warn("IPC: show-confirm-dialog called with no focused window.");
-        // Provide a default response indicating cancellation or failure
-        return { response: -1, checkboxChecked: false }; // -1 or appropriate default
+        return Promise.resolve({ response: -1, checkboxChecked: false }); // Return resolved promise
     }
-    try {
-        return await dialog.showMessageBox(ownerWindow, options);
-    } catch (error: any) {
-        console.error(`IPC Error showing confirm dialog:`, error);
-        throw new Error(`[IPC] Failed to show confirm dialog: ${error.message}`);
-    }
+     return handleAsyncIpcOperation(
+        "show confirm dialog",
+        dialog.showMessageBox,
+        ownerWindow,
+        options
+    );
   }
 );
 
@@ -221,23 +244,22 @@ ipcMain.handle(
 ipcMain.handle(
   "exists-absolute",
   async (_event, absolutePath: string): Promise<boolean> => {
-    console.log(`IPC: Checking existence: ${path.basename(absolutePath)}`);
+    // console.log(`IPC: Checking existence: ${path.basename(absolutePath)}`); // Removed log
     try {
       await fs.promises.access(absolutePath, fs.constants.F_OK);
-      console.log(`IPC: Existence check successful (exists): ${path.basename(absolutePath)}`);
+      // console.log(`IPC: Existence check successful (exists): ${path.basename(absolutePath)}`); // Removed log
       return true;
     } catch (error: any) {
       if (error.code === "ENOENT") {
-        console.log(`IPC: Existence check successful (does not exist): ${path.basename(absolutePath)}`);
+        // console.log(`IPC: Existence check successful (does not exist): ${path.basename(absolutePath)}`); // Removed log
         return false; // File does not exist
       }
       // Other errors (e.g., permissions) should be thrown
-      console.error(`IPC Error checking existence for ${absolutePath}:`, error);
+      console.error(`IPC Error checking existence for ${path.basename(absolutePath)}:`, error);
       throw new Error(`[IPC] Failed to check existence for ${path.basename(absolutePath)}: ${error.message}`);
     }
   }
 );
-
 
 ipcMain.handle(
   "mkdir-absolute",
