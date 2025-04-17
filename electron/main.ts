@@ -12,6 +12,9 @@ import {
 } from "electron";
 import path from "node:path";
 import fs from "node:fs";
+const preloadPath = path.join(__dirname, "preload.js");
+console.log("Resolved preload path:", preloadPath);
+console.log("Preload exists at window creation:", fs.existsSync(preloadPath));
 
 let mainWindow: BrowserWindow | null;
 
@@ -28,9 +31,6 @@ const createWindow = () => {
   // Window position (top right)
   const windowX = width - windowWidth;
   const windowY = 0;
-const preloadPath = path.join(__dirname, "preload.js");
-console.log("Resolved preload path:", preloadPath);
-console.log("Preload exists at window creation:", fs.existsSync(preloadPath));
   mainWindow = new BrowserWindow({
     x: windowX,
     y: windowY,

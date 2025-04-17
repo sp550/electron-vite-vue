@@ -80,7 +80,6 @@ contextBridge.exposeInMainWorld("electronAPI", {
     ipcRenderer.invoke("export-notes-for-day", date),
 });
 
-console.log("preload loaded", Object.keys(window.electronAPI));
 
 
 declare global {
