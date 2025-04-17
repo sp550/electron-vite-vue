@@ -28,14 +28,16 @@ const createWindow = () => {
   // Window position (top right)
   const windowX = width - windowWidth;
   const windowY = 0;
-
+const preloadPath = path.join(__dirname, "preload.js");
+console.log("Resolved preload path:", preloadPath);
+console.log("Preload exists at window creation:", fs.existsSync(preloadPath));
   mainWindow = new BrowserWindow({
     x: windowX,
     y: windowY,
     width: windowWidth,
     height: windowHeight,
     webPreferences: {
-      preload: path.join(__dirname, "../preload.js"),
+      preload: path.join(__dirname, "preload.js"),
       contextIsolation: true,
       nodeIntegration: false,
       devTools: !app.isPackaged, // Enable DevTools only if not packaged
@@ -51,7 +53,7 @@ const createWindow = () => {
       mainWindow.webContents.openDevTools();
     }
   } else {
-    mainWindow.loadFile(path.join(__dirname, "../../dist/index.html"));
+    mainWindow.loadFile(path.join(__dirname, "../dist/index.html"));
   }
 
   // Open external links in the default browser
@@ -361,6 +363,10 @@ ipcMain.handle(
     handleFsOperation("list files", fs.promises.readdir, absolutePath)
 );
 
+
+
+
+
 // -- Config Handling --
 const DEFAULT_CONFIG = {
   dataDirectory: "./data", // Relative to app resources path
@@ -529,3 +535,34 @@ ipcMain.handle(
     return dialog.showSaveDialog(ownerWindow, options);
   }
 );
+
+
+// --- Open Directory Handler ---
+
+/**
+ * Function to handle the 'open-directory' IPC request in the Electron main process.
+ *
+ * @param {string} directory - The directory path to be opened.
+ * @returns {Promise<string | undefined>} - A promise that resolves with the opened directory path if successful, or undefined if an error occurs.
+ * @throws {Error} - Throws an error if the directory cannot be opened or if any other unexpected error occurs.
+ */
+async function handleOpenDirectory(directory: string): Promise<string | undefined> {
+  try {
+    const result = await shell.openPath(directory);
+    if (result === '') {
+      // Success: result is an empty string
+      return directory;
+    } else {
+      // Failure: result is an error message string
+      console.error('Error opening directory:', result);
+      return undefined;
+    }
+  } catch (error: any) {
+    console.error('Error opening directory:', error);
+    throw new Error(`Failed to open directory: ${error.message}`);
+  }
+}
+
+ipcMain.handle('open-directory', async (_event, directory: string) => {
+  return await handleOpenDirectory(directory);
+});

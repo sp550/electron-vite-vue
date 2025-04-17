@@ -1,7 +1,5 @@
 **Priority 1: Core Functionality & Stability**
-refactor app.vue
 - Import patient list from external program.
-- Manual plain text export (including .txt export and automated regular export).
 **Priority 2: Basic UI & Configuration**
 - Display config.json for debugging.
 - Basic settings/config implementation.
@@ -9,7 +7,7 @@ refactor app.vue
 - Button with dropdown menu to open various directories.
 
 **Priority 3: Advanced UI & Editor Enhancements**
-- Three-dot menu with extended options (toggle auto-save, multiple directories, settings).
+
 - Settings icon opens modal/card (move "change data directory" button inside).
 - Sidebar on hover; toggle sidebar left/right.
 - Title bar display options (small, medium, large).

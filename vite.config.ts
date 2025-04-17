@@ -38,7 +38,7 @@ export default defineConfig(({ command }) => {
             build: {
               sourcemap,
               minify: isBuild,
-              outDir: "dist-electron/main", // Main output dir
+              outDir: "dist-electron/", // Main output dir
               rollupOptions: {
                 external: Object.keys(
                   "dependencies" in pkg ? pkg.dependencies : {}
@@ -68,7 +68,7 @@ export default defineConfig(({ command }) => {
             build: {
               sourcemap: sourcemap ? "inline" : undefined,
               minify: isBuild,
-              outDir: "dist-electron/preload", // Preload output dir
+              outDir: "dist-electron/", // Preload output dir
               rollupOptions: {
                 external: Object.keys(
                   "dependencies" in pkg ? pkg.dependencies : {}

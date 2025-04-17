@@ -38,6 +38,9 @@ contextBridge.exposeInMainWorld("electronAPI", {
   ): Promise<SaveDialogReturnValue> =>
     ipcRenderer.invoke("show-save-dialog", options),
 
+  openDirectory: (dir: string): Promise<void> =>
+    ipcRenderer.invoke("open-directory", dir),
+
   getPath: (
     name:
       | "home"
@@ -76,6 +79,8 @@ contextBridge.exposeInMainWorld("electronAPI", {
   exportNotesForDay: (date: string): Promise<string | null> =>
     ipcRenderer.invoke("export-notes-for-day", date),
 });
+
+console.log("preload loaded", Object.keys(window.electronAPI));
 
 
 declare global {
@@ -125,6 +130,7 @@ declare global {
       getConfigPath: () => Promise<string>; // Added getConfigPath type
       setUnsavedChanges: (hasChanges: boolean) => Promise<boolean>;
       exportNotesForDay: (date: string) => Promise<string | null>;
+      openDirectory: (dir: string) => Promise<void>;
     };
   }
 }

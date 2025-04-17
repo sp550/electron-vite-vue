@@ -13,13 +13,30 @@
          </span>
          <v-btn icon="mdi-chevron-right" @click="goToNextDay"
             :disabled="!selectedPatientId || noteEditor.isLoading.value" title="Next Day" size="small"></v-btn>
-         <v-btn @click="selectDataDirectory" title="Select Data Directory" icon>
-            <v-icon :color="configState.isDataDirectorySet.value ? 'white' : 'yellow'">
-               {{ configState.isDataDirectorySet.value ? 'mdi-folder-check-outline' : 'mdi-folder-alert-outline' }}
-            </v-icon>
-         </v-btn>
-         <v-btn icon="mdi-cog-outline" @click="goToSettings" title="Settings (Not Implemented)"></v-btn>
-         <v-btn icon="mdi-export" @click="manualExportNotesForDay" title="Export Data (Not Implemented)"></v-btn>
+         <!-- Auto-Save Toggle -->
+         <v-switch v-model="noteEditor.isAutoSaveEnabled.value" label="Auto-Save" color="primary" hide-details
+            density="compact" class="ml-2 mr-2 flex-grow-0" title="Toggle Auto-Save"></v-switch>
+         <!-- Overflow Menu -->
+         <v-menu location="bottom end" offset-y>
+            <template #activator="{ props }">
+               <v-btn v-bind="props" icon title="More actions" aria-label="More actions">
+                  <v-icon>mdi-dots-vertical</v-icon>
+               </v-btn>
+            </template>
+            <v-list>
+               <v-list-item @click="goToSettings">
+                  <v-list-item-title>Settings</v-list-item-title>
+               </v-list-item>
+               <v-list-item @click="selectDataDirectory">
+                  <v-list-item-title>Select Data Directory</v-list-item-title>
+               </v-list-item>
+
+               <v-list-item @click="manualExportNotesForDay">
+                  <v-list-item-title>Export Notes</v-list-item-title>
+               </v-list-item>
+               <v-list-item @click="openDataDirectory"> <v-list-item-title> Open Data Directory </v-list-item-title></v-list-item>
+            </v-list>
+         </v-menu>
       </v-app-bar>
 
       <!-- === Info Bar (Data Directory not set) === -->
@@ -116,10 +133,7 @@
                         title="Save Note">
                         <v-icon start>mdi-content-save</v-icon> Save
                      </v-btn>
-                     <!-- Auto-Save Toggle -->
-                     <v-switch v-model="noteEditor.isAutoSaveEnabled.value" label="Auto-Save" color="primary"
-                        hide-details density="compact" class="ml-2 mr-2 flex-grow-0"
-                        title="Toggle Auto-Save"></v-switch>
+
                      <v-icon :icon="saveStatusIcon" :color="noteEditor.hasUnsavedChanges.value ? 'warning' : 'success'"
                         size="small" class="ml-2" title="Save Status"></v-icon>
                      <v-btn icon="mdi-delete" :disabled="!selectedPatient"
@@ -183,16 +197,18 @@
 </template>
 
 <script setup lang="ts">
-import { getNoteContent, useNoteExport } from '@/composables/useNoteRetrieval';
+import {  useNoteExport } from '@/composables/useNoteRetrieval';
 // --- In-memory cache for unsaved notes per patient/date ---
 const unsavedNotesCache: Record<string, string> = {};
+
+
 
 // --- Auto-Export Initialization Control ---
 const autoExportStarted = ref(false);
 
 declare const window: any;
 import packageJson from '../package.json';
-import { ref, provide, computed, watch, nextTick} from 'vue'; // Added watchEffect if needed, or just use watch
+import { ref, provide, computed, watch, nextTick } from 'vue'; // Added watchEffect if needed, or just use watch
 import { usePatientData } from '@/composables/usePatientData';
 import { useNoteEditor } from '@/composables/useNoteEditor';
 import { useConfig } from '@/composables/useConfig';
@@ -224,7 +240,7 @@ const nodeEnv = computed(() => process.env.NODE_ENV);
 
 
 const saveStatusIcon = computed(() => {
-  return noteEditor.hasUnsavedChanges.value ? 'mdi-content-save-edit' : 'mdi-check-circle';
+   return noteEditor.hasUnsavedChanges.value ? 'mdi-content-save-edit' : 'mdi-check-circle';
 });
 
 const selectedPatient = computed<Patient | undefined>(() => {
@@ -250,16 +266,16 @@ const showSnackbar = (text: string, color: 'success' | 'error' | 'info' = 'info'
 provide('showSnackbar', showSnackbar);
 
 const {
-  startAutoExport,
-  stopAutoExport,
-  manualExportNotesForDay
+   startAutoExport,
+   
+   manualExportNotesForDay
 } = useNoteExport({
-  showSnackbar,
-  configState,
-  patientData,
-  fileSystemAccess,
-  selectedDate,
-  electronAPI: window.electronAPI
+   showSnackbar,
+   configState,
+   patientData,
+   fileSystemAccess,
+   selectedDate,
+   electronAPI: window.electronAPI
 });
 
 const selectPatient = (patientId: string) => {
@@ -303,8 +319,8 @@ const addNewPatient = async () => {
 
 const loadDuplicatePatient = () => {
    if (duplicatePatient.value) {
-       selectPatient(duplicatePatient.value.id);
-       duplicateDialog.value = false;
+      selectPatient(duplicatePatient.value.id);
+      duplicateDialog.value = false;
    }
 };
 
@@ -329,7 +345,7 @@ const confirmRemovePatient = async (patient: Patient) => {
 };
 
 const loadSelectedNote = async () => {
-  console.log('loadSelectedNote called');
+   console.log('loadSelectedNote called');
    if (!selectedPatientId.value) {
       clearSelectedPatientState();
       return;
@@ -369,10 +385,10 @@ const loadSelectedNote = async () => {
          isNoteLoaded.value = false;
          // Show snackbar only for actual errors, not 'file not found' which is handled by creating a new note
          if (noteEditor.error.value && !noteEditor.error.value.includes('ENOENT') && !noteEditor.error.value.includes('Data directory not configured')) {
-             showSnackbar(`Failed to load note: ${noteEditor.error.value}`, 'error');
+            showSnackbar(`Failed to load note: ${noteEditor.error.value}`, 'error');
          } else if (!noteEditor.currentNote.value && !noteEditor.error.value) {
-             // This case might indicate a logic error if loadNote finished without error but currentNote is still null
-             console.warn("loadSelectedNote: loadNote completed without error, but currentNote is still null.");
+            // This case might indicate a logic error if loadNote finished without error but currentNote is still null
+            console.warn("loadSelectedNote: loadNote completed without error, but currentNote is still null.");
          }
       }
    } catch (e: any) {
@@ -412,35 +428,35 @@ const saveCurrentNote = async () => {
 };
 
 const goToPreviousDay = async () => {
-  if (!selectedPatient.value) return;
-  try {
-    // Use the function from the instantiated composable
-    const prevDate = await fileSystemAccess.getPreviousDayNote(selectedPatient.value.id, selectedDate.value);
-    if (prevDate) {
-      selectedDate.value = prevDate;
-      // loadSelectedNote will be triggered by the watcher
-    } else {
-      showSnackbar('No previous note found.', 'info');
-    }
-  } catch (error: any) {
-    showSnackbar(`Error navigating to previous day: ${error.message || 'Unknown error'}`, 'error');
-  }
+   if (!selectedPatient.value) return;
+   try {
+      // Use the function from the instantiated composable
+      const prevDate = await fileSystemAccess.getPreviousDayNote(selectedPatient.value.id, selectedDate.value);
+      if (prevDate) {
+         selectedDate.value = prevDate;
+         // loadSelectedNote will be triggered by the watcher
+      } else {
+         showSnackbar('No previous note found.', 'info');
+      }
+   } catch (error: any) {
+      showSnackbar(`Error navigating to previous day: ${error.message || 'Unknown error'}`, 'error');
+   }
 };
 
 const goToNextDay = async () => {
-  if (!selectedPatient.value) return;
-  try {
-    // Use the function from the instantiated composable
-    const nextDate = await fileSystemAccess.getNextDayNote(selectedPatient.value.id, selectedDate.value);
-    if (nextDate) {
-      selectedDate.value = nextDate;
-      // loadSelectedNote will be triggered by the watcher
-    } else {
-      showSnackbar('No next note found.', 'info');
-    }
-  } catch (error: any) {
-    showSnackbar(`Error navigating to next day: ${error.message || 'Unknown error'}`, 'error');
-  }
+   if (!selectedPatient.value) return;
+   try {
+      // Use the function from the instantiated composable
+      const nextDate = await fileSystemAccess.getNextDayNote(selectedPatient.value.id, selectedDate.value);
+      if (nextDate) {
+         selectedDate.value = nextDate;
+         // loadSelectedNote will be triggered by the watcher
+      } else {
+         showSnackbar('No next note found.', 'info');
+      }
+   } catch (error: any) {
+      showSnackbar(`Error navigating to next day: ${error.message || 'Unknown error'}`, 'error');
+   }
 };
 
 const onSortEnd = async (newOrderedList: Patient[]) => {
@@ -491,9 +507,17 @@ const selectDataDirectory = async () => {
    }
 };
 
+const openDataDirectory = async () => {
+   const dataDirectory = configState.config.value.dataDirectory;
+   let currentDataDir: string = '';
+   if (dataDirectory) {
+       currentDataDir = dataDirectory;
+       await window.electronAPI.openDirectory(currentDataDir);
+   }
+}
 
 watch(() => [selectedPatientId.value, selectedDate.value, configState.isDataDirectorySet.value], async ([newPatientId, , isDirSet]) => {
-  console.log('watch called', selectedPatientId.value, selectedDate.value, configState.isDataDirectorySet.value);
+   console.log('watch called', selectedPatientId.value, selectedDate.value, configState.isDataDirectorySet.value);
    // Destructure newDate but don't use it directly if loadSelectedNote handles it
    if (newPatientId && isDirSet) {
       await loadSelectedNote();
@@ -529,40 +553,40 @@ const debouncedSaveNote = (() => {
 
 
 watch(noteContent, (newContent, oldContent) => {
-  // Trigger save only on actual user edits after initial load and if auto-save is on
-  if (isNoteLoaded.value && newContent !== oldContent && oldContent !== undefined) {
-   //  console.log('App.vue: noteContent changed, marking unsaved.');
-   //   console.log('App.vue watch(noteContent): isAutoSaveEnabled =', noteEditor.isAutoSaveEnabled.value);
-    noteEditor.setUnsavedChanges(true)
-   //   noteEditor.hasUnsavedChanges.value = true
-     // Mark changes
-     if (noteEditor.isAutoSaveEnabled.value) {
-      debouncedSaveNote(); // Trigger the debounced save
-    }
-  }
+   // Trigger save only on actual user edits after initial load and if auto-save is on
+   if (isNoteLoaded.value && newContent !== oldContent && oldContent !== undefined) {
+      //  console.log('App.vue: noteContent changed, marking unsaved.');
+      //   console.log('App.vue watch(noteContent): isAutoSaveEnabled =', noteEditor.isAutoSaveEnabled.value);
+      noteEditor.setUnsavedChanges(true)
+      //   noteEditor.hasUnsavedChanges.value = true
+      // Mark changes
+      if (noteEditor.isAutoSaveEnabled.value) {
+         debouncedSaveNote(); // Trigger the debounced save
+      }
+   }
 });
 
 
 
 // --- Sync unsaved changes with Electron main process/global ---
 watch(
-  () => noteEditor.hasUnsavedChanges.value,
-  (newVal) => {
-    // Set global variable for main process check
-    window.hasUnsavedChanges = newVal;
-    // Notify main process via IPC
-    if (window.electronAPI && typeof window.electronAPI.setUnsavedChanges === "function") {
-      window.electronAPI.setUnsavedChanges(newVal);
-    }
-  },
-  { immediate: true }
+   () => noteEditor.hasUnsavedChanges.value,
+   (newVal) => {
+      // Set global variable for main process check
+      window.hasUnsavedChanges = newVal;
+      // Notify main process via IPC
+      if (window.electronAPI && typeof window.electronAPI.setUnsavedChanges === "function") {
+         window.electronAPI.setUnsavedChanges(newVal);
+      }
+   },
+   { immediate: true }
 );
 
 // Also watch auto-save toggle to trigger immediate save if turned on with pending changes
 watch(noteEditor.isAutoSaveEnabled, (isEnabled) => {
    if (isEnabled && noteEditor.hasUnsavedChanges.value) {
-       console.log('App.vue: Auto-save enabled with pending changes, triggering save...');
-       debouncedSaveNote(); // Trigger save (or maybe immediate save?)
+      console.log('App.vue: Auto-save enabled with pending changes, triggering save...');
+      debouncedSaveNote(); // Trigger save (or maybe immediate save?)
    }
 });
 // --- End Auto-Save Logic ---
@@ -577,37 +601,37 @@ watch(noteEditor.isAutoSaveEnabled, (isEnabled) => {
  * Ensures it runs only once per app session.
  */
 watch(
-  [
-    () => configState.isConfigLoaded.value,
-    () => configState.isDataDirectorySet.value,
-    () => selectedPatientId.value,
-    () => isNoteLoaded.value
-  ],
-  ([isConfigLoaded, isDirSet, patientId, noteLoaded]) => {
-    if (
-      isConfigLoaded &&
-      isDirSet &&
-      patientId &&
-      noteLoaded &&
-      !autoExportStarted.value
-    ) {
-      startAutoExport();
-      autoExportStarted.value = true;
-    }
-  },
-  { immediate: false }
+   [
+      () => configState.isConfigLoaded.value,
+      () => configState.isDataDirectorySet.value,
+      () => selectedPatientId.value,
+      () => isNoteLoaded.value
+   ],
+   ([isConfigLoaded, isDirSet, patientId, noteLoaded]) => {
+      if (
+         isConfigLoaded &&
+         isDirSet &&
+         patientId &&
+         noteLoaded &&
+         !autoExportStarted.value
+      ) {
+         startAutoExport();
+         autoExportStarted.value = true;
+      }
+   },
+   { immediate: false }
 );
 
 const updatePatientName = async () => {
- if (selectedPatient.value) {
-   const updatedPatient = { ...selectedPatient.value };
-   const success = await patientData.updatePatient(updatedPatient);
-   if (!success) {
-     showSnackbar(`Failed to update patient name: ${patientData.error.value || 'Unknown error'}`, 'error');
-   } else {
-     showSnackbar(`Patient name updated to: ${selectedPatient.value.name}`, 'success');
+   if (selectedPatient.value) {
+      const updatedPatient = { ...selectedPatient.value };
+      const success = await patientData.updatePatient(updatedPatient);
+      if (!success) {
+         showSnackbar(`Failed to update patient name: ${patientData.error.value || 'Unknown error'}`, 'error');
+      } else {
+         showSnackbar(`Patient name updated to: ${selectedPatient.value.name}`, 'success');
+      }
    }
- }
 };
 
 const updatePatientUmrn = async () => {
@@ -668,15 +692,15 @@ const updatePatientUmrn = async () => {
 <style scoped lang="scss">
 .patient-list-item {
    .v-btn {
-    opacity: 0;
-    transition: opacity 0.2s ease-in-out;
-  }
+      opacity: 0;
+      transition: opacity 0.2s ease-in-out;
+   }
 
-  &:hover {
-    .v-btn {
-      opacity: 1;
-    }
-  }
+   &:hover {
+      .v-btn {
+         opacity: 1;
+      }
+   }
 }
 
 .wrap-text {
