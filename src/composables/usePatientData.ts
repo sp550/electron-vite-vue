@@ -21,7 +21,6 @@ export function usePatientData() {
   } = useFileSystemAccess();
   const { config, isConfigLoaded, isDataDirectorySet } = useConfig();
 
-  // --- Helpers ---
   const getPatientsFilePath = async (): Promise<string | null> => {
     if (!isDataDirectorySet.value || !config.value.dataDirectory) return null;
     try {
@@ -47,7 +46,6 @@ export function usePatientData() {
       return null;
     }
   };
-  // --- End Helpers ---
 
   const loadPatients = async () => {
     if (!isConfigLoaded.value || !isDataDirectorySet.value) {
@@ -402,7 +400,6 @@ const updatePatient = async (updatedPatient: Patient): Promise<boolean> => {
   }
 };
 
-  // --- REMOVE PATIENT ---
   const removePatient = async (patientId: string): Promise<boolean> => {
     const patientToRemove = patients.value.find((p) => p.id === patientId);
     if (!patientToRemove) {
@@ -504,10 +501,7 @@ const updatePatient = async (updatedPatient: Patient): Promise<boolean> => {
 
   watch(
     [isConfigLoaded, dataDirectoryChangeFlag],
-    ([loaded, changeFlag]) => {
-      console.log(
-        `Config watcher triggered: loaded=${loaded}, changeFlag=${changeFlag}`
-      );
+    ([loaded]) => {
       if (loaded) {
         console.log("Config loaded and directory set, reloading patients...");
         loadPatients();
@@ -532,11 +526,11 @@ const updatePatient = async (updatedPatient: Patient): Promise<boolean> => {
     patients,
     isLoading,
     error,
-    loadPatients, // Expose loadPatients if manual reload is needed
+    loadPatients, 
     addPatient,
     removePatient,
     getPatientById,
-    getPatientByUmrn, // <-- Add export here
+    getPatientByUmrn, 
     updatePatient,
     savePatients,
     mergePatientData,

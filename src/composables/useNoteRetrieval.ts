@@ -5,14 +5,15 @@
  */
 
 import { useFileSystemAccess } from './useFileSystemAccess';
+import type { Patient } from '../types'; // Import the Patient type
 
 /**
  * Retrieves the note content for a given patient and date.
- * @param patientId - The patient ID (string).
+ * @param patient - The patient object.
  * @param dateISO - The date string in ISO 8601 format (e.g., "2024-04-17" or "2024-04-17T00:00:00Z").
  * @returns The note content as a string, or a default message if not found or error.
  */
-export async function getNoteContent(patientId: string, dateISO: string): Promise<string> {
+export async function getNoteContent(patient: Patient, dateISO: string): Promise<string> {
   const { readFileForDate } = useFileSystemAccess();
   let rawData: string | null = null;
   let noteContent: string = '';
@@ -27,10 +28,9 @@ export async function getNoteContent(patientId: string, dateISO: string): Promis
     }
 
     // Attempt to read the file for the given patient and date
-    rawData = await readFileForDate({ id: patientId }, dateObj);
+    rawData = await readFileForDate(patient, dateObj); // Pass the patient object directly
 
     if (!rawData) {
-      // File does not exist or is empty
       return defaultMessage;
     }
 
@@ -56,7 +56,7 @@ export async function getNoteContent(patientId: string, dateISO: string): Promis
     return noteContent;
   } catch (err: any) {
     // Log error and return default message
-    console.error(`[getNoteContent] Error retrieving note for patientId=${patientId}, date=${dateISO}:`, err);
+    console.error(`[getNoteContent] Error retrieving note for patientId=${patient.id}, date=${dateISO}:`, err); // Use patient.id
     return defaultMessage;
   }
 }

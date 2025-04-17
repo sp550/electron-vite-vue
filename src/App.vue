@@ -483,7 +483,7 @@ const exportNotesForDayFrontend = async () => {
       for (const patient of patients) {
          const { last, first } = splitName(patient.name || '');
          const umrn = patient.umrn || '';
-         let noteContent = await getNoteContent(patient.id, dateStr);
+         let noteContent = await getNoteContent(patient, dateStr); // Pass the full patient object
          console.log(noteContent)
          output += `[ ] -----${last}, ${first} (${umrn})-----\n${noteContent}\n\n`;
       }

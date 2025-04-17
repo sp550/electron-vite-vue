@@ -1,4 +1,4 @@
-import { ref, watch, computed } from 'vue';
+import { ref,  computed } from 'vue';
 import type { Note } from '@/types';
 import { useFileSystemAccess } from './useFileSystemAccess';
 import { useConfig } from './useConfig';
