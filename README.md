@@ -1,5 +1,5 @@
 **Priority 1: Core Functionality & Stability**
-- Confirmation dialog on window close if unsaved changes.
+- 
 - Import patient list from external program.
 - Manual plain text export/import (including .txt export and automated regular export).
 

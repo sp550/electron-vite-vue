@@ -347,8 +347,10 @@ const loadSelectedNote = async () => {
          const cacheKey = `${selectedPatientId.value}:${selectedDate.value}`;
          if (unsavedNotesCache.hasOwnProperty(cacheKey)) {
             noteContent.value = unsavedNotesCache[cacheKey];
+            noteEditor.setUnsavedChanges(true); // Mark as dirty if restored from cache
          } else {
             noteContent.value = noteEditor.currentNote.value.content;
+            noteEditor.setUnsavedChanges(false); // Mark as clean if loaded from disk
          }
          currentNote.value = noteEditor.currentNote.value; // Keep local ref synced if needed elsewhere
          isNoteLoaded.value = true;
@@ -508,13 +510,13 @@ const debouncedSaveNote = debounce(async () => {
     await saveCurrentNote();
     // saveCurrentNote already sets hasUnsavedChanges to false on success
   }
-}, 2500); // 2.5 second debounce time
+}, 500); 
 
 watch(noteContent, (newContent, oldContent) => {
   // Trigger save only on actual user edits after initial load and if auto-save is on
   if (isNoteLoaded.value && newContent !== oldContent && oldContent !== undefined) {
-    console.log('App.vue: noteContent changed, marking unsaved.');
-     console.log('App.vue watch(noteContent): isAutoSaveEnabled =', noteEditor.isAutoSaveEnabled.value);
+   //  console.log('App.vue: noteContent changed, marking unsaved.');
+   //   console.log('App.vue watch(noteContent): isAutoSaveEnabled =', noteEditor.isAutoSaveEnabled.value);
     noteEditor.setUnsavedChanges(true)
    //   noteEditor.hasUnsavedChanges.value = true
      // Mark changes
