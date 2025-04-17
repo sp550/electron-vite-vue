@@ -62,6 +62,41 @@ const createWindow = () => {
     return { action: "deny" }; // Prevent Electron from opening new windows
   });
 
+  // Handle window close event with confirmation if there are unsaved changes
+  mainWindow.on("close", async (e) => {
+    if (mainWindow) {
+      // Prevent the window from closing immediately
+      e.preventDefault();
+      
+      // Check if there are unsaved changes
+      const hasUnsavedChanges = await mainWindow.webContents.executeJavaScript('window.hasUnsavedChanges || false');
+      
+      if (hasUnsavedChanges) {
+        // Show confirmation dialog
+        const { response } = await dialog.showMessageBox(mainWindow, {
+          type: 'question',
+          buttons: ['Cancel', 'Discard Changes'],
+          title: 'Unsaved Changes',
+          message: 'You have unsaved changes. Are you sure you want to close?',
+          detail: 'Your changes will be lost if you close without saving.',
+          cancelId: 0,
+          defaultId: 0
+        });
+        
+        // If user confirms (clicked "Discard Changes")
+        if (response === 1) {
+          // Allow the window to close
+          mainWindow.removeAllListeners('close');
+          mainWindow.close();
+        }
+      } else {
+        // No unsaved changes, allow the window to close
+        mainWindow.removeAllListeners('close');
+        mainWindow.close();
+      }
+    }
+  });
+
   mainWindow.on("closed", () => {
     mainWindow = null;
   });
@@ -408,6 +443,16 @@ ipcMain.handle('get-next-day-note', async (_event, patientId: string, currentDat
   patientId,
   currentDate
  );
+});
+
+// --- IPC Handlers for Window Management ---
+
+// Handler for setting the unsaved changes flag
+ipcMain.handle("set-unsaved-changes", (_event, hasChanges: boolean) => {
+  if (mainWindow) {
+    mainWindow.webContents.executeJavaScript(`window.hasUnsavedChanges = ${hasChanges};`);
+  }
+  return true;
 });
 
 // --- App Lifecycle ---

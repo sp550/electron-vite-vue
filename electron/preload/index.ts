@@ -62,6 +62,8 @@ contextBridge.exposeInMainWorld("electronAPI", {
   getNextDayNote: (patientId: string, currentDate: string): Promise<string | null> =>
     ipcRenderer.invoke("get-next-day-note", patientId, currentDate),
   getConfigPath: (): Promise<string> => ipcRenderer.invoke("get-config-path"), // Added getConfigPath
+  setUnsavedChanges: (hasChanges: boolean): Promise<boolean> =>
+    ipcRenderer.invoke("set-unsaved-changes", hasChanges),
 });
 
 
@@ -107,6 +109,7 @@ declare global {
       getPreviousDayNote: (patientId: string, currentDate: string) => Promise<string | null>;
       getNextDayNote: (patientId: string, currentDate: string) => Promise<string | null>;
       getConfigPath: () => Promise<string>; // Added getConfigPath type
+      setUnsavedChanges: (hasChanges: boolean) => Promise<boolean>;
     };
   }
 }

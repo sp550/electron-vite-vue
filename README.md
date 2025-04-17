@@ -1,7 +1,4 @@
 **Priority 1: Core Functionality & Stability**
-- 
-- Auto (async) saves, and functionality to toggle autosave on or off
-- Save status icon (indicates if note has been saved).
 - Confirmation dialog on window close if unsaved changes.
 - Import patient list from external program.
 - Manual plain text export/import (including .txt export and automated regular export).

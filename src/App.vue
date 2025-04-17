@@ -5,8 +5,14 @@
          <v-app-bar-nav-icon @click.stop="drawer = !drawer"></v-app-bar-nav-icon>
          <v-spacer></v-spacer>
          <v-toolbar-title></v-toolbar-title>
-
-         <v-spacer></v-spacer>
+         <v-btn icon="mdi-chevron-left" @click="goToPreviousDay"
+            :disabled="!selectedPatientId || noteEditor.isLoading.value" title="Previous Day" size="small"></v-btn>
+         <span class="text-subtitle-1 mx-2" :title="selectedDate">
+            <v-icon start>mdi-calendar</v-icon>
+            {{ noteDateDisplay }}
+         </span>
+         <v-btn icon="mdi-chevron-right" @click="goToNextDay"
+            :disabled="!selectedPatientId || noteEditor.isLoading.value" title="Next Day" size="small"></v-btn>
          <v-btn @click="selectDataDirectory" title="Select Data Directory" icon>
             <v-icon :color="configState.isDataDirectorySet.value ? 'white' : 'yellow'">
                {{ configState.isDataDirectorySet.value ? 'mdi-folder-check-outline' : 'mdi-folder-alert-outline' }}
@@ -98,16 +104,11 @@
                      <v-toolbar-title class="text-subtitle-1">
                      </v-toolbar-title>
                      <v-text-field v-model="selectedPatient!.name" label="Patient Name" hide-details single-line
-                     @blur="updatePatientName"></v-text-field>
+                        @blur="updatePatientName"></v-text-field>
                      <v-text-field v-model="selectedPatient!.umrn" label="Patient UMRN" hide-details single-line
-                     @blur="updatePatientUmrn"></v-text-field>
+                        @blur="updatePatientUmrn"></v-text-field>
                      <v-spacer></v-spacer>
-                     <v-btn icon="mdi-chevron-left" @click="goToPreviousDay" :disabled="!selectedPatientId || noteEditor.isLoading.value" title="Previous Day" size="small"></v-btn>
-                     <span class="text-subtitle-1 mx-2" :title="selectedDate">
-                        <v-icon start>mdi-calendar</v-icon>
-                        {{ noteDateDisplay }}
-                     </span>
-                     <v-btn icon="mdi-chevron-right" @click="goToNextDay" :disabled="!selectedPatientId || noteEditor.isLoading.value" title="Next Day" size="small"></v-btn>
+
                      <v-spacer></v-spacer> <!-- Added spacer -->
                      <v-btn :loading="noteEditor.isLoading.value"
                         :disabled="noteEditor.isLoading.value || !isNoteLoaded || !configState.isDataDirectorySet.value"
@@ -116,22 +117,11 @@
                         <v-icon start>mdi-content-save</v-icon> Save
                      </v-btn>
                      <!-- Auto-Save Toggle -->
-                     <v-switch
-                       v-model="noteEditor.isAutoSaveEnabled.value"
-                       label="Auto-Save"
-                       color="primary"
-                       hide-details
-                       density="compact"
-                       class="ml-2 mr-2 flex-grow-0"
-                      title="Toggle Auto-Save"
-                    ></v-switch>
-                     <v-icon
-                       :icon="saveStatusIcon"
-                       :color="noteEditor.hasUnsavedChanges.value ? 'warning' : 'success'"
-                       size="small"
-                       class="ml-2"
-                       title="Save Status"
-                     ></v-icon>
+                     <v-switch v-model="noteEditor.isAutoSaveEnabled.value" label="Auto-Save" color="primary"
+                        hide-details density="compact" class="ml-2 mr-2 flex-grow-0"
+                        title="Toggle Auto-Save"></v-switch>
+                     <v-icon :icon="saveStatusIcon" :color="noteEditor.hasUnsavedChanges.value ? 'warning' : 'success'"
+                        size="small" class="ml-2" title="Save Status"></v-icon>
                      <v-btn icon="mdi-delete" :disabled="!selectedPatient"
                         @click="selectedPatient && confirmRemovePatient(selectedPatient)"
                         title="Delete Patient"></v-btn>
@@ -193,6 +183,9 @@
 </template>
 
 <script setup lang="ts">
+// --- In-memory cache for unsaved notes per patient/date ---
+const unsavedNotesCache: Record<string, string> = {};
+
 declare const window: any;
 import packageJson from '../package.json';
 import { ref, provide, computed, watch, nextTick, watchEffect } from 'vue'; // Added watchEffect if needed, or just use watch
@@ -262,6 +255,16 @@ const showSnackbar = (text: string, color: 'success' | 'error' | 'info' = 'info'
 provide('showSnackbar', showSnackbar);
 
 const selectPatient = (patientId: string) => {
+   // Before switching, cache unsaved note if needed
+   if (
+      noteEditor.isAutoSaveEnabled.value === false &&
+      noteEditor.hasUnsavedChanges.value === true &&
+      selectedPatientId.value &&
+      selectedDate.value
+   ) {
+      const cacheKey = `${selectedPatientId.value}:${selectedDate.value}`;
+      unsavedNotesCache[cacheKey] = noteContent.value;
+   }
    selectedPatientId.value = patientId;
    loadSelectedNote();
 };
@@ -337,13 +340,18 @@ const loadSelectedNote = async () => {
 
       // Check the state *after* loadNote completes
       if (noteEditor.currentNote.value && !noteEditor.error.value) {
-         // Successfully loaded or created a new note structure
-         noteEditor.hasUnsavedChanges.value = false; // Set BEFORE watcher trigger
+         noteEditor.setUnsavedChanges(false); // Set BEFORE watcher trigger
          await nextTick(); // Ensure state update propagates before changing noteContent
-         noteContent.value = noteEditor.currentNote.value.content; // Triggers watcher
+
+         // --- Check cache for unsaved note ---
+         const cacheKey = `${selectedPatientId.value}:${selectedDate.value}`;
+         if (unsavedNotesCache.hasOwnProperty(cacheKey)) {
+            noteContent.value = unsavedNotesCache[cacheKey];
+         } else {
+            noteContent.value = noteEditor.currentNote.value.content;
+         }
          currentNote.value = noteEditor.currentNote.value; // Keep local ref synced if needed elsewhere
          isNoteLoaded.value = true;
-         // noteEditor.hasUnsavedChanges.value = false; // Moved up
       } else {
          // Failed to load or determine path, or an error occurred
          noteContent.value = ''; // Clear content on error/failure
@@ -353,7 +361,7 @@ const loadSelectedNote = async () => {
          if (noteEditor.error.value && !noteEditor.error.value.includes('ENOENT') && !noteEditor.error.value.includes('Data directory not configured')) {
              showSnackbar(`Failed to load note: ${noteEditor.error.value}`, 'error');
          } else if (!noteEditor.currentNote.value && !noteEditor.error.value) {
-             // This case might indicate a logic error if loadNote finished without error but currentNote is null
+             // This case might indicate a logic error if loadNote finished without error but currentNote is still null
              console.warn("loadSelectedNote: loadNote completed without error, but currentNote is still null.");
          }
       }
@@ -382,9 +390,14 @@ const saveCurrentNote = async () => {
    if (success) {
       // showSnackbar('Note saved successfully.', 'success');
       currentNote.value = { ...noteToSave };
+      // --- Remove cache entry after successful save ---
+      const cacheKey = `${selectedPatientId.value}:${selectedDate.value}`;
+      if (unsavedNotesCache.hasOwnProperty(cacheKey)) {
+         delete unsavedNotesCache[cacheKey];
+      }
    } else {
       showSnackbar(`Failed to save note: ${noteEditor.error.value || 'Unknown error'}`, 'error');
-      noteEditor.hasUnsavedChanges.value = false; // Reset on failure
+      noteEditor.setUnsavedChanges(false); // Reset on failure
    }
 };
 
@@ -511,6 +524,20 @@ watch(noteContent, (newContent, oldContent) => {
     }
   }
 });
+
+// --- Sync unsaved changes with Electron main process/global ---
+watch(
+  () => noteEditor.hasUnsavedChanges.value,
+  (newVal) => {
+    // Set global variable for main process check
+    window.hasUnsavedChanges = newVal;
+    // Notify main process via IPC
+    if (window.electronAPI && typeof window.electronAPI.setUnsavedChanges === "function") {
+      window.electronAPI.setUnsavedChanges(newVal);
+    }
+  },
+  { immediate: true }
+);
 
 // Also watch auto-save toggle to trigger immediate save if turned on with pending changes
 watch(noteEditor.isAutoSaveEnabled, (isEnabled) => {
