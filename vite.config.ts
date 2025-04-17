@@ -33,7 +33,7 @@ export default defineConfig(({ command }) => {
         // Configure main and preload processes
         {
           // Main-Process entry file of the Electron App.
-          entry: "electron/main/index.ts", // Your main entry
+          entry: "electron/main.ts", // Your main entry
           vite: {
             build: {
               sourcemap,
@@ -49,7 +49,7 @@ export default defineConfig(({ command }) => {
           },
         },
         {
-          entry: "electron/preload/index.ts", // Your preload entry
+          entry: "electron/preload.ts", // Your preload entry
           onstart(options) {
             // Notify the Renderer-Process to reload the page when the Preload-Scripts build is complete,
             // instead of restarting the entire Electron App.

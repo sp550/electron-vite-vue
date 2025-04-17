@@ -35,7 +35,7 @@ const createWindow = () => {
     width: windowWidth,
     height: windowHeight,
     webPreferences: {
-      preload: path.join(__dirname, "../preload/index.js"),
+      preload: path.join(__dirname, "../preload.js"),
       contextIsolation: true,
       nodeIntegration: false,
       devTools: !app.isPackaged, // Enable DevTools only if not packaged
