@@ -153,7 +153,7 @@ export async function initializeMedicalTemplates() {
       freeInlineCompletions: () => {},
     });
   } catch (error) {
-    console.error("Error loading templates:", error);
+    // console.error("Error loading templates:", error);
   }
 }
 

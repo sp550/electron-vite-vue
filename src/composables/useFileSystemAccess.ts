@@ -40,13 +40,38 @@ export function useFileSystemAccess() {
   };
 
   // Helper function to construct the note file path (MOVED INSIDE)
-  async function getNoteFilePath(patientId: string, date: Date): Promise<string> {
-      const dateString = date.toISOString().split('T')[0];
-      const fileName = `${dateString}.txt`;
-      const basePath = await window.electronAPI.getConfigValue('notesDirectory');
-      // Now it can access joinPaths correctly
-      const patientDir = await joinPaths(basePath, patientId);
-      return joinPaths(patientDir, fileName);
+  /**
+   * Returns the absolute path to a patient's note file for a given date.
+   * - If patient has a UMRN, uses notes/by-umrn/UMRN/YYYY-MM-DD.json
+   * - Otherwise, uses notes/by-uuid/UUID/YYYY-MM-DD.json
+   * - Uses dataDirectory from config (not notesDirectory)
+   * @param patient An object with at least { id, umrn?, type? }
+   * @param date The date for the note
+   */
+  async function getNoteFilePath(
+    patient: { id: string; umrn?: string | null; type?: "umrn" | "uuid" },
+    date: Date
+  ): Promise<string> {
+    const dateString = date.toISOString().split('T')[0];
+    const fileName = `${dateString}.json`;
+    // Use dataDirectory from config
+    const dataDirectory = await window.electronAPI.getConfigValue('dataDirectory');
+    if (!dataDirectory) throw new Error("Data directory is not configured.");
+
+    // Determine patient type and directory
+    let patientType: "umrn" | "uuid";
+    let patientId: string;
+    if (patient.umrn && patient.umrn.trim() !== "") {
+      patientType = "umrn";
+      patientId = patient.umrn;
+    } else {
+      patientType = "uuid";
+      patientId = patient.id;
+    }
+    const notesDir = await joinPaths(dataDirectory, "notes");
+    const byTypeDir = await joinPaths(notesDir, `by-${patientType}`);
+    const patientDir = await joinPaths(byTypeDir, patientId);
+    return joinPaths(patientDir, fileName);
   }
 
 
@@ -136,24 +161,53 @@ export function useFileSystemAccess() {
 
   // --- Date-specific file operations ---
 
-  const readFileForDate = async (patientId: string, date: Date): Promise<string | null> => {
-    const filePath = await getNoteFilePath(patientId, date);
+  /**
+   * Reads the note file for a given patient and date.
+   * Accepts a patient object (with id, umrn, type) and date.
+   */
+  const readFileForDate = async (
+    patient: { id: string; umrn?: string | null; type?: "umrn" | "uuid" },
+    date: Date
+  ): Promise<string | null> => {
+    const filePath = await getNoteFilePath(patient, date);
     const fileExists = await existsAbsolute(filePath);
     if (!fileExists) {
-        return null;
+      return null;
     }
     return readFileAbsolute(filePath);
   };
 
-  const writeFileForDate = async (patientId: string, date: Date, content: string): Promise<boolean> => {
-    const filePath = await getNoteFilePath(patientId, date);
-    // Need the directory path separately to check/create it
-    const basePath = await window.electronAPI.getConfigValue('notesDirectory');
-    const patientDir = await joinPaths(basePath, patientId);
+  /**
+   * Writes the note file for a given patient and date.
+   * Accepts a patient object (with id, umrn, type), date, and content.
+   */
+  const writeFileForDate = async (
+    patient: { id: string; umrn?: string | null; type?: "umrn" | "uuid" },
+    date: Date,
+    content: string
+  ): Promise<boolean> => {
+    const filePath = await getNoteFilePath(patient, date);
+
+    // Ensure the patient directory exists
+    const dataDirectory = await window.electronAPI.getConfigValue('dataDirectory');
+    if (!dataDirectory) throw new Error("Data directory is not configured.");
+
+    let patientType: "umrn" | "uuid";
+    let patientId: string;
+    if (patient.umrn && patient.umrn.trim() !== "") {
+      patientType = "umrn";
+      patientId = patient.umrn;
+    } else {
+      patientType = "uuid";
+      patientId = patient.id;
+    }
+    const notesDir = await joinPaths(dataDirectory, "notes");
+    const byTypeDir = await joinPaths(notesDir, `by-${patientType}`);
+    const patientDir = await joinPaths(byTypeDir, patientId);
 
     const dirExists = await existsAbsolute(patientDir);
     if (!dirExists) {
-        await mkdirAbsolute(patientDir);
+      await mkdirAbsolute(patientDir);
     }
 
     return writeFileAbsolute(filePath, content);

@@ -232,6 +232,31 @@ ipcMain.handle(
   }
 );
 
+/**
+ * IPC handler to open a directory selection dialog only (no file selection or save).
+ * Always restricts to directory navigation, regardless of frontend input.
+ */
+ipcMain.handle(
+  "show-directory-dialog",
+  async (_event): Promise<OpenDialogReturnValue> => {
+    const ownerWindow = BrowserWindow.getFocusedWindow();
+    if (!ownerWindow) {
+      console.warn("IPC: show-directory-dialog called with no focused window.");
+      return { canceled: true, filePaths: [] };
+    }
+    return handleAsyncIpcOperation(
+      "show directory dialog",
+      () =>
+        dialog.showOpenDialog(ownerWindow, {
+          properties: ["openDirectory", "createDirectory"],
+          title: "Select a Directory",
+          message: "Please select a directory.",
+        })
+    );
+  }
+);
+
+
 ipcMain.handle(
   "show-confirm-dialog",
   (_event, options: MessageBoxOptions): Promise<MessageBoxReturnValue> => {
@@ -460,6 +485,23 @@ ipcMain.handle("set-unsaved-changes", (_event, hasChanges: boolean) => {
 app.whenReady().then(async () => {
   await ensureConfigExists(); // Ensure config is ready before creating window
   createWindow();
+  // --- Automated Minute-by-Minute Export Scheduler ---
+  function getCurrentDateString(): string {
+    const now = new Date();
+    // Format: YYYY-MM-DD
+    return now.toISOString().split('T')[0];
+  }
+
+  // [Removed by Roo] Automated export scheduler disabled because exportNotesForDay was removed as per requirements.
+  // setInterval(async () => {
+  //   const currentDateStr = getCurrentDateString();
+  //   try {
+  //     await exportNotesForDay(currentDateStr);
+  //     console.log(`[AutoExport] Notes exported for ${currentDateStr}`);
+  //   } catch (err) {
+  //     console.error(`[AutoExport] Failed to export notes for ${currentDateStr}:`, err);
+  //   }
+  // }, 60 * 1000); // Export every minute
 });
 
 app.on("window-all-closed", () => {
@@ -476,3 +518,31 @@ app.on("activate", () => {
     createWindow();
   }
 });
+
+/**
+ * Aggregates all patients' notes for a selected day, formats them, and generates a timestamped .txt file.
+ * @param date - The date string in YYYY-MM-DD format.
+ * @returns The absolute path to the generated .txt file.
+ */
+
+/**
+ * IPC handler to export notes for a given day and prompt user to save the .txt file.
+ * @param date - The date string in YYYY-MM-DD format.
+ * @returns The final saved file path, or null if canceled.
+ */
+/**
+ * IPC handler for showing a save dialog.
+ * @param options - Electron SaveDialogOptions
+ * @returns The result of the save dialog.
+ */
+ipcMain.handle(
+  "show-save-dialog",
+  async (_event, options) => {
+    const ownerWindow = BrowserWindow.getFocusedWindow();
+    if (!ownerWindow) {
+      console.warn("IPC: show-save-dialog called with no focused window.");
+      return dialog.showSaveDialog(options);
+    }
+    return dialog.showSaveDialog(ownerWindow, options);
+  }
+);

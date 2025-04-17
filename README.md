@@ -1,7 +1,6 @@
 **Priority 1: Core Functionality & Stability**
-- 
 - Import patient list from external program.
-- Manual plain text export/import (including .txt export and automated regular export).
+- Manual plain text export (including .txt export and automated regular export).
 
 **Priority 2: Basic UI & Configuration**
 - Display config.json for debugging.
@@ -23,7 +22,7 @@
 - Auto-backup for each note (own DB with one-minute backups and history revert icon).
 - Parse additional patient content (issues and plan).
 - Quick add feature (inspired by bloodproducts generator).
-
+/- import notes and patient database from plaintext ( i guess this can be used for migration from notepad-helper too!)
 **Priority 5: Large-Scale Features**
 - Todo list for patients.
 - Issues extractor.

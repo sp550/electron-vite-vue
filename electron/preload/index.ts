@@ -6,6 +6,8 @@ import {
   MessageBoxReturnValue,
   OpenDialogOptions,
   OpenDialogReturnValue,
+  SaveDialogOptions,
+  SaveDialogReturnValue,
 } from "electron";
 
 contextBridge.exposeInMainWorld("electronAPI", {
@@ -30,6 +32,11 @@ contextBridge.exposeInMainWorld("electronAPI", {
     options: OpenDialogOptions
   ): Promise<OpenDialogReturnValue> =>
     ipcRenderer.invoke("show-open-dialog", options),
+
+  showSaveDialog: (
+    options: SaveDialogOptions
+  ): Promise<SaveDialogReturnValue> =>
+    ipcRenderer.invoke("show-save-dialog", options),
 
   getPath: (
     name:
@@ -64,6 +71,10 @@ contextBridge.exposeInMainWorld("electronAPI", {
   getConfigPath: (): Promise<string> => ipcRenderer.invoke("get-config-path"), // Added getConfigPath
   setUnsavedChanges: (hasChanges: boolean): Promise<boolean> =>
     ipcRenderer.invoke("set-unsaved-changes", hasChanges),
+
+  // Export notes for a given day and prompt user to save the .txt file
+  exportNotesForDay: (date: string): Promise<string | null> =>
+    ipcRenderer.invoke("export-notes-for-day", date),
 });
 
 
@@ -85,6 +96,9 @@ declare global {
       showOpenDialog: (
         options: OpenDialogOptions
       ) => Promise<OpenDialogReturnValue>;
+      showSaveDialog: (
+        options: SaveDialogOptions
+      ) => Promise<SaveDialogReturnValue>;
       getPath: (
         name:
           | "home"
@@ -110,6 +124,7 @@ declare global {
       getNextDayNote: (patientId: string, currentDate: string) => Promise<string | null>;
       getConfigPath: () => Promise<string>; // Added getConfigPath type
       setUnsavedChanges: (hasChanges: boolean) => Promise<boolean>;
+      exportNotesForDay: (date: string) => Promise<string | null>;
     };
   }
 }

@@ -183,6 +183,7 @@
 </template>
 
 <script setup lang="ts">
+import { getNoteContent } from '@/composables/useNoteRetrieval';
 // --- In-memory cache for unsaved notes per patient/date ---
 const unsavedNotesCache: Record<string, string> = {};
 
@@ -197,6 +198,7 @@ import { computed as computedRef } from 'vue';
 import type { Patient, Note } from '@/types';
 import MonacoEditorComponent from '@/components/MonacoEditorComponent.vue';
 import { useDisplay } from 'vuetify';
+import { ipcMain } from 'electron';
 
 const drawer = ref(false);
 const snackbar = ref({ show: false, text: '', color: 'success' });
@@ -453,9 +455,65 @@ const goToSettings = () => {
    showSnackbar('Settings not implemented yet.', 'info');
 };
 
-const exportData = () => {
-   showSnackbar('Data export not implemented yet.', 'info');
+/**
+ * Refactored frontend exportNotesForDay logic.
+ * 1. Gather all patients.
+ * 2. For each, get note content for selectedDate.
+ * 3. Format as: [ ] -----LASTNAME, Firstname (UMRN)-----\n<note content>\n\n
+ * 4. Prompt user for save location.
+ * 5. Write file via IPC.
+ */
+const exportNotesForDayFrontend = async () => {
+   try {
+      showSnackbar('Exporting notes for the selected day...', 'info');
+      const patients = patientData.patients.value;
+      const dateStr = selectedDate.value;
+      if (!patients || patients.length === 0) {
+         showSnackbar('No patients to export.', 'info');
+         return;
+      }
+      // Helper to split name
+      function splitName(fullName: string): { last: string; first: string } {
+         const parts = (fullName || '').trim().split(/\s+/);
+         if (parts.length === 0) return { last: '', first: '' };
+         if (parts.length === 1) return { last: parts[0], first: '' };
+         return { last: parts[parts.length - 1], first: parts.slice(0, -1).join(' ') };
+      }
+      let output = '';
+      for (const patient of patients) {
+         const { last, first } = splitName(patient.name || '');
+         const umrn = patient.umrn || '';
+         let noteContent = await getNoteContent(patient.id, dateStr);
+         console.log(noteContent)
+         output += `[ ] -----${last}, ${first} (${umrn})-----\n${noteContent}\n\n`;
+      }
+
+      const defaultFileName = `notes-${dateStr}.txt`;
+      const dialogResult = await window.electronAPI.showSaveDialog?.({
+         title: 'Export Notes: Select or enter a file to save',
+         defaultPath: defaultFileName,
+         filters: [{ name: 'Text Files', extensions: ['txt'] }]
+      });
+      console.log(dialogResult)
+      if (!dialogResult || dialogResult.canceled || !dialogResult.filePath) {
+         showSnackbar('Export canceled.', 'info');
+         return;
+      }
+      const selectedFile = dialogResult.filePath;
+
+      try {
+         await fileSystemAccess.writeFileAbsolute(selectedFile, output);
+         showSnackbar(`Notes exported to: ${selectedFile}`, 'success');
+      } catch (err: any) {
+         showSnackbar(`Failed to write export file: ${err?.message || err || 'Unknown error'}`, 'error');
+      }
+   } catch (error: any) {
+      showSnackbar(`Failed to export notes: ${error?.message || error || 'Unknown error'}`, 'error');
+   }
 };
+
+// Replace exportData to use the new frontend logic
+const exportData = exportNotesForDayFrontend;
 
 const selectDataDirectory = async () => {
    showSnackbar("Select the folder where patient data should be stored.", "info");
