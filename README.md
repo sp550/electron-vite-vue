@@ -1,11 +1,5 @@
 **Priority 1: Core Functionality & Stability**
-Core functionality useFilesystem
- - look through this manually
-  - optimise and document of where is what
-  - ensure the basic handlers are there, build from base up
-  
-
-
+refactor app.vue
 - Import patient list from external program.
 - Manual plain text export (including .txt export and automated regular export).
 **Priority 2: Basic UI & Configuration**

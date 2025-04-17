@@ -19,7 +19,7 @@
             </v-icon>
          </v-btn>
          <v-btn icon="mdi-cog-outline" @click="goToSettings" title="Settings (Not Implemented)"></v-btn>
-         <v-btn icon="mdi-export" @click="exportData" title="Export Data (Not Implemented)"></v-btn>
+         <v-btn icon="mdi-export" @click="manualExportNotesForDay" title="Export Data (Not Implemented)"></v-btn>
       </v-app-bar>
 
       <!-- === Info Bar (Data Directory not set) === -->
@@ -183,22 +183,23 @@
 </template>
 
 <script setup lang="ts">
-import { getNoteContent } from '@/composables/useNoteRetrieval';
+import { getNoteContent, useNoteExport } from '@/composables/useNoteRetrieval';
 // --- In-memory cache for unsaved notes per patient/date ---
 const unsavedNotesCache: Record<string, string> = {};
 
+// --- Auto-Export Initialization Control ---
+const autoExportStarted = ref(false);
+
 declare const window: any;
 import packageJson from '../package.json';
-import { ref, provide, computed, watch, nextTick, watchEffect } from 'vue'; // Added watchEffect if needed, or just use watch
+import { ref, provide, computed, watch, nextTick} from 'vue'; // Added watchEffect if needed, or just use watch
 import { usePatientData } from '@/composables/usePatientData';
 import { useNoteEditor } from '@/composables/useNoteEditor';
 import { useConfig } from '@/composables/useConfig';
 import { useFileSystemAccess } from '@/composables/useFileSystemAccess';
-import { computed as computedRef } from 'vue';
 import type { Patient, Note } from '@/types';
 import MonacoEditorComponent from '@/components/MonacoEditorComponent.vue';
 import { useDisplay } from 'vuetify';
-import { ipcMain } from 'electron';
 
 const drawer = ref(false);
 const snackbar = ref({ show: false, text: '', color: 'success' });
@@ -215,20 +216,12 @@ const isPackaged = (window as any).electronAPI.isPackaged
 const configState = useConfig();
 const patientData = usePatientData();
 const noteEditor = useNoteEditor(); // Includes isAutoSaveEnabled now
-const fileSystemAccess = useFileSystemAccess(); // Instantiate the composable
+const fileSystemAccess = useFileSystemAccess();
 const { smAndUp } = useDisplay();
 const nodeEnv = computed(() => process.env.NODE_ENV);
 
-// --- Debounce Utility (copied from useNoteEditor) ---
-function debounce<T extends (...args: any[]) => any>(func: T, wait: number): (...args: Parameters<T>) => void {
-  let timeout: ReturnType<typeof setTimeout> | null = null;
-  return (...args: Parameters<T>): void => {
-    if (timeout !== null) {
-      clearTimeout(timeout);
-    }
-    timeout = setTimeout(() => func(...args), wait);
-  };
-}
+// ... showSnackbar is declared below, so move useNoteExport after showSnackbar ...
+
 
 const saveStatusIcon = computed(() => {
   return noteEditor.hasUnsavedChanges.value ? 'mdi-content-save-edit' : 'mdi-check-circle';
@@ -255,6 +248,19 @@ const showSnackbar = (text: string, color: 'success' | 'error' | 'info' = 'info'
    snackbar.value.show = true;
 };
 provide('showSnackbar', showSnackbar);
+
+const {
+  startAutoExport,
+  stopAutoExport,
+  manualExportNotesForDay
+} = useNoteExport({
+  showSnackbar,
+  configState,
+  patientData,
+  fileSystemAccess,
+  selectedDate,
+  electronAPI: window.electronAPI
+});
 
 const selectPatient = (patientId: string) => {
    // Before switching, cache unsaved note if needed
@@ -455,65 +461,7 @@ const goToSettings = () => {
    showSnackbar('Settings not implemented yet.', 'info');
 };
 
-/**
- * Refactored frontend exportNotesForDay logic.
- * 1. Gather all patients.
- * 2. For each, get note content for selectedDate.
- * 3. Format as: [ ] -----LASTNAME, Firstname (UMRN)-----\n<note content>\n\n
- * 4. Prompt user for save location.
- * 5. Write file via IPC.
- */
-const exportNotesForDayFrontend = async () => {
-   try {
-      showSnackbar('Exporting notes for the selected day...', 'info');
-      const patients = patientData.patients.value;
-      const dateStr = selectedDate.value;
-      if (!patients || patients.length === 0) {
-         showSnackbar('No patients to export.', 'info');
-         return;
-      }
-      // Helper to split name
-      function splitName(fullName: string): { last: string; first: string } {
-         const parts = (fullName || '').trim().split(/\s+/);
-         if (parts.length === 0) return { last: '', first: '' };
-         if (parts.length === 1) return { last: parts[0], first: '' };
-         return { last: parts[parts.length - 1], first: parts.slice(0, -1).join(' ') };
-      }
-      let output = '';
-      for (const patient of patients) {
-         const { last, first } = splitName(patient.name || '');
-         const umrn = patient.umrn || '';
-         let noteContent = await getNoteContent(patient, dateStr); // Pass the full patient object
-         console.log(noteContent)
-         output += `[ ] -----${last}, ${first} (${umrn})-----\n${noteContent}\n\n`;
-      }
 
-      const defaultFileName = `notes-${dateStr}.txt`;
-      const dialogResult = await window.electronAPI.showSaveDialog?.({
-         title: 'Export Notes: Select or enter a file to save',
-         defaultPath: defaultFileName,
-         filters: [{ name: 'Text Files', extensions: ['txt'] }]
-      });
-      console.log(dialogResult)
-      if (!dialogResult || dialogResult.canceled || !dialogResult.filePath) {
-         showSnackbar('Export canceled.', 'info');
-         return;
-      }
-      const selectedFile = dialogResult.filePath;
-
-      try {
-         await fileSystemAccess.writeFileAbsolute(selectedFile, output);
-         showSnackbar(`Notes exported to: ${selectedFile}`, 'success');
-      } catch (err: any) {
-         showSnackbar(`Failed to write export file: ${err?.message || err || 'Unknown error'}`, 'error');
-      }
-   } catch (error: any) {
-      showSnackbar(`Failed to export notes: ${error?.message || error || 'Unknown error'}`, 'error');
-   }
-};
-
-// Replace exportData to use the new frontend logic
-const exportData = exportNotesForDayFrontend;
 
 const selectDataDirectory = async () => {
    showSnackbar("Select the folder where patient data should be stored.", "info");
@@ -561,14 +509,24 @@ watch(configState.error, (newError) => {
 });
 
 // --- Auto-Save Logic ---
-const debouncedSaveNote = debounce(async () => {
-  if (noteEditor.isAutoSaveEnabled.value && noteEditor.hasUnsavedChanges.value && selectedPatient.value && isNoteLoaded.value) {
-    console.log('App.vue: Triggering debounced auto-save...');
-    // Call the manual save function which now uses local noteContent implicitly via the argument preparation
-    await saveCurrentNote();
-    // saveCurrentNote already sets hasUnsavedChanges to false on success
-  }
-}, 500); 
+const debouncedSaveNote = (() => {
+   let timeout: ReturnType<typeof setTimeout> | null = null
+   return (): void => {
+      if (timeout) clearTimeout(timeout)
+      timeout = setTimeout(async () => {
+         if (
+            noteEditor.isAutoSaveEnabled.value &&
+            noteEditor.hasUnsavedChanges.value &&
+            selectedPatient.value &&
+            isNoteLoaded.value
+         ) {
+            console.log('App.vue: Triggering debounced auto‑save…')
+            await saveCurrentNote()
+         }
+      }, 500)
+   }
+})()
+
 
 watch(noteContent, (newContent, oldContent) => {
   // Trigger save only on actual user edits after initial load and if auto-save is on
@@ -579,11 +537,12 @@ watch(noteContent, (newContent, oldContent) => {
    //   noteEditor.hasUnsavedChanges.value = true
      // Mark changes
      if (noteEditor.isAutoSaveEnabled.value) {
-        console.log("lets deBOUNCE, hasunsaved changes:", noteEditor.hasUnsavedChanges.value)
       debouncedSaveNote(); // Trigger the debounced save
     }
   }
 });
+
+
 
 // --- Sync unsaved changes with Electron main process/global ---
 watch(
@@ -607,6 +566,37 @@ watch(noteEditor.isAutoSaveEnabled, (isEnabled) => {
    }
 });
 // --- End Auto-Save Logic ---
+
+/**
+ * --- Auto-Export Initialization Watcher ---
+ * Triggers startAutoExport only after:
+ * - Config is loaded
+ * - Data directory is set
+ * - A patient is selected
+ * - The note is fully loaded
+ * Ensures it runs only once per app session.
+ */
+watch(
+  [
+    () => configState.isConfigLoaded.value,
+    () => configState.isDataDirectorySet.value,
+    () => selectedPatientId.value,
+    () => isNoteLoaded.value
+  ],
+  ([isConfigLoaded, isDirSet, patientId, noteLoaded]) => {
+    if (
+      isConfigLoaded &&
+      isDirSet &&
+      patientId &&
+      noteLoaded &&
+      !autoExportStarted.value
+    ) {
+      startAutoExport();
+      autoExportStarted.value = true;
+    }
+  },
+  { immediate: false }
+);
 
 const updatePatientName = async () => {
  if (selectedPatient.value) {

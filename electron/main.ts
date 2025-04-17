@@ -485,23 +485,6 @@ ipcMain.handle("set-unsaved-changes", (_event, hasChanges: boolean) => {
 app.whenReady().then(async () => {
   await ensureConfigExists(); // Ensure config is ready before creating window
   createWindow();
-  // --- Automated Minute-by-Minute Export Scheduler ---
-  function getCurrentDateString(): string {
-    const now = new Date();
-    // Format: YYYY-MM-DD
-    return now.toISOString().split('T')[0];
-  }
-
-  // [Removed by Roo] Automated export scheduler disabled because exportNotesForDay was removed as per requirements.
-  // setInterval(async () => {
-  //   const currentDateStr = getCurrentDateString();
-  //   try {
-  //     await exportNotesForDay(currentDateStr);
-  //     console.log(`[AutoExport] Notes exported for ${currentDateStr}`);
-  //   } catch (err) {
-  //     console.error(`[AutoExport] Failed to export notes for ${currentDateStr}:`, err);
-  //   }
-  // }, 60 * 1000); // Export every minute
 });
 
 app.on("window-all-closed", () => {
