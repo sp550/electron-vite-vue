@@ -123,54 +123,54 @@
          </div>
          <!-- DEBUG: Check filteredPatients -->
          <pre>Debug Patients: {{ filteredPatients.length }}</pre>
-         <ul ref="patientListRef" class="v-list" style="padding:0; margin:0;">
+         <ul ref="patientListRef" class="v-list patient-list">
             <li
                v-for="(element, index) in patientsDraggable"
                :key="element.id"
                :data-id="element.id"
                class="patient-list-item"
                :class="{ 'is-dragging': draggingIndex === index }"
-               style="list-style:none; padding:0;"
-               @mouseenter="hoveredIndex = index"
-               @mouseleave="hoveredIndex = null"
             >
-               <v-checkbox
-                  :model-value="selectedPatientIds.includes(element.id)"
-                  @click.stop="togglePatientSelection(element.id)"
-                  :ripple="false"
-                  density="compact"
-                  color="primary"
-                  style="display:inline-block; vertical-align:middle;"
-               />
-               <span style="display:inline-block; vertical-align:middle;">
-                  <strong>{{ element.name }}</strong>
-                  <span v-if="element.umrn || element.ward" style="font-size:0.9em; color:gray;">
-                     {{ element.umrn ? `UMRN: ${element.umrn}` : '' }} {{ element.ward ? `Ward: ${element.ward}` : '' }}
-                  </span>
-               </span>
-               <v-btn
-                  v-if="hoveredIndex === index"
-                  icon
-                  size="small"
-                  color="error"
-                  @click.stop="removePatient(element)"
-                  title="Remove patient"
-                  class="mr-1"
-                  style="float:right;"
-               >
-                  <v-icon>mdi-delete</v-icon>
-               </v-btn>
-               <v-btn
-                  v-if="hoveredIndex === index"
-                  icon
-                  size="small"
-                  class="drag-handle"
-                  title="Drag to reorder"
-                  style="cursor: grab; float:right;"
-                  @mousedown.stop
-               >
-                  <v-icon>mdi-drag</v-icon>
-               </v-btn>
+               <v-list-item-content>
+                  <v-row align="center">
+                     <v-col cols="auto">
+                        <v-checkbox
+                           :model-value="selectedPatientIds.includes(element.id)"
+                           @click.stop="togglePatientSelection(element.id)"
+                           :ripple="false"
+                           density="compact"
+                           color="primary"
+                        />
+                     </v-col>
+                     <v-col>
+                        <v-list-item-title>{{ element.name }}</v-list-item-title>
+                        <v-list-item-subtitle v-if="element.umrn || element.ward" class="umrn-ward">
+                           {{ element.umrn ? `UMRN: ${element.umrn}` : '' }} {{ element.ward ? `Ward: ${element.ward}` : '' }}
+                        </v-list-item-subtitle>
+                     </v-col>
+                     <v-col cols="auto" class="button-col">
+                        <v-btn
+                           icon
+                           size="small"
+                           color="error"
+                           @click.stop="removePatient(element)"
+                           title="Remove patient"
+                           class="mr-1"
+                        >
+                           <v-icon>mdi-delete</v-icon>
+                        </v-btn>
+                        <v-btn
+                           icon
+                           size="small"
+                           class="drag-handle"
+                           title="Drag to reorder"
+                           @mousedown.stop
+                        >
+                           <v-icon>mdi-drag</v-icon>
+                        </v-btn>
+                     </v-col>
+                  </v-row>
+               </v-list-item-content>
             </li>
          </ul>
 
@@ -1044,4 +1044,29 @@ onMounted(async () => {
 .drawer-bottom {
    margin-top: 0;
 }
+
+.patient-list {
+  padding: 0;
+  margin: 0;
+}
+
+.patient-list-item {
+  list-style: none;
+  padding: 0.5rem 1rem;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.12);
+  display: flex;
+  align-items: center;
+}
+
+.umrn-ward {
+  font-size: 0.9em;
+  color: gray;
+}
+
+.button-col {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+}
+
 </style>
