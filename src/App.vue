@@ -13,6 +13,24 @@
          </span>
          <v-btn icon="mdi-chevron-right" @click="goToNextDay"
             :disabled="!selectedPatientId || noteEditor.isLoading.value" title="Next Day" size="small"></v-btn>
+         <!-- Date Picker for Patient List Date Navigation -->
+         <v-menu v-model="dateMenu" :close-on-content-click="false" offset-y>
+            <template #activator="{ props }">
+               <v-btn v-bind="props" icon title="Select Date" aria-label="Select Date">
+                  <v-icon>mdi-calendar-search</v-icon>
+               </v-btn>
+            </template>
+            <v-card>
+               <v-date-picker
+                  v-model="selectedDate"
+                  :allowed-dates="allowedDates"
+                  @update:model-value="onDateChange"
+                  color="primary"
+                  show-adjacent-months
+                  :max="todayString"
+               />
+            </v-card>
+         </v-menu>
          <!-- Auto-Save Toggle -->
          <v-switch v-model="noteEditor.isAutoSaveEnabled.value" label="Auto-Save" color="primary" hide-details
             density="compact" class="ml-2 mr-2 flex-grow-0" title="Toggle Auto-Save"></v-switch>
@@ -67,10 +85,61 @@
 
       <!-- === Navigation Drawer (Patient List) === -->
       <v-navigation-drawer app v-model="drawer" :permanent="smAndUp" class="drawer">
-         <v-list v-sortable="{ list: patientData.patients, onSortEnd: onSortEnd }">
-            <v-list-item class="patient-list-item" v-for="patient in patientData.patients.value" :key="patient.id"
-               :value="patient.id" :active="patient.id === selectedPatientId" @click="handlePatientClick(patient.id)"
-               link>
+         <!-- Search and Multi-Select Controls -->
+         <div class="pa-2">
+            <v-text-field
+               v-model="search"
+               label="Search patients"
+               prepend-inner-icon="mdi-magnify"
+               dense
+               hide-details
+               clearable
+               class="mb-2"
+            />
+            <v-btn
+               v-if="selectedPatientIds.length > 0"
+               color="error"
+               size="small"
+               class="mb-2"
+               @click="removeSelectedPatients"
+               block
+            >
+               <v-icon start>mdi-delete</v-icon>
+               Remove Selected ({{ selectedPatientIds.length }})
+            </v-btn>
+            <!-- Add Selected to Today's List Button -->
+            <v-btn
+               v-if="selectedPatientIds.length > 0 && selectedDate !== todayString"
+               color="primary"
+               variant="tonal"
+               size="small"
+               class="mb-2"
+               @click="addSelectedToToday"
+               block
+            >
+               <v-icon start>mdi-calendar-plus</v-icon>
+               Add Selected to Today ({{ selectedPatientIds.length }})
+            </v-btn>
+         </div>
+         <v-list v-sortable="{ list: filteredPatients, onSortEnd: onSortEnd }">
+            <v-list-item
+               v-for="patient in filteredPatients"
+               :key="patient.id"
+               :value="patient.id"
+               :active="selectedPatientIds.includes(patient.id)"
+               @click="togglePatientSelection(patient.id)"
+               class="patient-list-item"
+               link
+            >
+               <template #prepend>
+                  <v-checkbox
+                     :model-value="selectedPatientIds.includes(patient.id)"
+                     @click.stop="togglePatientSelection(patient.id)"
+                     :ripple="false"
+                     density="compact"
+                     color="primary"
+                  />
+               </template>
                <v-list-item-title>{{ patient.name }}</v-list-item-title>
                <v-list-item-subtitle v-if="patient.umrn || patient.ward">
                   {{ patient.umrn ? `UMRN: ${patient.umrn}` : '' }} {{ patient.ward ? `Ward: ${patient.ward}` : '' }}
@@ -214,6 +283,7 @@
 </template>
 
 <script setup lang="ts">
+import { ref, provide, computed, watch, nextTick, onMounted } from 'vue';
 import {  useNoteExport } from '@/composables/useNoteRetrieval';
 // --- In-memory cache for unsaved notes per patient/date ---
 const unsavedNotesCache: Record<string, string> = {};
@@ -247,7 +317,6 @@ const autoExportStarted = ref(false);
 
 declare const window: any;
 import packageJson from '../package.json';
-import { ref, provide, computed, watch, nextTick } from 'vue'; // Added watchEffect if needed, or just use watch
 import { usePatientData } from '@/composables/usePatientData';
 import { useNoteEditor } from '@/composables/useNoteEditor';
 import { useConfig } from '@/composables/useConfig';
@@ -259,7 +328,12 @@ import { useDisplay } from 'vuetify';
 const drawer = ref(false);
 const snackbar = ref({ show: false, text: '', color: 'success' });
 const selectedPatientId = ref<string | null>(null);
-const selectedDate = ref<string>(new Date().toISOString().split('T')[0]);
+const selectedPatientIds = ref<string[]>([]); // For multi-select
+const search = ref('');
+const dateMenu = ref(false);
+const allowedDates = ref<string[]>([]);
+const todayString = new Date().toISOString().split('T')[0];
+const selectedDate = ref<string>(todayString);
 const noteContent = ref<string>('');
 const currentNote = ref<Note | null>(null);
 const duplicateDialog = ref(false);
@@ -287,6 +361,18 @@ const selectedPatient = computed<Patient | undefined>(() => {
    return patientData.getPatientById(selectedPatientId.value);
 });
 
+// Computed: filtered patient list
+const filteredPatients = computed(() => {
+   if (!search.value) return patientData.patients.value;
+   const s = search.value.toLowerCase();
+   return patientData.patients.value.filter(
+      p =>
+         (p.name && p.name.toLowerCase().includes(s)) ||
+         (p.umrn && p.umrn.toLowerCase().includes(s)) ||
+         (p.ward && p.ward.toLowerCase().includes(s))
+   );
+});
+
 const noteDateDisplay = computed(() => {
    try {
       const [year, month, day] = selectedDate.value.split('-');
@@ -302,6 +388,75 @@ const showSnackbar = (text: string, color: 'success' | 'error' | 'info' = 'info'
    snackbar.value.color = color;
    snackbar.value.show = true;
 };
+
+// Multi-select logic
+function togglePatientSelection(patientId: string) {
+   const idx = selectedPatientIds.value.indexOf(patientId);
+   if (idx === -1) {
+      selectedPatientIds.value.push(patientId);
+   } else {
+      selectedPatientIds.value.splice(idx, 1);
+   }
+   // If only one selected, set as active for editing
+   if (selectedPatientIds.value.length === 1) {
+      selectedPatientId.value = selectedPatientIds.value[0];
+   }
+}
+function removeSelectedPatients() {
+   if (selectedPatientIds.value.length === 0) return;
+   Promise.all(
+      selectedPatientIds.value.map(id => patientData.removePatient(id))
+   ).then(() => {
+      showSnackbar('Selected patients removed.', 'info');
+      selectedPatientIds.value = [];
+      // If the active patient was removed, clear selection
+      if (selectedPatientId.value && !patientData.patients.value.some(p => p.id === selectedPatientId.value)) {
+         selectedPatientId.value = null;
+      }
+   });
+}
+
+// --- Add Selected Patients from Historical List to Today's List ---
+const addSelectedToToday = async () => {
+  if (selectedPatientIds.value.length === 0) {
+    showSnackbar('No patients selected.', 'info');
+    return;
+  }
+  if (selectedDate.value === todayString) {
+    showSnackbar('Cannot add from today\'s list to itself.', 'info');
+    return;
+  }
+
+  const patientsToAdd: Patient[] = selectedPatientIds.value
+    .map(id => patientData.getPatientById(id))
+    .filter((p): p is Patient => !!p); // Filter out undefined results
+
+  if (patientsToAdd.length === 0) {
+    showSnackbar('Could not find data for selected patients.', 'error');
+    return;
+  }
+
+  try {
+    const success = await patientData.addPatientsToDate(patientsToAdd, todayString);
+    if (success) {
+      showSnackbar(`Added ${patientsToAdd.length} patient(s) to today's list.`, 'success');
+      // Optionally clear selection after adding
+      // selectedPatientIds.value = [];
+    } else {
+      showSnackbar(`Failed to add patients to today's list: ${patientData.error.value || 'Unknown error'}`, 'error');
+    }
+  } catch (e: any) {
+    showSnackbar(`Error adding patients to today's list: ${e.message || e}`, 'error');
+  }
+};
+
+// Date navigation logic
+async function onDateChange(newDate: string) {
+   selectedDate.value = newDate;
+   await patientData.setActivePatientListDate(newDate);
+   selectedPatientId.value = null;
+   selectedPatientIds.value = [];
+}
 provide('showSnackbar', showSnackbar);
 
 const {
@@ -726,6 +881,16 @@ const updatePatientUmrn = async () => {
       }
    }
 };
+onMounted(async () => {
+   // Load available patient list dates for date picker
+   allowedDates.value = await patientData.listAvailablePatientListDates();
+});
+
+watch(selectedDate, async (newDate) => {
+   // When selectedDate changes, reload allowedDates (in case new files are added)
+   allowedDates.value = await patientData.listAvailablePatientListDates();
+});
+
 </script>
 
 <style scoped lang="scss">

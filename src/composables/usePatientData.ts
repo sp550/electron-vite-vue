@@ -490,26 +490,28 @@ const updatePatient = async (updatedPatient: Patient): Promise<boolean> => {
     }
 
     // --- Confirmation Dialog ---
+    // NOTE: As per requirements, removing a patient only updates the list file.
+    // Patient notes directories are NEVER deleted by list changes.
     console.log(
       `Requesting confirmation to remove patient: ${patientToRemove.name}`
     );
     const confirmation = await showConfirmDialog({
       type: "warning",
-      buttons: ["Cancel", "Delete Patient"], // Button order matters, 0=Cancel, 1=Delete
+      buttons: ["Cancel", "Remove from List"], // Button order matters, 0=Cancel, 1=Remove
       defaultId: 0,
       cancelId: 0,
-      title: "Confirm Deletion",
-      message: `Are you sure you want to delete patient "${patientToRemove.name}"?`,
+      title: "Remove Patient from List",
+      message: `Are you sure you want to remove patient "${patientToRemove.name}" from the list?`,
       detail:
-        "This action cannot be undone and will delete all associated notes.",
+        "This action will only remove the patient from the current day's list. All associated notes will be preserved and are never deleted by this action.",
     });
 
     if (confirmation.response !== 1) {
-      // Check if the 'Delete Patient' button (index 1) was clicked
+      // Check if the 'Remove from List' button (index 1) was clicked
       console.log("Patient removal cancelled by user.");
       return false; // User cancelled
     }
-    console.log("User confirmed patient removal.");
+    console.log("User confirmed patient removal from list.");
 
     isLoading.value = true;
     error.value = null;
@@ -522,13 +524,8 @@ const updatePatient = async (updatedPatient: Patient): Promise<boolean> => {
       const saveSuccess = await savePatients(updatedPatients); // savePatients handles updating ref
 
       if (saveSuccess) {
-        // --- Remove the patient's notes directory *after* successful save ---
-        console.log(
-          "Patient list saved. Removing patient notes directory:",
-          notesDir
-        );
-        await rmdirAbsolute(notesDir); // Attempt removal
-        console.log("Patient removed successfully:", patientId);
+        // No notes directory is ever deleted here.
+        console.log("Patient removed from list successfully:", patientId);
         return true;
       } else {
         // If saving the patient list failed, do NOT remove the directory
@@ -834,6 +831,55 @@ const updatePatient = async (updatedPatient: Patient): Promise<boolean> => {
     }
   });
 
+  /**
+   * Add patients to a specific date's patient list, skipping duplicates by id or UMRN.
+   * @param patientsToAdd Array of Patient objects to add.
+   * @param date Target date string (YYYY-MM-DD).
+   * @returns Promise<boolean> true if successful, false otherwise.
+   */
+  const addPatientsToDate = async (patientsToAdd: Patient[], date: string): Promise<boolean> => {
+    if (!isDataDirectorySet.value || !config.value.dataDirectory) return false;
+    try {
+      // Compute file path for the target date
+      const filePath = await joinPaths(config.value.dataDirectory, `patients_${date}.json`);
+      // Load existing patients for that date
+      let existingPatients: Patient[] = [];
+      try {
+        const fileContent = await readFileAbsolute(filePath);
+        if (fileContent) {
+          existingPatients = JSON.parse(fileContent) as Patient[];
+        }
+      } catch (e) {
+        // If file doesn't exist, start with empty list
+        existingPatients = [];
+      }
+      // Build sets for deduplication
+      const existingIds = new Set(existingPatients.map(p => p.id));
+      const existingUmrns = new Set(existingPatients.map(p => p.umrn).filter(Boolean));
+      // Filter out duplicates
+      const newPatients = patientsToAdd.filter(p =>
+        !existingIds.has(p.id) && (!p.umrn || !existingUmrns.has(p.umrn))
+      );
+      if (newPatients.length === 0) {
+        // Nothing to add
+        return true;
+      }
+      const updatedPatients = [...existingPatients, ...newPatients];
+      // Save updated list
+      await writeFileAbsolute(filePath, JSON.stringify(updatedPatients, null, 2));
+      // If adding to today, update in-memory list as well
+      if (date === todayString()) {
+        patients.value = updatedPatients;
+        updatePatientIdentifierArray(patients.value);
+      }
+      return true;
+    } catch (err: any) {
+      console.error("Error in addPatientsToDate:", err);
+      error.value = `Failed to add patients to date: ${err.message || err}`;
+      return false;
+    }
+  };
+
   return {
     // --- Date-based patient list management ---
     activePatientListDate,
@@ -856,6 +902,7 @@ const updatePatient = async (updatedPatient: Patient): Promise<boolean> => {
     listFiles,
     importICMPatientListFromDefault, // Export new function
     importICMPatientListFromFolder, // Export existing function
-    importICMPatientListFromFile // Export new function
+    importICMPatientListFromFile, // Export new function
+    addPatientsToDate // Export the new method
   };
 }
