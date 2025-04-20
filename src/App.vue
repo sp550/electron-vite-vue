@@ -21,14 +21,8 @@
                </v-btn>
             </template>
             <v-card>
-               <v-date-picker
-                  v-model="selectedDate"
-                  :allowed-dates="allowedDates"
-                  @update:model-value="onDateChange"
-                  color="primary"
-                  show-adjacent-months
-                  :max="todayString"
-               />
+               <v-date-picker v-model="selectedDate" :allowed-dates="allowedDates" @update:model-value="onDateChange"
+                  color="primary" show-adjacent-months :max="todayString" />
             </v-card>
          </v-menu>
          <!-- Auto-Save Toggle -->
@@ -48,27 +42,19 @@
                <v-list-item @click="selectDataDirectory">
                   <v-list-item-title>Select Data Directory</v-list-item-title>
                </v-list-item>
-   
+
                <v-list-item @click="manualExportNotesForDay">
                   <v-list-item-title>Export Notes</v-list-item-title>
                </v-list-item>
                <v-list-item @click="openDataDirectory">
                   <v-list-item-title>Open Data Directory</v-list-item-title>
                </v-list-item>
-               <v-list-item
-                 @click="handleImportICMPatientList"
-                 :disabled="importICMLoading"
-               >
-                 <v-list-item-title>
-                   Import ICM Patient List (Choose File)
-                    <v-progress-circular
-                      v-if="importICMLoading"
-                      indeterminate
-                      size="16"
-                      color="primary"
-                      class="ml-2"
-                    />
-                 </v-list-item-title>
+               <v-list-item @click="handleImportICMPatientList" :disabled="importICMLoading">
+                  <v-list-item-title>
+                     Import ICM Patient List (Choose File)
+                     <v-progress-circular v-if="importICMLoading" indeterminate size="16" color="primary"
+                        class="ml-2" />
+                  </v-list-item-title>
                </v-list-item>
             </v-list>
          </v-menu>
@@ -87,90 +73,47 @@
       <v-navigation-drawer app v-model="drawer" :permanent="smAndUp" class="drawer">
          <!-- Search and Multi-Select Controls -->
          <div class="pa-2">
-            <v-text-field
-               v-model="search"
-               label="Search patients"
-               prepend-inner-icon="mdi-magnify"
-               dense
-               hide-details
-               clearable
-               class="mb-2"
-            />
-            <v-btn
-               v-if="selectedPatientIds.length > 0"
-               color="error"
-               size="small"
-               class="mb-2"
-               @click="removeSelectedPatients"
-               block
-            >
+            <v-text-field v-model="search" label="Search patients" prepend-inner-icon="mdi-magnify" dense hide-details
+               clearable class="mb-2" />
+            <v-btn v-if="selectedPatientIds.length > 0" color="error" size="small" class="mb-2"
+               @click="removeSelectedPatients" block>
                <v-icon start>mdi-delete</v-icon>
                Remove Selected ({{ selectedPatientIds.length }})
             </v-btn>
             <!-- Add Selected to Today's List Button -->
-            <v-btn
-               v-if="selectedPatientIds.length > 0 && selectedDate !== todayString"
-               color="primary"
-               variant="tonal"
-               size="small"
-               class="mb-2"
-               @click="addSelectedToToday"
-               block
-            >
+            <v-btn v-if="selectedPatientIds.length > 0 && selectedDate !== todayString" color="primary" variant="tonal"
+               size="small" class="mb-2" @click="addSelectedToToday" block>
                <v-icon start>mdi-calendar-plus</v-icon>
                Add Selected to Today ({{ selectedPatientIds.length }})
             </v-btn>
          </div>
-         <ul ref="patientListRef" class="v-list patient-list">
-            <li
-               v-for="(element, index) in patientsDraggable"
-               :key="element.id"
-               :data-id="element.id"
-               class="patient-list-item"
-               :class="{ 'is-dragging': draggingIndex === index }"
-            >
-               <v-list-item-content @click="handlePatientClick(element.id)">
-                  <v-row align="center">
-                     <v-col cols="auto">
-                        <v-checkbox
-                           :model-value="selectedPatientIds.includes(element.id)"
-                           @click.stop="checkboxSelect(element.id)"
-                           :ripple="false"
-                           density="compact"
-                           color="primary"
-                        />
-                     </v-col>
-                     <v-col>
-                        <v-list-item-title>{{ element.name }}</v-list-item-title>
-                        <v-list-item-subtitle v-if="element.umrn || element.ward" class="umrn-ward">
-                           {{ element.umrn ? `UMRN: ${element.umrn}` : '' }} {{ element.ward ? `Ward: ${element.ward}` : '' }}
-                        </v-list-item-subtitle>
-                     </v-col>
-                     <v-col cols="auto" class="button-col">
-                        <v-btn
-                           icon
-                           size="small"
-                           color="error"
-                           @click.stop="removePatient(element)"
-                           title="Remove patient"
-                           class="mr-1"
-                        >
-                           <v-icon>mdi-delete</v-icon>
-                        </v-btn>
-                        <v-btn
-                           icon
-                           size="small"
-                           class="drag-handle"
-                           title="Drag to reorder"
-                           @mousedown.stop
-                        >
-                           <v-icon>mdi-drag</v-icon>
-                        </v-btn>
-                     </v-col>
-                  </v-row>
-               </v-list-item-content>
-            </li>
-         </ul>
+         <v-list class="patient-list">
+            <v-list-item-group v-model="selectedPatientIds" multiple :mandatory="false" ref="patientListRef">
+               <v-list-item v-for="(element, index) in patientsDraggable" :key="element.id" :value="element.id"
+                  :data-id="element.id" class="patient-list-item" :class="{ 'is-dragging': draggingIndex === index }"
+                  @click="handlePatientClick(element.id)">
+                  <template #prepend>
+                     <v-checkbox :model-value="selectedPatientIds.includes(element.id)"
+                        @click.stop="checkboxSelect(element.id)" :ripple="true" density="compact" color="primary" />
+                  </template>
+                  <v-list-item-content>
+                     <v-list-item-title>{{ element.name }}</v-list-item-title>
+                     <v-list-item-subtitle v-if="element.umrn || element.ward" class="umrn-ward">
+                        {{ element.umrn ? `${element.umrn}` : '' }} {{ element.ward ? `Ward: ${element.ward}` : '' }}
+                     </v-list-item-subtitle>
+                  </v-list-item-content>
+                  <template #append>
+                     <v-btn icon size="small" color="error" @click.stop="removePatient(element)" title="Remove patient"
+                        class="mr-1">
+                        <v-icon>mdi-delete</v-icon>
+                     </v-btn>
+                     <v-btn icon size="small" class="drag-handle" title="Drag to reorder" @mousedown.stop>
+                        <v-icon>mdi-drag</v-icon>
+                     </v-btn>
+                  </template>
+               </v-list-item>
+            </v-list-item-group>
+         </v-list>
 
 
          <!-- Add New Patient -->
@@ -695,6 +638,7 @@ const goToNextDay = async () => {
 
 const onSortEnd = async (newOrderedList: Patient[]) => {
    // Optionally, you can add an 'order' property if desired:
+   console.log(newOrderedList)
    const orderedPatients = newOrderedList.map((patient, index) => ({ ...patient, order: index }));
    const success = await patientData.savePatients(orderedPatients);
    if (success) {
@@ -937,8 +881,22 @@ onMounted(async () => {
   if (patientListRef.value) {
     Sortable.create(patientListRef.value as HTMLElement, {
       handle: '.drag-handle',
-      onEnd: onSortEnd,
       preventDefault: false,
+      animation: 150,
+      onEnd(evt: any) {
+        // Reorder patientsDraggable.value based on drag event
+        const currentList = patientsDraggable.value;
+        if (Array.isArray(currentList)) {
+          const movedItem = currentList.splice(evt.oldIndex, 1)[0];
+          currentList.splice(evt.newIndex, 0, movedItem);
+          const newOrder = [...currentList];
+          patientsDraggable.value = newOrder;
+          // Call onSortEnd with the new order
+          onSortEnd(newOrder);
+        } else {
+          console.error("patientsDraggable.value is not an array.");
+        }
+      },
     });
   }
 });

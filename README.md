@@ -21,6 +21,7 @@
 /- import notes and patient database from plaintext ( i guess this can be used for migration from notepad-helper too!)
 **Post Minimal Functional Product**
 **Priority 5: Large-Scale Features**
+keyboard nav
 - Auto-backup for each note (own DB with one-minute backups and history revert icon).
 - Todo list for patients.
 - Issues extractor.
