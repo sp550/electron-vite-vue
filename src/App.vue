@@ -123,66 +123,56 @@
          </div>
          <!-- DEBUG: Check filteredPatients -->
          <pre>Debug Patients: {{ filteredPatients.length }}</pre>
-         <!-- <VueDraggableNext
-            :list="filteredPatients"
-            item-key="id"
-            handle=".drag-handle"
-            @end="onDraggableEnd"
-            tag="v-list"
-         >
-            <template #item="{ element, index }"> -->
-         <v-list>
-            <v-list-item
-               v-for="(element, index) in filteredPatients"
+         <ul ref="patientListRef" class="v-list" style="padding:0; margin:0;">
+            <li
+               v-for="(element, index) in patientsDraggable"
                :key="element.id"
-               :value="element.id"
-               :active="selectedPatientIds.includes(element.id)"
+               :data-id="element.id"
                class="patient-list-item"
                :class="{ 'is-dragging': draggingIndex === index }"
+               style="list-style:none; padding:0;"
                @mouseenter="hoveredIndex = index"
                @mouseleave="hoveredIndex = null"
             >
-               <template #prepend>
-                  <v-checkbox
-                     :model-value="selectedPatientIds.includes(element.id)"
-                     @click.stop="togglePatientSelection(element.id)"
-                     :ripple="false"
-                     density="compact"
-                     color="primary"
-                  />
-               </template>
-               <v-list-item-title>{{ element.name }}</v-list-item-title>
-               <v-list-item-subtitle v-if="element.umrn || element.ward">
-                  {{ element.umrn ? `UMRN: ${element.umrn}` : '' }} {{ element.ward ? `Ward: ${element.ward}` : '' }}
-               </v-list-item-subtitle>
-               <template #append>
-                  <v-btn
-                     v-if="hoveredIndex === index"
-                     icon
-                     size="small"
-                     color="error"
-                     @click.stop="removePatient(element)"
-                     title="Remove patient"
-                     class="mr-1"
-                  >
-                     <v-icon>mdi-delete</v-icon>
-                  </v-btn>
-                  <v-btn
-                     v-if="hoveredIndex === index"
-                     icon
-                     size="small"
-                     class="drag-handle"
-                     title="Drag to reorder"
-                     style="cursor: grab;"
-                     @mousedown.stop
-                  >
-                     <v-icon>mdi-drag</v-icon>
-                  </v-btn>
-               </template>
-            </v-list-item>
-         </v-list>
-         <!-- </template>
-         </VueDraggableNext> -->
+               <v-checkbox
+                  :model-value="selectedPatientIds.includes(element.id)"
+                  @click.stop="togglePatientSelection(element.id)"
+                  :ripple="false"
+                  density="compact"
+                  color="primary"
+                  style="display:inline-block; vertical-align:middle;"
+               />
+               <span style="display:inline-block; vertical-align:middle;">
+                  <strong>{{ element.name }}</strong>
+                  <span v-if="element.umrn || element.ward" style="font-size:0.9em; color:gray;">
+                     {{ element.umrn ? `UMRN: ${element.umrn}` : '' }} {{ element.ward ? `Ward: ${element.ward}` : '' }}
+                  </span>
+               </span>
+               <v-btn
+                  v-if="hoveredIndex === index"
+                  icon
+                  size="small"
+                  color="error"
+                  @click.stop="removePatient(element)"
+                  title="Remove patient"
+                  class="mr-1"
+                  style="float:right;"
+               >
+                  <v-icon>mdi-delete</v-icon>
+               </v-btn>
+               <v-btn
+                  v-if="hoveredIndex === index"
+                  icon
+                  size="small"
+                  class="drag-handle"
+                  title="Drag to reorder"
+                  style="cursor: grab; float:right;"
+                  @mousedown.stop
+               >
+                  <v-icon>mdi-drag</v-icon>
+               </v-btn>
+            </li>
+         </ul>
 
 
          <!-- Add New Patient -->
@@ -321,7 +311,7 @@
 
 <script setup lang="ts">
 import { ref, provide, computed, watch, nextTick, onMounted } from 'vue';
-import { VueDraggableNext } from 'vue-draggable-next';
+//import { VueDraggableNext } from 'vue-draggable-next';
 import {  useNoteExport } from '@/composables/useNoteRetrieval';
 // --- In-memory cache for unsaved notes per patient/date ---
 const unsavedNotesCache: Record<string, string> = {};
@@ -366,19 +356,15 @@ import { useDisplay } from 'vuetify';
 // --- Draggable state for patient list ---
 const hoveredIndex = ref<number | null>(null);
 const draggingIndex = ref<number | null>(null);
-// Dummy v-model for Draggable (not used for data, but required for v-model)
-const patientsDraggable = ref([]);
+// Draggable state for patient list
+import type { Ref } from 'vue';
+import Sortable from 'sortablejs';
+const patientsDraggable: Ref<Patient[]> = ref([]);
+const patientListRef: Ref<HTMLUListElement | null> = ref(null);
 
 // Remove patient handler for icon
 const removePatient = async (patient: Patient) => {
    await confirmRemovePatient(patient);
-};
-
-// Draggable end handler
-const onDraggableEnd = async (evt: any) => {
-   // evt is the drag event, but Draggable emits the new order via filteredPatients
-   // We use filteredPatients.value as the new order
-   await onSortEnd(filteredPatients.value);
 };
 
 const drawer = ref(false);
@@ -429,6 +415,10 @@ const filteredPatients = computed(() => {
    );
 });
 
+// Keep patientsDraggable in sync with filteredPatients
+watch(filteredPatients, (newList) => {
+  patientsDraggable.value = [...newList];
+}, { immediate: true });
 const noteDateDisplay = computed(() => {
    try {
       const [year, month, day] = selectedDate.value.split('-');
@@ -947,6 +937,17 @@ watch(selectedDate, async (newDate) => {
    allowedDates.value = await patientData.listAvailablePatientListDates();
 });
 
+
+onMounted(async () => {
+  await nextTick();
+  if (patientListRef.value) {
+    Sortable.create(patientListRef.value as HTMLElement, {
+      handle: '.drag-handle',
+      onEnd: onSortEnd,
+      preventDefault: false,
+    });
+  }
+});
 </script>
 
 <style scoped lang="scss">
