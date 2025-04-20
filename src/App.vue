@@ -121,31 +121,68 @@
                Add Selected to Today ({{ selectedPatientIds.length }})
             </v-btn>
          </div>
-         <v-list v-sortable="{ list: filteredPatients, onSortEnd: onSortEnd }">
+         <!-- DEBUG: Check filteredPatients -->
+         <pre>Debug Patients: {{ filteredPatients.length }}</pre>
+         <!-- <VueDraggableNext
+            :list="filteredPatients"
+            item-key="id"
+            handle=".drag-handle"
+            @end="onDraggableEnd"
+            tag="v-list"
+         >
+            <template #item="{ element, index }"> -->
+         <v-list>
             <v-list-item
-               v-for="patient in filteredPatients"
-               :key="patient.id"
-               :value="patient.id"
-               :active="selectedPatientIds.includes(patient.id)"
-               @click="togglePatientSelection(patient.id)"
+               v-for="(element, index) in filteredPatients"
+               :key="element.id"
+               :value="element.id"
+               :active="selectedPatientIds.includes(element.id)"
                class="patient-list-item"
-               link
+               :class="{ 'is-dragging': draggingIndex === index }"
+               @mouseenter="hoveredIndex = index"
+               @mouseleave="hoveredIndex = null"
             >
                <template #prepend>
                   <v-checkbox
-                     :model-value="selectedPatientIds.includes(patient.id)"
-                     @click.stop="togglePatientSelection(patient.id)"
+                     :model-value="selectedPatientIds.includes(element.id)"
+                     @click.stop="togglePatientSelection(element.id)"
                      :ripple="false"
                      density="compact"
                      color="primary"
                   />
                </template>
-               <v-list-item-title>{{ patient.name }}</v-list-item-title>
-               <v-list-item-subtitle v-if="patient.umrn || patient.ward">
-                  {{ patient.umrn ? `UMRN: ${patient.umrn}` : '' }} {{ patient.ward ? `Ward: ${patient.ward}` : '' }}
+               <v-list-item-title>{{ element.name }}</v-list-item-title>
+               <v-list-item-subtitle v-if="element.umrn || element.ward">
+                  {{ element.umrn ? `UMRN: ${element.umrn}` : '' }} {{ element.ward ? `Ward: ${element.ward}` : '' }}
                </v-list-item-subtitle>
+               <template #append>
+                  <v-btn
+                     v-if="hoveredIndex === index"
+                     icon
+                     size="small"
+                     color="error"
+                     @click.stop="removePatient(element)"
+                     title="Remove patient"
+                     class="mr-1"
+                  >
+                     <v-icon>mdi-delete</v-icon>
+                  </v-btn>
+                  <v-btn
+                     v-if="hoveredIndex === index"
+                     icon
+                     size="small"
+                     class="drag-handle"
+                     title="Drag to reorder"
+                     style="cursor: grab;"
+                     @mousedown.stop
+                  >
+                     <v-icon>mdi-drag</v-icon>
+                  </v-btn>
+               </template>
             </v-list-item>
          </v-list>
+         <!-- </template>
+         </VueDraggableNext> -->
 
 
          <!-- Add New Patient -->
@@ -284,6 +321,7 @@
 
 <script setup lang="ts">
 import { ref, provide, computed, watch, nextTick, onMounted } from 'vue';
+import { VueDraggableNext } from 'vue-draggable-next';
 import {  useNoteExport } from '@/composables/useNoteRetrieval';
 // --- In-memory cache for unsaved notes per patient/date ---
 const unsavedNotesCache: Record<string, string> = {};
@@ -324,6 +362,24 @@ import { useFileSystemAccess } from '@/composables/useFileSystemAccess';
 import type { Patient, Note } from '@/types';
 import MonacoEditorComponent from '@/components/MonacoEditorComponent.vue';
 import { useDisplay } from 'vuetify';
+
+// --- Draggable state for patient list ---
+const hoveredIndex = ref<number | null>(null);
+const draggingIndex = ref<number | null>(null);
+// Dummy v-model for Draggable (not used for data, but required for v-model)
+const patientsDraggable = ref([]);
+
+// Remove patient handler for icon
+const removePatient = async (patient: Patient) => {
+   await confirmRemovePatient(patient);
+};
+
+// Draggable end handler
+const onDraggableEnd = async (evt: any) => {
+   // evt is the drag event, but Draggable emits the new order via filteredPatients
+   // We use filteredPatients.value as the new order
+   await onSortEnd(filteredPatients.value);
+};
 
 const drawer = ref(false);
 const snackbar = ref({ show: false, text: '', color: 'success' });

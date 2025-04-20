@@ -39,6 +39,7 @@
     "papaparse": "^5.5.2",
     "sortablejs": "^1.15.6",
     "uuid": "^11.1.0",
+    "vue-draggable-next": "^2.2.1",
     "vue-router": "^4.5.0",
     "vuetify": "^3.8.0"
   }
