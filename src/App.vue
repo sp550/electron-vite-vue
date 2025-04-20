@@ -30,11 +30,28 @@
                <v-list-item @click="selectDataDirectory">
                   <v-list-item-title>Select Data Directory</v-list-item-title>
                </v-list-item>
-
+   
                <v-list-item @click="manualExportNotesForDay">
                   <v-list-item-title>Export Notes</v-list-item-title>
                </v-list-item>
-               <v-list-item @click="openDataDirectory"> <v-list-item-title> Open Data Directory </v-list-item-title></v-list-item>
+               <v-list-item @click="openDataDirectory">
+                  <v-list-item-title>Open Data Directory</v-list-item-title>
+               </v-list-item>
+               <v-list-item
+                 @click="handleImportICMPatientList"
+                 :disabled="importICMLoading"
+               >
+                 <v-list-item-title>
+                   Import ICM Patient List (Choose File)
+                    <v-progress-circular
+                      v-if="importICMLoading"
+                      indeterminate
+                      size="16"
+                      color="primary"
+                      class="ml-2"
+                    />
+                 </v-list-item-title>
+               </v-list-item>
             </v-list>
          </v-menu>
       </v-app-bar>
@@ -200,6 +217,28 @@
 import {  useNoteExport } from '@/composables/useNoteRetrieval';
 // --- In-memory cache for unsaved notes per patient/date ---
 const unsavedNotesCache: Record<string, string> = {};
+
+// --- Import ICM Patient List Loading State ---
+const importICMLoading = ref(false);
+
+// --- Handler for Import ICM Patient List ---
+const handleImportICMPatientList = async () => {
+  try {
+    importICMLoading.value = true;
+    // Open file selection dialog for CSV files
+    const filePath = await window.electronAPI.selectCSVFile?.();
+    if (!filePath) {
+      importICMLoading.value = false;
+      return; // User cancelled
+    }
+    await patientData.importICMPatientListFromFile(filePath);
+    showSnackbar('ICM patient list imported successfully.', 'success');
+  } catch (e: any) {
+    showSnackbar(`Error importing ICM patient list: ${e?.message || e}`, 'error');
+  } finally {
+    importICMLoading.value = false;
+  }
+};
 
 
 

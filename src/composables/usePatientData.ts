@@ -1,11 +1,36 @@
 // src/composables/usePatientData.ts
 import { ref, onMounted, watch } from "vue";
 import { v4 as uuidv4 } from "uuid";
-import type { Patient } from "@/types";
+import Papa from "papaparse";
+import type { Patient } from "@/types"; // Import the updated interface
 import { useFileSystemAccess } from "./useFileSystemAccess";
 import { useConfig } from "./useConfig";
 
-const patients = ref<Patient[]>([]);
+
+import { computed } from "vue";
+
+// --- Active Patient List Date (YYYY-MM-DD) ---
+const todayString = () => new Date().toISOString().split("T")[0];
+const activePatientListDate = ref<string>(todayString());
+
+// --- List of available patient list snapshot dates ---
+const availablePatientListDates = ref<string[]>([]);
+
+const patients = ref<Patient[]>([]); // Use the imported Patient type
+// Data structure to map patient names to UMRN (if available)
+const patient_identifierArray = ref<Record<string, string>>({});
+
+// Helper function to update patient_identifierArray
+const updatePatientIdentifierArray = (patientList: Patient[]) => {
+  const newMap: Record<string, string> = {};
+  patientList.forEach(patient => {
+    if (patient.name && patient.umrn) {
+      // Handle potential name collisions if necessary, for now, last one wins
+      newMap[patient.name] = patient.umrn;
+    }
+  });
+  patient_identifierArray.value = newMap;
+};
 const isLoading = ref(false);
 const error = ref<string | null>(null);
 
@@ -21,10 +46,42 @@ export function usePatientData() {
   } = useFileSystemAccess();
   const { config, isConfigLoaded, isDataDirectorySet } = useConfig();
 
+// --- Set the active patient list date and reload patients ---
+const setActivePatientListDate = async (date: string) => {
+  activePatientListDate.value = date;
+  await loadPatients();
+};
+
+// --- List available patient list snapshot dates in the data directory ---
+const listAvailablePatientListDates = async (): Promise<string[]> => {
+  if (!isDataDirectorySet.value || !config.value.dataDirectory) return [];
+  try {
+    const files = (await listFiles(config.value.dataDirectory)) ?? [];
+    // Match files like patients_YYYY-MM-DD.json
+    const dateRegex = /^patients_(\d{4}-\d{2}-\d{2})\.json$/;
+    const dates = files
+      .map((file: string) => {
+        const match = file.match(dateRegex);
+        return match ? match[1] : null;
+      })
+      .filter((date: string | null): date is string => !!date)
+      .sort()
+      .reverse(); // Most recent first
+    availablePatientListDates.value = dates;
+    return dates;
+  } catch (error) {
+    console.error("Error listing patient list snapshot files:", error);
+    availablePatientListDates.value = [];
+    return [];
+  }
+};
+
+  // Returns the file path for the currently active patient list date
   const getPatientsFilePath = async (): Promise<string | null> => {
     if (!isDataDirectorySet.value || !config.value.dataDirectory) return null;
     try {
-      return await joinPaths(config.value.dataDirectory, "patients.json");
+      const date = activePatientListDate.value;
+      return await joinPaths(config.value.dataDirectory, `patients_${date}.json`);
     } catch (error: any) {
       console.error("Error in getPatientsFilePath:", error);
       return null;
@@ -47,6 +104,7 @@ export function usePatientData() {
     }
   };
 
+  // Loads the patient list for the currently active date
   const loadPatients = async () => {
     if (!isConfigLoaded.value || !isDataDirectorySet.value) {
       console.warn("loadPatients: Config not loaded or data directory not set.");
@@ -56,7 +114,7 @@ export function usePatientData() {
 
     isLoading.value = true;
     error.value = null;
-    const absolutePath = await getPatientsFilePath(); // <-- await here
+    const absolutePath = await getPatientsFilePath();
 
     if (!absolutePath) {
       error.value = "loadPatients: Could not determine patients file path.";
@@ -74,19 +132,23 @@ export function usePatientData() {
           ...patient,
           type: patient.umrn ? "umrn" : "uuid"
         }));
+        updatePatientIdentifierArray(patients.value); // Update identifier map
       } else {
         patients.value = [];
+        updatePatientIdentifierArray([]); // Clear identifier map
         console.warn("loadPatients: Patients file not found or empty. Initializing.");
       }
     } catch (err: any) {
       console.error("Error loading patients:", err);
       error.value = `Failed to load patients: ${err.message || err}`;
       patients.value = [];
+      updatePatientIdentifierArray([]); // Clear identifier map
     } finally {
       isLoading.value = false;
     }
   };
 
+  // Saves the patient list for the currently active date
   const savePatients = async (updatedPatients: Patient[]): Promise<boolean> => {
     const absolutePath = await getPatientsFilePath();
     if (!absolutePath) {
@@ -98,6 +160,7 @@ export function usePatientData() {
     try {
       await writeFileAbsolute(absolutePath, JSON.stringify(updatedPatients, null, 2));
       patients.value = updatedPatients; // Update reactive state
+      updatePatientIdentifierArray(patients.value); // Update identifier map after save
       return true;
     } catch (err: any) {
       console.error("Error saving patients:", err);
@@ -496,6 +559,254 @@ const updatePatient = async (updatedPatient: Patient): Promise<boolean> => {
     return patients.value.find((p) => p.type === 'umrn' && p.id === umrn);
   };
 
+  // --- Internal Helper for CSV Parsing and Patient Mapping ---
+  const _parseAndMapICMPatients = (
+    csvContent: string,
+    currentPatients: Patient[]
+  ): Patient[] => {
+    console.log("Parsing CSV content...");
+    const parseResult = Papa.parse<Record<string, any>>(csvContent, {
+      header: true, // Assumes the first row is the header
+      skipEmptyLines: true,
+      dynamicTyping: true, // Automatically convert types where possible
+    });
+
+    if (parseResult.errors.length > 0) {
+      console.error("CSV Parsing Errors:", parseResult.errors);
+      // Report the first error
+      throw new Error(
+        `Error parsing CSV file: ${parseResult.errors[0].message} (Row: ${parseResult.errors[0].row})`
+      );
+    }
+
+    if (!parseResult.data || parseResult.data.length === 0) {
+      console.warn("CSV file is empty or contains no data rows.");
+      return []; // Return empty array, not an error
+    }
+
+    console.log(`Parsed ${parseResult.data.length} rows from CSV.`);
+    const importedPatients: Patient[] = [];
+    const existingUmrns = new Set(
+      currentPatients.filter((p) => p.type === "umrn").map((p) => p.id)
+    );
+
+    for (const row of parseResult.data) {
+      // Map relevant fields, skipping "trash" fields implicitly
+      const umrn = row.umrn ? String(row.umrn).trim() : undefined;
+      const name = row.name ? String(row.name).trim() : undefined;
+
+      // Basic validation: require at least a name or UMRN
+      if (!umrn && !name) {
+        console.warn("Skipping row due to missing UMRN and Name:", row);
+        continue;
+      }
+
+      // Skip if UMRN already exists in the current patient list
+      if (umrn && existingUmrns.has(umrn)) {
+        console.log(`Skipping existing UMRN: ${umrn}`);
+        continue;
+      }
+
+      const patientId = umrn || uuidv4();
+      const patientType = umrn ? "umrn" : "uuid";
+
+      const newPatient: Patient = {
+        id: patientId,
+        type: patientType,
+        umrn: umrn,
+        name: name,
+        location: row.location ? String(row.location).trim() : undefined,
+        age: row.age !== null && row.age !== undefined ? row.age : undefined, // Allow number or string
+        los: row.los !== null && row.los !== undefined ? row.los : undefined, // Allow number or string
+        admission_date: row.admission_date
+          ? String(row.admission_date).trim()
+          : undefined,
+        cons_name: row.cons_name ? String(row.cons_name).trim() : undefined,
+        dsc_date: row.dsc_date ? String(row.dsc_date).trim() : undefined,
+        diagnosis: row.diagnosis ? String(row.diagnosis).trim() : undefined,
+        // ward: row.ward ? String(row.ward).trim() : undefined, // Map if 'ward' exists in CSV
+      };
+      importedPatients.push(newPatient);
+    }
+
+    return importedPatients;
+  };
+
+  // --- Import from Default Configured Path ---
+  const importICMPatientListFromDefault = async (): Promise<void> => {
+    isLoading.value = true;
+    error.value = null;
+    console.log("Starting iCM patient list import from default path...");
+
+    if (!isConfigLoaded.value || !config.value.iCMListDirectory) {
+      error.value = "iCM list directory path is not configured.";
+      console.error("Import Error:", error.value);
+      isLoading.value = false;
+      return;
+    }
+
+    const filePath = config.value.iCMListDirectory; // This should point to the specific file
+    console.log("Attempting to read iCM list from default path:", filePath);
+
+    try {
+      const fileContent = await readFileAbsolute(filePath);
+      if (!fileContent) {
+        error.value = `iCM patient list file not found or empty at: ${filePath}`;
+        console.error("Import Error:", error.value);
+        isLoading.value = false;
+        return;
+      }
+
+      const newPatients = _parseAndMapICMPatients(fileContent, patients.value);
+
+      if (newPatients.length === 0) {
+        console.log("No new patients to import after filtering.");
+        isLoading.value = false;
+        return;
+      }
+
+      console.log(`Adding ${newPatients.length} new patients to the list.`);
+      const updatedPatients = [...patients.value, ...newPatients];
+
+      console.log("Saving updated patient list after import...");
+      const saveSuccess = await savePatients(updatedPatients);
+
+      if (saveSuccess) {
+        console.log("iCM patient list imported successfully from default path.");
+      } else {
+        console.error("Failed to save patient list after import from default path.");
+        // Error should be set by savePatients
+      }
+    } catch (err: any) {
+      console.error("Error during iCM patient list import from default path:", err);
+      error.value = `Failed to import iCM patient list: ${err.message || err}`;
+    } finally {
+      isLoading.value = false;
+      console.log("iCM patient list import process (default path) finished.");
+    }
+  };
+
+  // --- Import from User-Selected Folder ---
+  const importICMPatientListFromFolder = async (folderPath: string): Promise<void> => {
+    isLoading.value = true;
+    error.value = null;
+    console.log(`Starting iCM patient list import from folder: ${folderPath}`);
+
+    // Regex to match the expected file naming convention (case-insensitive)
+    const fileNameRegex = /^pt_list_\d{2}_\d{2}_\d{4}\.csv$/i;
+    let targetFilePath: string | null = null;
+
+    try {
+      console.log("Listing files in selected folder...");
+      const fileList = await listFiles(folderPath); // listFiles should return file names
+
+      if (!fileList || fileList.length === 0) {
+        error.value = `No files found in the selected folder: ${folderPath}`;
+        console.warn("Import Warning:", error.value);
+        isLoading.value = false;
+        return;
+      }
+
+      console.log(`Found ${fileList.length} items in folder. Searching for matching CSV...`);
+
+      // Find the first file matching the pattern
+      for (const fileName of fileList) {
+        if (fileNameRegex.test(fileName)) {
+          targetFilePath = await joinPaths(folderPath, fileName);
+          console.log(`Found matching file: ${targetFilePath}`);
+          break; // Use the first match
+        }
+      }
+
+      if (!targetFilePath) {
+        error.value = `No file matching the pattern 'pt_list_DD_MM_YYYY.csv' found in: ${folderPath}`;
+        console.warn("Import Warning:", error.value);
+        isLoading.value = false;
+        return;
+      }
+
+      console.log("Attempting to read iCM list from:", targetFilePath);
+      const fileContent = await readFileAbsolute(targetFilePath);
+      if (!fileContent) {
+        error.value = `Selected iCM patient list file not found or empty at: ${targetFilePath}`;
+        console.error("Import Error:", error.value);
+        isLoading.value = false;
+        return;
+      }
+
+      const newPatients = _parseAndMapICMPatients(fileContent, patients.value);
+
+      if (newPatients.length === 0) {
+        console.log("No new patients to import after filtering.");
+        isLoading.value = false;
+        return;
+      }
+
+      console.log(`Adding ${newPatients.length} new patients to the list.`);
+      const updatedPatients = [...patients.value, ...newPatients];
+
+      console.log("Saving updated patient list after import...");
+      const saveSuccess = await savePatients(updatedPatients);
+
+      if (saveSuccess) {
+        console.log("iCM patient list imported successfully from folder.");
+      } else {
+        console.error("Failed to save patient list after import from folder.");
+        // Error should be set by savePatients
+      }
+    } catch (err: any) {
+      console.error("Error during iCM patient list import from folder:", err);
+      error.value = `Failed to import iCM patient list from folder: ${err.message || err}`;
+    } finally {
+      isLoading.value = false;
+      console.log("iCM patient list import process (folder) finished.");
+    }
+  };
+
+  // --- Import from User-Selected File ---
+  const importICMPatientListFromFile = async (filePath: string): Promise<void> => {
+    isLoading.value = true;
+    error.value = null;
+    console.log("Starting iCM patient list import from file:", filePath);
+
+    try {
+      const fileContent = await readFileAbsolute(filePath);
+      if (!fileContent) {
+        error.value = `iCM patient list file not found or empty at: ${filePath}`;
+        console.error("Import Error:", error.value);
+        isLoading.value = false;
+        return;
+      }
+
+      const newPatients = _parseAndMapICMPatients(fileContent, patients.value);
+
+      if (newPatients.length === 0) {
+        console.log("No new patients to import after filtering.");
+        isLoading.value = false;
+        return;
+      }
+
+      console.log(`Adding ${newPatients.length} new patients to the list.`);
+      const updatedPatients = [...patients.value, ...newPatients];
+
+      console.log("Saving updated patient list after import...");
+      const saveSuccess = await savePatients(updatedPatients);
+
+      if (saveSuccess) {
+        console.log("iCM patient list imported successfully from file.");
+      } else {
+        console.error("Failed to save patient list after import from file.");
+        // Error should be set by savePatients
+      }
+    } catch (err: any) {
+      console.error("Error during iCM patient list import from file:", err);
+      error.value = `Failed to import iCM patient list from file: ${err.message || err}`;
+    } finally {
+      isLoading.value = false;
+      console.log("iCM patient list import process (file) finished.");
+    }
+  };
+
   // Watch for config changes (specifically dataDirectory being set/unset) and reload patients
   const { dataDirectoryChangeFlag } = useConfig();
 
@@ -510,6 +821,7 @@ const updatePatient = async (updatedPatient: Patient): Promise<boolean> => {
           "Config loaded, but no data directory set. Clearing patients."
         );
         patients.value = []; // Clear patients if directory becomes unset
+        updatePatientIdentifierArray([]); // Clear identifier map
         error.value = "Data directory not configured. Please select one.";
       }
     },
@@ -523,18 +835,27 @@ const updatePatient = async (updatedPatient: Patient): Promise<boolean> => {
   });
 
   return {
+    // --- Date-based patient list management ---
+    activePatientListDate,
+    setActivePatientListDate,
+    availablePatientListDates,
+    listAvailablePatientListDates,
+
     patients,
+    patient_identifierArray, // Export the identifier map
     isLoading,
     error,
-    loadPatients, 
+    loadPatients,
     addPatient,
     removePatient,
     getPatientById,
-    getPatientByUmrn, 
+    getPatientByUmrn,
     updatePatient,
     savePatients,
     mergePatientData,
-    listFiles
-
+    listFiles,
+    importICMPatientListFromDefault, // Export new function
+    importICMPatientListFromFolder, // Export existing function
+    importICMPatientListFromFile // Export new function
   };
 }

@@ -9,6 +9,7 @@ const defaultConfig: AppConfig = {
   patientsFilename: "patients.json",
   notesBaseDir: "notes",
   theme: "light",
+  iCMListDirectory: null, // Default path for iCM list
 };
 
 const config = ref<AppConfig>({ ...defaultConfig });

@@ -258,6 +258,53 @@ ipcMain.handle(
   }
 );
 
+// Handler for selecting a single folder
+ipcMain.handle("select-folder", async (_event): Promise<string | null> => {
+  const ownerWindow = BrowserWindow.getFocusedWindow();
+  if (!ownerWindow) {
+    console.warn("IPC: select-folder called with no focused window.");
+    return null; // Return null if no window is focused
+  }
+  return handleAsyncIpcOperation(
+    "select folder",
+    async () => {
+      const result = await dialog.showOpenDialog(ownerWindow, {
+        properties: ["openDirectory", "dontAddToRecent"],
+        title: "Select Folder",
+        message: "Please select a folder.",
+      });
+      if (result.canceled || result.filePaths.length === 0) {
+        return null; // Return null if canceled or no folder selected
+      }
+      return result.filePaths[0]; // Return the selected folder path
+    }
+  );
+});
+
+// Handler for selecting a single CSV file
+ipcMain.handle("select-csv-file", async (_event): Promise<string | null> => {
+  const ownerWindow = BrowserWindow.getFocusedWindow();
+  if (!ownerWindow) {
+    console.warn("IPC: select-csv-file called with no focused window.");
+    return null;
+  }
+  return handleAsyncIpcOperation(
+    "select csv file",
+    async () => {
+      const result = await dialog.showOpenDialog(ownerWindow, {
+        properties: ["openFile", "dontAddToRecent"],
+        title: "Select CSV File",
+        message: "Please select a CSV file.",
+        filters: [{ name: "CSV Files", extensions: ["csv"] }],
+      });
+      if (result.canceled || result.filePaths.length === 0) {
+        return null;
+      }
+      return result.filePaths[0];
+    }
+  );
+});
+
 
 ipcMain.handle(
   "show-confirm-dialog",

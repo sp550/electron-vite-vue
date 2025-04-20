@@ -78,6 +78,10 @@ contextBridge.exposeInMainWorld("electronAPI", {
   // Export notes for a given day and prompt user to save the .txt file
   exportNotesForDay: (date: string): Promise<string | null> =>
     ipcRenderer.invoke("export-notes-for-day", date),
+  selectFolder: (): Promise<string | null> => // Add selectFolder function
+    ipcRenderer.invoke("select-folder"),
+  selectCSVFile: (): Promise<string | null> =>
+    ipcRenderer.invoke("select-csv-file"),
 });
 
 
@@ -130,6 +134,9 @@ declare global {
       setUnsavedChanges: (hasChanges: boolean) => Promise<boolean>;
       exportNotesForDay: (date: string) => Promise<string | null>;
       openDirectory: (dir: string) => Promise<void>;
+      selectFolder: () => Promise<string | null>; // Add selectFolder type
+      selectCSVFile: () => Promise<string | null>;
+      // (end of electronAPI interface)
     };
   }
 }
