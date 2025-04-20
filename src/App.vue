@@ -121,8 +121,6 @@
                Add Selected to Today ({{ selectedPatientIds.length }})
             </v-btn>
          </div>
-         <!-- DEBUG: Check filteredPatients -->
-         <pre>Debug Patients: {{ filteredPatients.length }}</pre>
          <ul ref="patientListRef" class="v-list patient-list">
             <li
                v-for="(element, index) in patientsDraggable"
@@ -131,12 +129,12 @@
                class="patient-list-item"
                :class="{ 'is-dragging': draggingIndex === index }"
             >
-               <v-list-item-content>
+               <v-list-item-content @click="handlePatientClick(element.id)">
                   <v-row align="center">
                      <v-col cols="auto">
                         <v-checkbox
                            :model-value="selectedPatientIds.includes(element.id)"
-                           @click.stop="togglePatientSelection(element.id)"
+                           @click.stop="checkboxSelect(element.id)"
                            :ripple="false"
                            density="compact"
                            color="primary"
@@ -436,16 +434,12 @@ const showSnackbar = (text: string, color: 'success' | 'error' | 'info' = 'info'
 };
 
 // Multi-select logic
-function togglePatientSelection(patientId: string) {
+function checkboxSelect(patientId: string) {
    const idx = selectedPatientIds.value.indexOf(patientId);
    if (idx === -1) {
       selectedPatientIds.value.push(patientId);
    } else {
       selectedPatientIds.value.splice(idx, 1);
-   }
-   // If only one selected, set as active for editing
-   if (selectedPatientIds.value.length === 1) {
-      selectedPatientId.value = selectedPatientIds.value[0];
    }
 }
 function removeSelectedPatients() {
