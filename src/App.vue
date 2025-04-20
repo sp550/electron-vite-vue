@@ -87,14 +87,14 @@
                Add Selected to Today ({{ selectedPatientIds.length }})
             </v-btn>
          </div>
-         <v-list class="patient-list">
+         <v-list>
+            <v-list-subheader>Patient List</v-list-subheader>
             <v-list-item-group v-model="selectedPatientIds" multiple :mandatory="false" ref="patientListRef">
                <v-list-item v-for="(element, index) in patientsDraggable" :key="element.id" :value="element.id"
-                  :data-id="element.id" class="patient-list-item" :class="{ 'is-dragging': draggingIndex === index }"
+                  :data-id="element.id" :class="{ 'is-dragging': draggingIndex === index }"
                   @click="handlePatientClick(element.id)">
-                  <template #prepend>
-                     <v-checkbox :model-value="selectedPatientIds.includes(element.id)"
-                        @click.stop="checkboxSelect(element.id)" :ripple="true" density="compact" color="primary" />
+                  <template v-slot:prepend>
+                     <v-icon class="drag-handle ma-1 pa-2" title="Drag to reorder" @mousedown.stop>mdi-drag</v-icon>
                   </template>
                   <v-list-item-content>
                      <v-list-item-title>{{ element.name }}</v-list-item-title>
@@ -102,47 +102,59 @@
                         {{ element.umrn ? `${element.umrn}` : '' }} {{ element.ward ? `Ward: ${element.ward}` : '' }}
                      </v-list-item-subtitle>
                   </v-list-item-content>
-                  <template #append>
+                  <template v-slot:append class="align-center justify-center align-self-center">
                      <v-btn icon size="small" color="error" @click.stop="removePatient(element)" title="Remove patient"
-                        class="mr-1">
+                        class="ma-1 pa-2">
                         <v-icon>mdi-delete</v-icon>
                      </v-btn>
-                     <v-btn icon size="small" class="drag-handle" title="Drag to reorder" @mousedown.stop>
-                        <v-icon>mdi-drag</v-icon>
-                     </v-btn>
+                     <v-checkbox :model-value="selectedPatientIds.includes(element.id)"
+                        @click.stop="checkboxSelect(element.id)" :ripple="true" color="primary"
+                        class="align-center justify-center align-self-center" />
                   </template>
                </v-list-item>
             </v-list-item-group>
          </v-list>
 
+         <v-divider class="ma-2"></v-divider>
 
-         <!-- Add New Patient -->
-         <v-list-item @click="addNewPatient" :disabled="!configState.isDataDirectorySet.value"
-            class="add-new-patient-button">
-            <v-list-item-title>
+         <v-row class="ma-2">
+            <v-btn color="primary" size="large" @click="addNewPatient"
+               :disabled="!configState.isDataDirectorySet.value">
                <v-icon start>mdi-account-plus-outline</v-icon>
                Add New Patient
-            </v-list-item-title>
-         </v-list-item>
-         <!-- App Info -->
-         <v-list-item lines="two" density="compact">
-            <v-list-item-subtitle>App Info:</v-list-item-subtitle>
-            <v-list-item-title class="text-caption">
-               Version: {{ version }}<br>
-               Packaged: {{ isPackaged ? 'Yes' : 'No' }}<br>
-               Environment: {{ nodeEnv }}<br>
-               Config Path: {{ configState.configPath.value || 'Loading...' }}
-            </v-list-item-title>
-         </v-list-item>
-         <!-- Data Directory Info aligned at bottom -->
-         <div class="drawer-bottom">
-            <v-list-item v-if="configState.config.value.dataDirectory" lines="two" density="compact">
-               <v-list-item-subtitle>Data Directory:</v-list-item-subtitle>
-               <v-list-item-title class="text-caption wrap-text" :title="configState.config.value.dataDirectory">
-                  {{ configState.config.value.dataDirectory }}
-               </v-list-item-title>
-            </v-list-item>
-         </div>
+            </v-btn>
+         </v-row>
+         <v-row class="ma-2">
+            <v-btn>
+               <v-icon>mdi-pencil-plus></v-icon>
+               Edit List
+            </v-btn>
+         </v-row>
+
+
+         <v-row class=" mb-2 mt-auto ma-2 ">
+            <v-expansion-panels class="align-end">
+
+               <v-expansion-panel title="Debug Info">
+
+                  <v-expansion-panel-text>
+                     App Info:<br>
+                     Version: {{ version }}<br>
+                     Packaged: {{ isPackaged ? 'Yes' : 'No' }}<br>
+                     Environment: {{ nodeEnv }}<br>
+                     Config Path: {{ configState.configPath.value || 'Loading...' }}<br>
+                     <div v-if="configState.config.value.dataDirectory">
+                        Data Directory:
+                        <span class="text-caption wrap-text" :title="configState.config.value.dataDirectory">
+                           {{ configState.config.value.dataDirectory }}
+                        </span>
+                     </div>
+
+                  </v-expansion-panel-text>
+               </v-expansion-panel>
+            </v-expansion-panels>
+         </v-row>
+
       </v-navigation-drawer>
 
 
@@ -253,7 +265,7 @@
 <script setup lang="ts">
 import { ref, provide, computed, watch, nextTick, onMounted } from 'vue';
 //import { VueDraggableNext } from 'vue-draggable-next';
-import {  useNoteExport } from '@/composables/useNoteRetrieval';
+import { useNoteExport } from '@/composables/useNoteRetrieval';
 // --- In-memory cache for unsaved notes per patient/date ---
 const unsavedNotesCache: Record<string, string> = {};
 
@@ -262,21 +274,21 @@ const importICMLoading = ref(false);
 
 // --- Handler for Import ICM Patient List ---
 const handleImportICMPatientList = async () => {
-  try {
-    importICMLoading.value = true;
-    // Open file selection dialog for CSV files
-    const filePath = await window.electronAPI.selectCSVFile?.();
-    if (!filePath) {
+   try {
+      importICMLoading.value = true;
+      // Open file selection dialog for CSV files
+      const filePath = await window.electronAPI.selectCSVFile?.();
+      if (!filePath) {
+         importICMLoading.value = false;
+         return; // User cancelled
+      }
+      await patientData.importICMPatientListFromFile(filePath);
+      showSnackbar('ICM patient list imported successfully.', 'success');
+   } catch (e: any) {
+      showSnackbar(`Error importing ICM patient list: ${e?.message || e}`, 'error');
+   } finally {
       importICMLoading.value = false;
-      return; // User cancelled
-    }
-    await patientData.importICMPatientListFromFile(filePath);
-    showSnackbar('ICM patient list imported successfully.', 'success');
-  } catch (e: any) {
-    showSnackbar(`Error importing ICM patient list: ${e?.message || e}`, 'error');
-  } finally {
-    importICMLoading.value = false;
-  }
+   }
 };
 
 
@@ -358,7 +370,7 @@ const filteredPatients = computed(() => {
 
 // Keep patientsDraggable in sync with filteredPatients
 watch(filteredPatients, (newList) => {
-  patientsDraggable.value = [...newList];
+   patientsDraggable.value = [...newList];
 }, { immediate: true });
 const noteDateDisplay = computed(() => {
    try {
@@ -401,36 +413,36 @@ function removeSelectedPatients() {
 
 // --- Add Selected Patients from Historical List to Today's List ---
 const addSelectedToToday = async () => {
-  if (selectedPatientIds.value.length === 0) {
-    showSnackbar('No patients selected.', 'info');
-    return;
-  }
-  if (selectedDate.value === todayString) {
-    showSnackbar('Cannot add from today\'s list to itself.', 'info');
-    return;
-  }
+   if (selectedPatientIds.value.length === 0) {
+      showSnackbar('No patients selected.', 'info');
+      return;
+   }
+   if (selectedDate.value === todayString) {
+      showSnackbar('Cannot add from today\'s list to itself.', 'info');
+      return;
+   }
 
-  const patientsToAdd: Patient[] = selectedPatientIds.value
-    .map(id => patientData.getPatientById(id))
-    .filter((p): p is Patient => !!p); // Filter out undefined results
+   const patientsToAdd: Patient[] = selectedPatientIds.value
+      .map(id => patientData.getPatientById(id))
+      .filter((p): p is Patient => !!p); // Filter out undefined results
 
-  if (patientsToAdd.length === 0) {
-    showSnackbar('Could not find data for selected patients.', 'error');
-    return;
-  }
+   if (patientsToAdd.length === 0) {
+      showSnackbar('Could not find data for selected patients.', 'error');
+      return;
+   }
 
-  try {
-    const success = await patientData.addPatientsToDate(patientsToAdd, todayString);
-    if (success) {
-      showSnackbar(`Added ${patientsToAdd.length} patient(s) to today's list.`, 'success');
-      // Optionally clear selection after adding
-      // selectedPatientIds.value = [];
-    } else {
-      showSnackbar(`Failed to add patients to today's list: ${patientData.error.value || 'Unknown error'}`, 'error');
-    }
-  } catch (e: any) {
-    showSnackbar(`Error adding patients to today's list: ${e.message || e}`, 'error');
-  }
+   try {
+      const success = await patientData.addPatientsToDate(patientsToAdd, todayString);
+      if (success) {
+         showSnackbar(`Added ${patientsToAdd.length} patient(s) to today's list.`, 'success');
+         // Optionally clear selection after adding
+         // selectedPatientIds.value = [];
+      } else {
+         showSnackbar(`Failed to add patients to today's list: ${patientData.error.value || 'Unknown error'}`, 'error');
+      }
+   } catch (e: any) {
+      showSnackbar(`Error adding patients to today's list: ${e.message || e}`, 'error');
+   }
 };
 
 // Date navigation logic
@@ -444,7 +456,7 @@ provide('showSnackbar', showSnackbar);
 
 const {
    startAutoExport,
-   
+
    manualExportNotesForDay
 } = useNoteExport({
    showSnackbar,
@@ -689,8 +701,8 @@ const openDataDirectory = async () => {
    const dataDirectory = configState.config.value.dataDirectory;
    let currentDataDir: string = '';
    if (dataDirectory) {
-       currentDataDir = dataDirectory;
-       await window.electronAPI.openDirectory(currentDataDir);
+      currentDataDir = dataDirectory;
+      await window.electronAPI.openDirectory(currentDataDir);
    }
 }
 
@@ -877,28 +889,28 @@ watch(selectedDate, async (newDate) => {
 
 
 onMounted(async () => {
-  await nextTick();
-  if (patientListRef.value) {
-    Sortable.create(patientListRef.value as HTMLElement, {
-      handle: '.drag-handle',
-      preventDefault: false,
-      animation: 150,
-      onEnd(evt: any) {
-        // Reorder patientsDraggable.value based on drag event
-        const currentList = patientsDraggable.value;
-        if (Array.isArray(currentList)) {
-          const movedItem = currentList.splice(evt.oldIndex, 1)[0];
-          currentList.splice(evt.newIndex, 0, movedItem);
-          const newOrder = [...currentList];
-          patientsDraggable.value = newOrder;
-          // Call onSortEnd with the new order
-          onSortEnd(newOrder);
-        } else {
-          console.error("patientsDraggable.value is not an array.");
-        }
-      },
-    });
-  }
+   await nextTick();
+   if (patientListRef.value) {
+      Sortable.create(patientListRef.value as HTMLElement, {
+         handle: '.drag-handle',
+         preventDefault: false,
+         animation: 150,
+         onEnd(evt: any) {
+            // Reorder patientsDraggable.value based on drag event
+            const currentList = patientsDraggable.value;
+            if (Array.isArray(currentList)) {
+               const movedItem = currentList.splice(evt.oldIndex, 1)[0];
+               currentList.splice(evt.newIndex, 0, movedItem);
+               const newOrder = [...currentList];
+               patientsDraggable.value = newOrder;
+               // Call onSortEnd with the new order
+               onSortEnd(newOrder);
+            } else {
+               console.error("patientsDraggable.value is not an array.");
+            }
+         },
+      });
+   }
 });
 </script>
 
@@ -993,32 +1005,16 @@ onMounted(async () => {
    border-top: 1px solid rgba(0, 0, 0, 0.12);
 }
 
-.drawer-bottom {
-   margin-top: 0;
-}
 
-.patient-list {
-  padding: 0;
-  margin: 0;
-}
-
-.patient-list-item {
-  list-style: none;
-  padding: 0.5rem 1rem;
-  border-bottom: 1px solid rgba(0, 0, 0, 0.12);
-  display: flex;
-  align-items: center;
-}
 
 .umrn-ward {
-  font-size: 0.9em;
-  color: gray;
+   font-size: 0.9em;
+   color: gray;
 }
 
 .button-col {
-  display: flex;
-  justify-content: flex-end;
-  align-items: center;
+   display: flex;
+   justify-content: flex-end;
+   align-items: center;
 }
-
 </style>

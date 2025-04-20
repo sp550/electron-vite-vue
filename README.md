@@ -1,15 +1,25 @@
 **Priority 1: Core Functionality & Stability**
 - Import patient list from external program.
+edit patient list (drag, select, delete tucked away)
+sort by location, name (while retaining custom sort)
 **Priority 2: Basic UI & Configuration**
 - Display config.json for debugging.
 - Basic settings/config implementation.
 - Basic common hotkeys.
 
 **Priority 3: Advanced UI & Editor Enhancements**
-
+*ensure the AI knows to use Vuetify3 library*
 - Settings icon opens modal/card (move "change data directory" button inside).
 - Sidebar on hover; toggle sidebar left/right.
 - Title bar display options (small, medium, large).
+ - material design z-axis heights for all
+
+ - Patient list
+  - FAB for edit patient list
+  - footer at the bottom of navbar list containing info about something (currently debug info)
+  draggable navbar width
+
+
 - Monaco editor integration:
   - Insert options from previous project.
   - Implement templates and snippets.
