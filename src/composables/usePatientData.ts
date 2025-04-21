@@ -15,6 +15,8 @@ const activePatientListDate = ref<string>(todayString());
 const availablePatientListDates = ref<string[]>([]);
 
 const patients = ref<Patient[]>([]); // Use the imported Patient type
+// Store the original (custom) order of patients for "Custom Sort"
+const customOrder = ref<Patient[]>([]);
 // Data structure to map patient names to UMRN (if available)
 const patient_identifierArray = ref<Record<string, string>>({});
 
@@ -107,32 +109,38 @@ const listAvailablePatientListDates = async (): Promise<string[]> => {
     if (!isConfigLoaded.value || !isDataDirectorySet.value) {
       console.warn("loadPatients: Config not loaded or data directory not set.");
       patients.value = [];
+      customOrder.value = [];
       return;
     }
-
+  
     isLoading.value = true;
     error.value = null;
     const absolutePath = await getPatientsFilePath();
-
+  
     if (!absolutePath) {
       error.value = "loadPatients: Could not determine patients file path.";
       isLoading.value = false;
       patients.value = [];
+      customOrder.value = [];
       return;
     }
-
+  
     console.log("Loading patients from:", absolutePath);
     try {
       const fileContent = await readFileAbsolute(absolutePath);
       if (fileContent) {
         const parsedPatients = JSON.parse(fileContent) as Patient[];
-        patients.value = parsedPatients.map(patient => ({
+        const loadedPatients = parsedPatients.map(patient => ({
           ...patient,
           type: patient.umrn ? "umrn" : "uuid"
         }));
+        patients.value = loadedPatients;
+        // Only set customOrder if it's empty or if loading a new date
+        customOrder.value = [...loadedPatients];
         updatePatientIdentifierArray(patients.value); // Update identifier map
       } else {
         patients.value = [];
+        customOrder.value = [];
         updatePatientIdentifierArray([]); // Clear identifier map
         console.warn("loadPatients: Patients file not found or empty. Initializing.");
       }
@@ -140,6 +148,7 @@ const listAvailablePatientListDates = async (): Promise<string[]> => {
       console.error("Error loading patients:", err);
       error.value = `Failed to load patients: ${err.message || err}`;
       patients.value = [];
+      customOrder.value = [];
       updatePatientIdentifierArray([]); // Clear identifier map
     } finally {
       isLoading.value = false;
@@ -878,6 +887,38 @@ const updatePatient = async (updatedPatient: Patient): Promise<boolean> => {
     }
   };
 
+  // --- Sorting Logic ---
+  /**
+   * Sorts the patients list in-place.
+   * @param sortBy "location" | "name" | "custom"
+   */
+  const sortPatients = (sortBy: "location" | "name" | "custom") => {
+    if (sortBy === "location") {
+      patients.value = [...patients.value].sort((a, b) => {
+        const locA = (a.location || "").toLowerCase();
+        const locB = (b.location || "").toLowerCase();
+        if (locA < locB) return -1;
+        if (locA > locB) return 1;
+        return 0;
+      });
+    } else if (sortBy === "name") {
+      patients.value = [...patients.value].sort((a, b) => {
+        const nameA = (a.name || "").toLowerCase();
+        const nameB = (b.name || "").toLowerCase();
+        if (nameA < nameB) return -1;
+        if (nameA > nameB) return 1;
+        return 0;
+      });
+    } else if (sortBy === "custom") {
+      // Restore the original order as loaded
+      // Use id as the unique key for matching
+      const idToPatient = new Map(patients.value.map(p => [p.id, p]));
+      patients.value = customOrder.value
+        .map(orig => idToPatient.get(orig.id))
+        .filter((p): p is Patient => !!p);
+    }
+  };
+
   return {
     // --- Date-based patient list management ---
     activePatientListDate,
@@ -901,6 +942,7 @@ const updatePatient = async (updatedPatient: Patient): Promise<boolean> => {
     importICMPatientListFromDefault, // Export new function
     importICMPatientListFromFolder, // Export existing function
     importICMPatientListFromFile, // Export new function
-    addPatientsToDate // Export the new method
+    addPatientsToDate, // Export the new method
+    sortPatients // Export sorting function
   };
 }

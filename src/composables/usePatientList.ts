@@ -1,0 +1,195 @@
+import { ref, computed, watch, nextTick } from 'vue';
+import type { Ref } from 'vue';
+import type { Patient } from '@/types';
+import type { usePatientData } from './usePatientData'; // Import type for dependency
+import Sortable from 'sortablejs'; // Need SortableJS for onMounted logic
+
+// Define the type for the showSnackbar function
+type ShowSnackbar = (text: string, color?: 'success' | 'error' | 'info') => void;
+
+export function usePatientList(
+   patientData: ReturnType<typeof usePatientData>,
+   showSnackbar: ShowSnackbar,
+   selectedPatientId: Ref<string | null>,
+   // Need access to the list element ref from the component to initialize SortableJS
+   // It's better to return the ref from the composable and let the component
+   // bind it to the element and then pass the element back to an init function.
+   // Or, the composable can expose an init function that takes the element.
+   // Let's expose an init function.
+) {
+   // Refs for patient list UI state
+   const patientsDraggable: Ref<Patient[]> = ref([]); // Used for SortableJS
+   const patientListRef: Ref<HTMLUListElement | null> = ref(null); // Ref for the list element (will be bound in component)
+   const isEditPatientListMode = ref(false); // Toggle for edit mode (reorder/select)
+   const selectedPatientIds = ref<string[]>([]); // For multi-select
+   const search = ref(''); // Search input
+
+   // Computed: filtered patient list based on search input
+   const filteredPatients = computed(() => {
+      if (!search.value) {
+         // If no search term, use the patients list from usePatientData
+         return patientData.patients.value;
+      }
+      const s = search.value.toLowerCase();
+      // Filter the patients list from usePatientData
+      return patientData.patients.value.filter(
+         p =>
+            (p.name && p.name.toLowerCase().includes(s)) ||
+            (p.umrn && p.umrn.toLowerCase().includes(s)) ||
+            (p.ward && p.ward.toLowerCase().includes(s))
+      );
+   });
+
+   // Keep patientsDraggable in sync with filteredPatients
+   // This watcher is necessary because SortableJS modifies the array in place,
+   // but we want the source of truth for filtering/searching to remain patientData.patients.
+   // patientsDraggable is specifically for the list displayed in the UI that can be reordered.
+   watch(filteredPatients, (newList) => {
+      patientsDraggable.value = [...newList];
+   }, { immediate: true });
+
+
+   // Multi-select logic for checkboxes
+   function checkboxSelect(patientId: string) {
+      const idx = selectedPatientIds.value.indexOf(patientId);
+      if (idx === -1) {
+         selectedPatientIds.value.push(patientId);
+      } else {
+         selectedPatientIds.value.splice(idx, 1);
+      }
+   }
+
+   // Handler for removing selected patients
+   function removeSelectedPatients() {
+      if (selectedPatientIds.value.length === 0) {
+         showSnackbar('No patients selected.', 'info');
+         return;
+      }
+      // Use Promise.all to remove all selected patients concurrently
+      // patientData.removePatient includes the confirmation dialog for each patient.
+      Promise.all(
+         selectedPatientIds.value.map(id => patientData.removePatient(id))
+      ).then(() => {
+         showSnackbar('Selected patients removal process finished.', 'info'); // Snackbar after all dialogs/removals
+         selectedPatientIds.value = []; // Clear selection after removal attempts
+         // Check if the actively selected patient was removed and clear selection in App.vue
+         if (selectedPatientId.value && !patientData.patients.value.some(p => p.id === selectedPatientId.value)) {
+            selectedPatientId.value = null;
+         }
+      });
+   }
+
+   // Handler for adding selected patients from a historical list to today's list
+   // Requires todayString to be passed from the component
+   const addSelectedToToday = async (todayString: string) => {
+      if (selectedPatientIds.value.length === 0) {
+         showSnackbar('No patients selected.', 'info');
+         return;
+      }
+      // Check if the current list is already today's list
+      if (patientData.activePatientListDate.value === todayString) {
+         showSnackbar('Cannot add from today\'s list to itself.', 'info');
+         return;
+      }
+
+      // Get the full patient objects for the selected IDs
+      const patientsToAdd: Patient[] = selectedPatientIds.value
+         .map(id => patientData.getPatientById(id))
+         .filter((p): p is Patient => !!p); // Filter out any undefined results
+
+      if (patientsToAdd.length === 0) {
+         showSnackbar('Could not find data for selected patients.', 'error');
+         return;
+      }
+
+      try {
+         // Use the addPatientsToDate method from usePatientData
+         const success = await patientData.addPatientsToDate(patientsToAdd, todayString);
+         if (success) {
+            showSnackbar(`Added ${patientsToAdd.length} patient(s) to today's list.`, 'success');
+            // Optionally clear selection after adding
+            // selectedPatientIds.value = [];
+         } else {
+            // Error message should be set by patientData.addPatientsToDate
+            showSnackbar(`Failed to add patients to today's list: ${patientData.error.value || 'Unknown error'}`, 'error');
+         }
+      } catch (e: any) {
+         showSnackbar(`Error adding patients to today's list: ${e.message || e}`, 'error');
+      }
+   };
+
+   // Handler for when sorting ends (from SortableJS)
+   const onSortEnd = async (newOrderedList: Patient[]) => {
+      // The newOrderedList is the updated array from SortableJS
+      // We need to save this new order
+      // Optionally, you can add an 'order' property if desired:
+      // const orderedPatients = newOrderedList.map((patient, index) => ({ ...patient, order: index }));
+
+      const success = await patientData.savePatients(newOrderedList); // Save the new order
+      if (success) {
+         // Update the main patients list in usePatientData to reflect the new order
+         // This will also trigger the filteredPatients watcher and update patientsDraggable
+         patientData.patients.value = newOrderedList;
+         showSnackbar('Patient order updated.', 'success');
+      } else {
+         showSnackbar('Failed to update patient order.', 'error');
+      }
+   };
+
+   // Handler for removing a single patient (used by the delete icon)
+   // This calls the removePatient logic in usePatientData, which includes the confirmation dialog.
+   const removePatient = async (patient: Patient) => {
+      const success = await patientData.removePatient(patient.id);
+      if (success) {
+         showSnackbar(`Patient "${patient.name}" removed.`, 'info');
+         // If the removed patient was selected, clear selection in App.vue's ref
+         if (selectedPatientId.value === patient.id) {
+            selectedPatientId.value = null;
+         }
+      } else {
+         // Error message should be set by patientData.removePatient
+         showSnackbar(`Failed to remove patient: ${patientData.error.value || 'Unknown error'}`, 'error');
+      }
+   };
+
+   // Function to initialize SortableJS
+   const initSortable = (element: HTMLElement) => {
+      if (element) {
+         Sortable.create(element, {
+            handle: '.drag-handle',
+            preventDefault: false,
+            animation: 150,
+            onEnd(evt: any) {
+               // Reorder patientsDraggable.value based on drag event
+               const currentList = patientsDraggable.value;
+               if (Array.isArray(currentList)) {
+                  const movedItem = currentList.splice(evt.oldIndex, 1)[0];
+                  currentList.splice(evt.newIndex, 0, movedItem);
+                  const newOrder = [...currentList];
+                  patientsDraggable.value = newOrder;
+                  // Call onSortEnd with the new order
+                  onSortEnd(newOrder);
+               } else {
+                  console.error("patientsDraggable.value is not an array.");
+               }
+            },
+         });
+      }
+   };
+
+
+   return {
+      patientsDraggable,
+      patientListRef, // Export the ref so the component can bind it
+      isEditPatientListMode,
+      selectedPatientIds,
+      search,
+      filteredPatients,
+      checkboxSelect,
+      removeSelectedPatients,
+      addSelectedToToday,
+      onSortEnd, // Exported for completeness, though primarily used internally by Sortable
+      removePatient, // Export the handler for single patient removal
+      initSortable, // Export the function to initialize SortableJS
+   };
+}
