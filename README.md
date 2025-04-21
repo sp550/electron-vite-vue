@@ -1,6 +1,5 @@
 **Priority 1: Core Functionality & Stability**
-- Import patient list from external program.
-sort by location, name (while retaining the current custom sort)
+
 **Priority 2: Basic UI & Configuration**
 - Display config.json for debugging.
 - Basic settings/config implementation (perhaps a new vue component)

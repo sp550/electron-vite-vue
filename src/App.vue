@@ -23,8 +23,8 @@
                </v-btn>
             </template>
             <v-card>
-               <v-date-picker v-model="selectedDate" :allowed-dates="allowedDates" @update:model-value="handleDateChange"
-                  color="primary" show-adjacent-months :max="todayString" />
+               <v-date-picker v-model="selectedDate" :allowed-dates="allowedDates"
+                  @update:model-value="handleDateChange" color="primary" show-adjacent-months :max="todayString" />
             </v-card>
          </v-menu>
          <!-- Auto-Save Toggle -->
@@ -72,38 +72,37 @@
       </v-system-bar>
 
       <!-- === Navigation Drawer with Patient List and Controls === -->
-      <v-navigation-drawer
-        v-model="drawer"
-        :permanent="smAndUp"
-        :temporary="!smAndUp"
-        app
-        width="350"
-      >
-        <!-- Patient List Controls and Debug Info -->
-        <PatientList
-          :patientsDraggable="patientsDraggable"
-          :selectedPatientIds="selectedPatientIds"
-          :isEditPatientListMode="isEditPatientListMode"
-          :search="search"
-          :todayString="todayString"
-          :selectedDate="selectedDate"
-          :configState="configState"
-          :version="version"
-          :isPackaged="isPackaged"
-          :nodeEnv="nodeEnv"
-          :sortMode="sortMode"
-          :setSortMode="setSortMode"
-          @update:search="val => search = val"
-          @update:selectedPatientIds="val => selectedPatientIds = val"
-          @update:isEditPatientListMode="val => isEditPatientListMode = val"
-          @patientSelected="onPatientSelected"
-          @patientListChanged="onPatientListChanged"
-          @addNewPatient="handleAddNewPatient"
-          @removePatientFromList="handleRemovePatientFromList"
-          @removeSelectedPatientsFromList="removeSelectedPatientsFromList"
-          @addSelectedToTodayList="addSelectedToTodayList"
-          @checkboxSelectPatientList="checkboxSelectPatientList"
-        />
+      <v-navigation-drawer v-model="drawer" :permanent="smAndUp" :temporary="!smAndUp" app width="350">
+         <!-- Patient List Controls and Debug Info -->
+         <PatientList :patientsDraggable="patientsDraggable" :selectedPatientIds="selectedPatientIds"
+            :isEditPatientListMode="isEditPatientListMode" :search="search" :todayString="todayString"
+            :selectedDate="selectedDate" :configState="configState" :version="version" :isPackaged="isPackaged"
+            :nodeEnv="nodeEnv" :sortMode="sortMode" :setSortMode="setSortMode" @update:search="val => search = val"
+            @update:selectedPatientIds="val => selectedPatientIds = val"
+            @update:isEditPatientListMode="val => isEditPatientListMode = val" @patientSelected="onPatientSelected"
+            @patientListChanged="onPatientListChanged" @addNewPatient="handleAddNewPatient"
+            @removePatientFromList="handleRemovePatientFromList"
+            @removeSelectedPatientsFromList="removeSelectedPatientsFromList"
+            @addSelectedToTodayList="addSelectedToTodayList" @checkboxSelectPatientList="checkboxSelectPatientList" />
+         <v-row class="mb-2 mt-auto ma-2">
+            <v-expansion-panels class="align-end">
+               <v-expansion-panel title="Debug Info">
+                  <v-expansion-panel-text>
+                     App Info:<br />
+                     Version: {{ version }}<br />
+                     Packaged: {{ isPackaged ? "Yes" : "No" }}<br />
+                     Environment: {{ nodeEnv }}<br />
+                     Config Path: {{ configState.configPath.value || "Loading..." }}<br />
+                     <div v-if="configState.config.value.dataDirectory">
+                        Data Directory:
+                        <span class="text-caption wrap-text" :title="configState.config.value.dataDirectory">
+                           {{ configState.config.value.dataDirectory }}
+                        </span>
+                     </div>
+                  </v-expansion-panel-text>
+               </v-expansion-panel>
+            </v-expansion-panels>
+         </v-row>
       </v-navigation-drawer>
 
       <!-- === Main Content Area === -->
@@ -151,8 +150,7 @@
                      <v-icon :icon="saveStatusIcon" :color="noteEditor.hasUnsavedChanges.value ? 'warning' : 'success'"
                         size="small" class="ml-2" title="Save Status"></v-icon>
                      <v-btn icon="mdi-delete" :disabled="!selectedPatient"
-                        @click="selectedPatient && confirmRemoveCurrentPatient()"
-                        title="Delete Patient"></v-btn>
+                        @click="selectedPatient && confirmRemoveCurrentPatient()" title="Delete Patient"></v-btn>
                   </v-toolbar>
                   <v-card-text class="pa-0 editor-wrapper">
                      <div v-if="noteEditor.isLoading.value && !isNoteLoaded" class="loading-overlay">

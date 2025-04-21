@@ -153,32 +153,10 @@
     </v-btn>
   </v-row>
 
-  <v-row class="mb-2 mt-auto ma-2">
-    <v-expansion-panels class="align-end">
-      <v-expansion-panel title="Debug Info">
-        <v-expansion-panel-text>
-          App Info:<br />
-          Version: {{ version }}<br />
-          Packaged: {{ isPackaged ? "Yes" : "No" }}<br />
-          Environment: {{ nodeEnv }}<br />
-          Config Path: {{ configState.configPath.value || "Loading..." }}<br />
-          <div v-if="configState.config.value.dataDirectory">
-            Data Directory:
-            <span
-              class="text-caption wrap-text"
-              :title="configState.config.value.dataDirectory"
-            >
-              {{ configState.config.value.dataDirectory }}
-            </span>
-          </div>
-        </v-expansion-panel-text>
-      </v-expansion-panel>
-    </v-expansion-panels>
-  </v-row>
+ 
 </template>
 <script setup lang="ts">
 import { defineProps, defineEmits, ref, computed, PropType, watch } from "vue";
-import { usePatientList } from "../composables/usePatientList";
 
 // Props for presentational PatientList
 const props = defineProps({
