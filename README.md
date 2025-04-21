@@ -25,6 +25,8 @@ sort by location, name (while retaining the current custom sort)
   - Implement templates and snippets.
   - Change font to non-monospace.
 
+
+Sort by custom order and frag FUnctionality is a Pain to implement becuase it keeps breaking, lets prioritise it for later
 **Priority 4: Additional Features**
 - Parse additional patient content (issues and plan).
 - Quick add feature (inspired by bloodproducts generator).

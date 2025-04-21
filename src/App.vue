@@ -2,7 +2,9 @@
    <v-app>
       <!-- === App Bar === -->
       <v-app-bar app color="primary" dark density="compact">
-         <v-app-bar-nav-icon @click.stop="drawer = !drawer"></v-app-bar-nav-icon>
+         <v-btn icon="true" @click="drawer = !drawer" title="Toggle Navigation Drawer">
+            <v-icon>mdi-menu</v-icon>
+         </v-btn>
          <v-spacer></v-spacer>
          <v-toolbar-title></v-toolbar-title>
          <v-btn icon="mdi-chevron-left" @click="navigateToPreviousDay"
@@ -69,94 +71,38 @@
          <v-btn size="small" @click="selectDataDirectory" variant="outlined">Select Directory</v-btn>
       </v-system-bar>
 
-      <!-- === Navigation Drawer (Patient List) === -->
-      <v-navigation-drawer app v-model="drawer" :permanent="smAndUp" class="drawer">
-         <!-- Search and Multi-Select Controls -->
-         <v-row class="pa-2">
-            <v-text-field v-model="search" label="Search patients" prepend-inner-icon="mdi-magnify" dense hide-details
-               clearable class="mb-2" />
-            <v-btn v-if="selectedPatientIds.length > 0" color="error" size="small" class="mb-2"
-               @click="removeSelectedPatientsFromList" block>
-                  <v-icon start>mdi-delete</v-icon>
-                  Remove Selected ({{ selectedPatientIds.length }})
-               </v-btn>
-               <!-- Add Selected to Today's List Button -->
-               <v-btn v-if="selectedPatientIds.length > 0 && selectedDate !== todayString" color="primary" variant="tonal"
-                  size="small" class="mb-2" @click="addSelectedToTodayList" block>
-                  <v-icon start>mdi-calendar-plus</v-icon>
-                  Add Selected to Today ({{ selectedPatientIds.length }})
-               </v-btn>
-            </v-row>
-         <v-list>
-            <v-list-subheader>Patient List</v-list-subheader>
-            <v-list-item-group v-model="selectedPatientIds" multiple :mandatory="false" ref="patientListRef">
-               <v-list-item v-for="(element, _index) in patientsDraggable" :key="element.id" :value="element.id"
-                  :data-id="element.id"
-                  @click="handlePatientClick(element.id)">
-                  <template v-slot:prepend>
-                     <v-icon v-if="isEditPatientListMode" class="drag-handle ma-1 pa-2" title="Drag to reorder" @mousedown.stop>mdi-drag</v-icon>
-                  </template>
-                  <v-list-item-content>
-                     <v-list-item-title>{{ element.name }}</v-list-item-title>
-                     <v-list-item-subtitle v-if="element.umrn || element.ward" class="umrn-ward">
-                        {{ element.umrn ? `${element.umrn}` : '' }} {{ element.ward ? `Ward: ${element.ward}` : '' }}
-                     </v-list-item-subtitle>
-                  </v-list-item-content>
-                  <template v-slot:append class="align-center justify-center align-self-center">
-                     <v-btn v-if="isEditPatientListMode" icon size="small" color="error" @click.stop="handleRemovePatientFromList(element)" title="Remove patient"
-                        class="ma-1 pa-2">
-                        <v-icon>mdi-delete</v-icon>
-                     </v-btn>
-                     <v-checkbox v-if="isEditPatientListMode" :model-value="selectedPatientIds.includes(element.id)"
-                        @click.stop="checkboxSelectPatientList(element.id)" :ripple="true" color="primary"
-                        class="align-center justify-center align-self-center" />
-                  </template>
-               </v-list-item>
-            </v-list-item-group>
-         </v-list>
-
-         <v-divider class="ma-2"></v-divider>
-
-         <v-row class="ma-2">
-            <v-btn color="primary" size="large" @click="handleAddNewPatient"
-               :disabled="!configState.isDataDirectorySet.value">
-               <v-icon start>mdi-account-plus-outline</v-icon>
-               Add New Patient
-            </v-btn>
-         </v-row>
-         <v-row class="ma-2">
-            <v-btn @click="isEditPatientListMode = !isEditPatientListMode">
-               <v-icon>mdi-pencil-plus</v-icon>
-               {{ isEditPatientListMode ? 'Done Editing' : 'Edit Patient List' }}
-            </v-btn>
-         </v-row>
-
-
-         <v-row class=" mb-2 mt-auto ma-2 ">
-            <v-expansion-panels class="align-end">
-
-               <v-expansion-panel title="Debug Info">
-
-                  <v-expansion-panel-text>
-                     App Info:<br>
-                     Version: {{ version }}<br>
-                     Packaged: {{ isPackaged ? 'Yes' : 'No' }}<br>
-                     Environment: {{ nodeEnv }}<br>
-                     Config Path: {{ configState.configPath.value || 'Loading...' }}<br>
-                     <div v-if="configState.config.value.dataDirectory">
-                        Data Directory:
-                        <span class="text-caption wrap-text" :title="configState.config.value.dataDirectory">
-                           {{ configState.config.value.dataDirectory }}
-                        </span>
-                     </div>
-
-                  </v-expansion-panel-text>
-               </v-expansion-panel>
-            </v-expansion-panels>
-         </v-row>
-
+      <!-- === Navigation Drawer with Patient List and Controls === -->
+      <v-navigation-drawer
+        v-model="drawer"
+        :permanent="smAndUp"
+        :temporary="!smAndUp"
+        app
+        width="350"
+      >
+        <!-- Patient List Controls and Debug Info -->
+        <PatientList
+          :patientsDraggable="patientsDraggable"
+          :selectedPatientIds="selectedPatientIds"
+          :isEditPatientListMode="isEditPatientListMode"
+          :search="search"
+          :todayString="todayString"
+          :selectedDate="selectedDate"
+          :configState="configState"
+          :version="version"
+          :isPackaged="isPackaged"
+          :nodeEnv="nodeEnv"
+          @update:search="val => search = val"
+          @update:selectedPatientIds="val => selectedPatientIds = val"
+          @update:isEditPatientListMode="val => isEditPatientListMode = val"
+          @patientSelected="onPatientSelected"
+          @patientListChanged="onPatientListChanged"
+          @addNewPatient="handleAddNewPatient"
+          @removePatientFromList="handleRemovePatientFromList"
+          @removeSelectedPatientsFromList="removeSelectedPatientsFromList"
+          @addSelectedToTodayList="addSelectedToTodayList"
+          @checkboxSelectPatientList="checkboxSelectPatientList"
+        />
       </v-navigation-drawer>
-
 
       <!-- === Main Content Area === -->
       <v-main>
@@ -265,7 +211,6 @@
 <script setup lang="ts">
 import { ref, provide, computed, watch, nextTick, onMounted } from 'vue';
 import { useNoteExport } from '@/composables/useNoteRetrieval';
-import { usePatientList } from '@/composables/usePatientList';
 import { useDateNavigation } from '@/composables/useDateNavigation';
 import { useSnackbar } from '@/composables/useSnackbar';
 import { useDuplicatePatient } from '@/composables/useDuplicatePatient';
@@ -274,23 +219,52 @@ import { usePatientData } from '@/composables/usePatientData';
 import { useNoteEditor } from '@/composables/useNoteEditor';
 import { useConfig } from '@/composables/useConfig';
 import { useFileSystemAccess } from '@/composables/useFileSystemAccess';
-import type { Patient, Note } from '@/types';
-import MonacoEditorComponent from '@/components/MonacoEditorComponent.vue';
+import { usePatientList } from '@/composables/usePatientList';
 import { useDisplay } from 'vuetify';
 import Sortable from 'sortablejs';
+import type { Patient, Note } from '@/types';
+import MonacoEditorComponent from '@/components/MonacoEditorComponent.vue';
+import PatientList from '@/components/PatientList.vue';
 
 const selectedPatientId = ref<string | null>(null); // ID of the currently active patient
 
-// --- In-memory cache for unsaved notes per patient/date ---
+// --- Drawer and Responsive ---
+const drawer = ref(true);
+const { smAndUp } = useDisplay();
+
+// --- Patient List/Drawer/Export State ---
 const unsavedNotesCache: Record<string, string> = {};
 const importICMLoading = ref(false);
 const autoExportStarted = ref(false);
+
+// --- Patient List Event Handlers (for PatientList.vue) ---
+function handleRemovePatientFromList(patient: any) {
+  removePatient(patient);
+  onPatientListChanged();
+}
+function removeSelectedPatientsFromList() {
+  removeSelectedPatients();
+  onPatientListChanged();
+}
+function addSelectedToTodayList() {
+  addSelectedToToday(todayString);
+  onPatientListChanged();
+}
+function checkboxSelectPatientList(patientId: string) {
+  checkboxSelect(patientId);
+  onPatientListChanged();
+}
+
+// --- Patient List State/Logic (moved from PatientList.vue) ---
+const search = ref('');
+const isEditPatientListMode = ref(false);
+const selectedPatientIds = ref<string[]>([]);
+const patientListRef = ref<HTMLElement | null>(null);
 
 const configState = useConfig();
 const patientData = usePatientData();
 const noteEditor = useNoteEditor();
 const fileSystemAccess = useFileSystemAccess();
-const { smAndUp } = useDisplay();
 const { snackbar, showSnackbar } = useSnackbar();
 
 const {
@@ -303,19 +277,6 @@ const {
    goToNextDay: navigateToNextDay,
    onDateChange: handleDateChange
 } = useDateNavigation();
-
-const {
-   patientsDraggable,
-   patientListRef,
-   selectedPatientIds,
-   isEditPatientListMode,
-   search,
-   removePatient: removePatientFromList,
-   removeSelectedPatients: removeSelectedPatientsFromList,
-   addSelectedToToday: addSelectedToTodayList,
-   checkboxSelect: checkboxSelectPatientList,
-   onSortEnd: handleSortEnd
-} = usePatientList(patientData, showSnackbar, selectedPatientId);
 
 const {
    duplicateDialog,
@@ -335,15 +296,45 @@ const {
    electronAPI: window.electronAPI
 });
 
-const drawer = ref(false);
 const noteContent = ref<string>('');
 const currentNote = ref<Note | null>(null);
 const isNoteLoaded = ref(false);
 const version = packageJson.version;
 const isPackaged = (window as any).electronAPI.isPackaged;
-const nodeEnv = computed(() => process.env.NODE_ENV);
+const nodeEnv = process.env.NODE_ENV || '';
 
 provide('showSnackbar', showSnackbar);
+
+// --- Patient List Logic ---
+const {
+  patientsDraggable,
+  removePatient,
+  removeSelectedPatients,
+  addSelectedToToday,
+  checkboxSelect,
+  onSortEnd,
+} = usePatientList(patientData, showSnackbar, selectedPatientId);
+
+// --- Patient List Event Handlers ---
+/* Patient list event handlers are now defined only once, see below for main handlers */
+
+// --- Drag-and-drop initialization for patient list (if needed) ---
+onMounted(async () => {
+  await nextTick();
+  if (patientListRef.value) {
+    Sortable.create(patientListRef.value as HTMLElement, {
+      handle: ".drag-handle",
+      animation: 150,
+      ghostClass: "sortable-ghost",
+      chosenClass: "sortable-chosen",
+      dragClass: "sortable-drag",
+      onEnd: () => {
+        onSortEnd(patientsDraggable.value);
+        onPatientListChanged();
+      },
+    });
+  }
+});
 
 // --- Computed Properties ---
 const saveStatusIcon = computed(() => {
@@ -482,14 +473,21 @@ const saveCurrentNote = async () => {
    }
 };
 
-// --- Event Handlers ---
+// --- PatientList Event Handlers ---
 
-// Handle clicks on patient list items
-const handlePatientClick = (patientId: string) => {
+function onPatientSelected(patientId: string) {
    selectPatient(patientId);
-};
+}
 
-// Add a new patient using the composable function
+function onPatientListChanged() {
+   // No direct patient list state management here per requirements.
+   // This can be used to trigger a reload or update if needed.
+}
+
+//
+// === Patient Editor/Toolbar Methods (still needed for template) ===
+//
+
 const handleAddNewPatient = async () => {
    if (!configState.isDataDirectorySet.value) {
       showSnackbar("Please select a data directory first.", "error");
@@ -504,31 +502,6 @@ const handleAddNewPatient = async () => {
    // Snackbar messages are handled within the composable
 };
 
-// Confirm and remove the currently selected patient (called from toolbar)
-const confirmRemoveCurrentPatient = async () => {
-    if (!selectedPatient.value) return;
-    // Use the patientData directly for removal confirmation logic if needed,
-    // or enhance usePatientList to handle confirmation.
-    // For now, directly call patientData.removePatient
-    const success = await patientData.removePatient(selectedPatient.value.id);
-    if (success) {
-       showSnackbar(`Patient "${selectedPatient.value.name}" removed.`, 'info');
-       // clearSelectedPatientState is called implicitly by the watcher when selectedPatientId becomes invalid
-    } else {
-       showSnackbar(`Failed to remove patient: ${patientData.error.value || 'Unknown error'}`, 'error');
-    }
-};
-
-// Remove patient from the list (called from list item button)
-const handleRemovePatientFromList = async (patient: Patient) => {
-    await removePatientFromList(patient); // Call composable function
-    // If the removed patient was selected, clear selection
-    if (selectedPatientId.value === patient.id) {
-       clearSelectedPatientState();
-    }
-};
-
-// Update patient name on blur
 const updatePatientName = async () => {
    if (selectedPatient.value) {
       // The v-model already updated the name locally
@@ -542,7 +515,6 @@ const updatePatientName = async () => {
    }
 };
 
-// Update patient UMRN on blur and handle potential merge
 const updatePatientUmrn = async () => {
    if (!selectedPatient.value) return;
 
@@ -584,6 +556,17 @@ const updatePatientUmrn = async () => {
       }
       // No explicit re-selection needed if ID didn't change, computed should update.
    }
+};
+
+const confirmRemoveCurrentPatient = async () => {
+    if (!selectedPatient.value) return;
+    const success = await patientData.removePatient(selectedPatient.value.id);
+    if (success) {
+       showSnackbar(`Patient "${selectedPatient.value.name}" removed.`, 'info');
+       // clearSelectedPatientState is called implicitly by the watcher when selectedPatientId becomes invalid
+    } else {
+       showSnackbar(`Failed to remove patient: ${patientData.error.value || 'Unknown error'}`, 'error');
+    }
 };
 
 // Handler for the Import ICM Patient List menu item
@@ -764,25 +747,6 @@ onMounted(async () => {
    // Load initial config, patient data etc. (handled by composables)
    // Load available patient list dates for date picker
    // This is now handled within useDateNavigation's onMounted hook.
-
-   // Initialize SortableJS for the patient list
-   await nextTick(); // Ensure the element exists
-   if (patientListRef.value) {
-      Sortable.create(patientListRef.value as HTMLElement, {
-         handle: '.drag-handle', // Class for drag handle
-         animation: 150,
-         ghostClass: 'sortable-ghost', // Class for the ghost element
-         chosenClass: 'sortable-chosen', // Class for the chosen item
-         dragClass: 'sortable-drag', // Class for the dragging item
-         onEnd: () => {
-            // Always pass the reordered array, not the event, to handleSortEnd
-            handleSortEnd(patientsDraggable.value);
-         },
-      });
-      console.log("SortableJS initialized on patient list.");
-   } else {
-       console.error("Failed to initialize SortableJS: patientListRef not found.");
-   }
 
    // Attempt initial load if conditions are met (e.g., data dir already set)
    if (configState.isDataDirectorySet.value && selectedPatientId.value) {
