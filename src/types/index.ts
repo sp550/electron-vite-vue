@@ -11,7 +11,6 @@ export interface Patient {
   cons_name?: string; // Consultant's name
   dsc_date?: string; // Discharge date (optional, ISO format string)
   diagnosis?: string; // Primary diagnosis (optional)
-  ward?: string; // Keep existing ward property as it seems used
 }
 
 export interface Note {

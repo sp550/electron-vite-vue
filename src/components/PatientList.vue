@@ -37,7 +37,45 @@
     </v-btn>
   </v-row>
   <v-list>
-    <v-list-subheader>Patient List</v-list-subheader>
+    <v-list-subheader class="d-flex align-center">
+      <span>Patient List</span>
+      <v-btn
+        icon
+        size="small"
+        class="ml-2"
+        @click.stop="showSortMenu = true"
+        :title="`Sort: ${sortModeLabel}`"
+      >
+        <v-icon>mdi-sort</v-icon>
+      </v-btn>
+      <span class="ml-2 text-caption" style="opacity:0.7;">{{ sortModeLabel }}</span>
+    </v-list-subheader>
+    <v-menu
+      v-model="showSortMenu"
+      :close-on-content-click="true"
+      offset-y
+    >
+      <v-list>
+        <v-list-item @click="handleSortSelect('name')">
+          <v-list-item-title>
+            <v-icon start v-if="sortMode.value === 'name'" color="primary">mdi-check</v-icon>
+            Sort by Name
+          </v-list-item-title>
+        </v-list-item>
+        <v-list-item @click="handleSortSelect('location')">
+          <v-list-item-title>
+            <v-icon start v-if="sortMode.value === 'location'" color="primary">mdi-check</v-icon>
+            Sort by Location
+          </v-list-item-title>
+        </v-list-item>
+        <v-list-item @click="handleSortSelect('custom')">
+          <v-list-item-title>
+            <v-icon start v-if="sortMode.value === 'custom'" color="primary">mdi-check</v-icon>
+            Custom Sort (Manual Order)
+          </v-list-item-title>
+        </v-list-item>
+      </v-list>
+    </v-menu>
     <v-list-item-group
       :model-value="selectedPatientIds"
       @update:model-value="onSelectPatientIds"
@@ -63,11 +101,11 @@
         <v-list-item-content>
           <v-list-item-title>{{ (element as any).name }}</v-list-item-title>
           <v-list-item-subtitle
-            v-if="(element as any).umrn || (element as any).ward"
-            class="umrn-ward"
+            v-if="(element as any).umrn || (element as any).location"
+            class="umrn-location"
           >
             {{ (element as any).umrn ? `${(element as any).umrn}` : "" }}
-            {{ (element as any).ward ? `Ward: ${(element as any).ward}` : "" }}
+            {{ (element as any).location ? `Location: ${(element as any).location}` : "" }}
           </v-list-item-subtitle>
         </v-list-item-content>
         <template v-slot:append class="align-center justify-center align-self-center">
@@ -139,7 +177,8 @@
   </v-row>
 </template>
 <script setup lang="ts">
-import { defineProps, defineEmits } from "vue";
+import { defineProps, defineEmits, ref, computed, PropType, watch } from "vue";
+import { usePatientList } from "../composables/usePatientList";
 
 // Props for presentational PatientList
 const props = defineProps({
@@ -152,8 +191,21 @@ const props = defineProps({
   configState: { type: Object, required: true },
   version: { type: String, required: true },
   isPackaged: { type: Boolean, required: true },
-  nodeEnv: { type: String, required: true }
+  nodeEnv: { type: String, required: true },
+  sortMode: { type: Object as PropType<import('vue').Ref<any>>, required: true },
+  setSortMode: { type: Function as PropType<(mode: "custom" | "name" | "location") => void>, required: true }
 });
+
+// Debug logs to validate type and value of sortMode
+console.log("[PatientList] sortMode (raw):", props.sortMode);
+console.log("[PatientList] sortMode.value:", props.sortMode.value, "type:", typeof props.sortMode.value);
+
+watch(
+  () => props.sortMode.value,
+  (newVal, oldVal) => {
+    console.log(`[PatientList] sortMode changed from ${oldVal} to ${newVal}`);
+  }
+);
 
 // Emits for all actions
 const emit = defineEmits([
@@ -168,6 +220,28 @@ const emit = defineEmits([
   "addSelectedToTodayList",
   "checkboxSelectPatientList"
 ]);
+
+const showSortMenu = ref(false);
+
+const sortModeLabel = computed(() => {
+  console.log("[PatientList] sortModeLabel computed, sortMode.value:", props.sortMode.value);
+  switch (props.sortMode.value) {
+    case "name":
+      return "Name";
+    case "location":
+      return "Location";
+    case "custom":
+      return "Custom Order";
+    default:
+      return "Custom Order";
+  }
+});
+
+function handleSortSelect(mode: "custom" | "name" | "location") {
+  console.log("[PatientList] handleSortSelect called with mode:", mode);
+  props.setSortMode(mode);
+  showSortMenu.value = false;
+}
 
 // Event handlers to emit up to parent
 function onSearchInput(val: string) {

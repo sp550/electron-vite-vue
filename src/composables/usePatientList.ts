@@ -1,8 +1,8 @@
 import { ref, computed, watch, nextTick } from 'vue';
 import type { Ref } from 'vue';
 import type { Patient } from '@/types';
-import type { usePatientData } from './usePatientData'; // Import type for dependency
-import Sortable from 'sortablejs'; // Need SortableJS for onMounted logic
+import type { usePatientData } from './usePatientData';
+import Sortable from 'sortablejs';
 
 // Define the type for the showSnackbar function
 type ShowSnackbar = (text: string, color?: 'success' | 'error' | 'info') => void;
@@ -18,6 +18,7 @@ export function usePatientList(
    // Let's expose an init function.
 ) {
    // Refs for patient list UI state
+   const sortMode = ref<'custom' | 'name' | 'location'>('custom');
    const patientsDraggable: Ref<Patient[]> = ref([]); // Used for SortableJS
    const patientListRef: Ref<HTMLUListElement | null> = ref(null); // Ref for the list element (will be bound in component)
    const isEditPatientListMode = ref(false); // Toggle for edit mode (reorder/select)
@@ -26,17 +27,22 @@ export function usePatientList(
 
    // Computed: filtered patient list based on search input
    const filteredPatients = computed(() => {
+      if (!patientData || !patientData.patients) {
+         // Log for debugging
+         console.warn('usePatientList: patientData or patientData.patients is undefined', { patientData });
+         return [];
+      }
       if (!search.value) {
          // If no search term, use the patients list from usePatientData
          return patientData.patients.value;
       }
       const s = search.value.toLowerCase();
       // Filter the patients list from usePatientData
-      return patientData.patients.value.filter(
+      return (patientData.patients.value || []).filter(
          p =>
             (p.name && p.name.toLowerCase().includes(s)) ||
             (p.umrn && p.umrn.toLowerCase().includes(s)) ||
-            (p.ward && p.ward.toLowerCase().includes(s))
+            (p.location && p.location.toLowerCase().includes(s))
       );
    });
 
@@ -44,10 +50,43 @@ export function usePatientList(
    // This watcher is necessary because SortableJS modifies the array in place,
    // but we want the source of truth for filtering/searching to remain patientData.patients.
    // patientsDraggable is specifically for the list displayed in the UI that can be reordered.
+   // Method to set the sort mode
+   function setSortMode(mode: 'custom' | 'name' | 'location') {
+      sortMode.value = mode;
+      // Re-sort patientsDraggable based on the new sort mode
+      sortPatients();
+   }
+
+   // Function to sort patients based on the current sortMode
+   function sortPatients() {
+      const sortFunc = (a: Patient, b: Patient) => {
+         switch (sortMode.value) {
+            case 'name':
+               return a.name?.toLowerCase().localeCompare(b.name?.toLowerCase() || '') || 0;
+            case 'location': {
+               // Debug logs to validate ward values and types
+               const aLocation = typeof a.location === 'string' ? a.location : (a.location !== undefined && a.location !== null ? String(a.location) : '');
+               const bLocation = typeof b.location === 'string' ? b.location : (b.location !== undefined && b.location !== null ? String(b.location) : '');
+               console.log('[sortPatients][location] Comparing:', { aLocation, bLocation, aType: typeof a.location, bType: typeof b.location, a, b });
+               // Place patients with missing/empty location at the end
+               if (!aLocation && !bLocation) return 0;
+               if (!aLocation) return 1;
+               if (!bLocation) return -1;
+               return aLocation.toLowerCase().localeCompare(bLocation.toLowerCase());
+            }
+            case 'custom':
+            default:
+               return 0; // Keep current order
+         }
+      };
+      patientsDraggable.value = [...patientsDraggable.value].sort(sortFunc);
+   }
+
+   // Watch for changes in filteredPatients and sortMode
    watch(filteredPatients, (newList) => {
       patientsDraggable.value = [...newList];
+      sortPatients(); // Apply sorting after filtering
    }, { immediate: true });
-
 
    // Multi-select logic for checkboxes
    function checkboxSelect(patientId: string) {
@@ -185,6 +224,7 @@ export function usePatientList(
 
 
    return {
+      sortMode,
       patientsDraggable,
       patientListRef, // Export the ref so the component can bind it
       isEditPatientListMode,
@@ -197,5 +237,6 @@ export function usePatientList(
       onSortEnd, // Exported for completeness, though primarily used internally by Sortable
       removePatient, // Export the handler for single patient removal
       initSortable, // Export the function to initialize SortableJS
+      setSortMode,
    };
 }

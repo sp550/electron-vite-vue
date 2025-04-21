@@ -91,6 +91,8 @@
           :version="version"
           :isPackaged="isPackaged"
           :nodeEnv="nodeEnv"
+          :sortMode="sortMode"
+          :setSortMode="setSortMode"
           @update:search="val => search = val"
           @update:selectedPatientIds="val => selectedPatientIds = val"
           @update:isEditPatientListMode="val => isEditPatientListMode = val"
@@ -313,7 +315,20 @@ const {
   addSelectedToToday,
   checkboxSelect,
   onSortEnd,
-} = usePatientList(patientData, showSnackbar, selectedPatientId);
+  sortMode,
+  setSortMode,
+} = usePatientList(patientData, showSnackbar, selectedPatientId) as {
+  patientsDraggable: any,
+  removePatient: any,
+  removeSelectedPatients: any,
+  addSelectedToToday: any,
+  checkboxSelect: any,
+  onSortEnd: any,
+  sortMode: import('vue').Ref<any>,
+  setSortMode: any,
+};
+
+console.log("[App.vue] sortMode (raw):", sortMode, "typeof:", typeof sortMode, "isRef:", !!(sortMode && typeof sortMode === 'object' && 'value' in sortMode), "value:", sortMode && typeof sortMode === 'object' && 'value' in sortMode ? sortMode.value : sortMode);
 
 // --- Patient List Event Handlers ---
 /* Patient list event handlers are now defined only once, see below for main handlers */
@@ -494,7 +509,7 @@ const handleAddNewPatient = async () => {
       return;
    }
    // Add a new patient directly using patientData composable
-   const newPatientData: Omit<Patient, 'id'> = { name: 'New Patient', umrn: '', ward: '', type: 'uuid' };
+   const newPatientData: Omit<Patient, 'id'> = { name: 'New Patient', umrn: '', location: '', type: 'uuid' };
    const newPatient = await patientData.addPatient(newPatientData);
    if (newPatient) {
       selectPatient(newPatient.id);

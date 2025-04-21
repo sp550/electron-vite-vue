@@ -185,7 +185,6 @@ const listAvailablePatientListDates = async (): Promise<string[]> => {
         cons_name: p.cons_name,
         dsc_date: p.dsc_date,
         diagnosis: p.diagnosis,
-        ward: p.ward,
       }));
       await writeFileAbsolute(absolutePath, JSON.stringify(sanitizedPatients, null, 2));
       patients.value = sanitizedPatients; // Update reactive state
