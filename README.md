@@ -4,7 +4,7 @@ edit patient list (drag, select, delete tucked away)
 sort by location, name (while retaining custom sort)
 **Priority 2: Basic UI & Configuration**
 - Display config.json for debugging.
-- Basic settings/config implementation.
+- Basic settings/config implementation (perhaps a new vue component)
 - Basic common hotkeys.
 
 **Priority 3: Advanced UI & Editor Enhancements**

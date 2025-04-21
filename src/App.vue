@@ -94,7 +94,7 @@
                   :data-id="element.id" :class="{ 'is-dragging': draggingIndex === index }"
                   @click="handlePatientClick(element.id)">
                   <template v-slot:prepend>
-                     <v-icon class="drag-handle ma-1 pa-2" title="Drag to reorder" @mousedown.stop>mdi-drag</v-icon>
+                     <v-icon v-if="isEditPatientListMode" class="drag-handle ma-1 pa-2" title="Drag to reorder" @mousedown.stop>mdi-drag</v-icon>
                   </template>
                   <v-list-item-content>
                      <v-list-item-title>{{ element.name }}</v-list-item-title>
@@ -103,11 +103,11 @@
                      </v-list-item-subtitle>
                   </v-list-item-content>
                   <template v-slot:append class="align-center justify-center align-self-center">
-                     <v-btn icon size="small" color="error" @click.stop="removePatient(element)" title="Remove patient"
+                     <v-btn v-if="isEditPatientListMode" icon size="small" color="error" @click.stop="removePatient(element)" title="Remove patient"
                         class="ma-1 pa-2">
                         <v-icon>mdi-delete</v-icon>
                      </v-btn>
-                     <v-checkbox :model-value="selectedPatientIds.includes(element.id)"
+                     <v-checkbox v-if="isEditPatientListMode" :model-value="selectedPatientIds.includes(element.id)"
                         @click.stop="checkboxSelect(element.id)" :ripple="true" color="primary"
                         class="align-center justify-center align-self-center" />
                   </template>
@@ -125,9 +125,9 @@
             </v-btn>
          </v-row>
          <v-row class="ma-2">
-            <v-btn>
-               <v-icon>mdi-pencil-plus></v-icon>
-               Edit List
+            <v-btn @click="isEditPatientListMode = !isEditPatientListMode">
+               <v-icon>mdi-pencil-plus</v-icon>
+               {{ isEditPatientListMode ? 'Done Editing' : 'Edit Patient List' }}
             </v-btn>
          </v-row>
 
@@ -323,6 +323,7 @@ const removePatient = async (patient: Patient) => {
 const drawer = ref(false);
 const snackbar = ref({ show: false, text: '', color: 'success' });
 const selectedPatientId = ref<string | null>(null);
+const isEditPatientListMode = ref(false);
 const selectedPatientIds = ref<string[]>([]); // For multi-select
 const search = ref('');
 const dateMenu = ref(false);
