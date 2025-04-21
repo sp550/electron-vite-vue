@@ -72,7 +72,7 @@
       <!-- === Navigation Drawer (Patient List) === -->
       <v-navigation-drawer app v-model="drawer" :permanent="smAndUp" class="drawer">
          <!-- Search and Multi-Select Controls -->
-         <div class="pa-2">
+         <v-row class="pa-2">
             <v-text-field v-model="search" label="Search patients" prepend-inner-icon="mdi-magnify" dense hide-details
                clearable class="mb-2" />
             <v-btn v-if="selectedPatientIds.length > 0" color="error" size="small" class="mb-2"
@@ -86,7 +86,7 @@
                   <v-icon start>mdi-calendar-plus</v-icon>
                   Add Selected to Today ({{ selectedPatientIds.length }})
                </v-btn>
-         </div>
+            </v-row>
          <v-list>
             <v-list-subheader>Patient List</v-list-subheader>
             <v-list-item-group v-model="selectedPatientIds" multiple :mandatory="false" ref="patientListRef">
@@ -774,7 +774,10 @@ onMounted(async () => {
          ghostClass: 'sortable-ghost', // Class for the ghost element
          chosenClass: 'sortable-chosen', // Class for the chosen item
          dragClass: 'sortable-drag', // Class for the dragging item
-         onEnd: handleSortEnd, // Use the handler from the composable
+         onEnd: () => {
+            // Always pass the reordered array, not the event, to handleSortEnd
+            handleSortEnd(patientsDraggable.value);
+         },
       });
       console.log("SortableJS initialized on patient list.");
    } else {

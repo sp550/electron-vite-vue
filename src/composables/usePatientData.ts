@@ -130,13 +130,13 @@ const listAvailablePatientListDates = async (): Promise<string[]> => {
       const fileContent = await readFileAbsolute(absolutePath);
       if (fileContent) {
         const parsedPatients = JSON.parse(fileContent) as Patient[];
-        const loadedPatients = parsedPatients.map(patient => ({
+        const loadedPatients: Patient[] = parsedPatients.map((patient): Patient => ({
           ...patient,
           type: patient.umrn ? "umrn" : "uuid"
         }));
-        patients.value = loadedPatients;
+        patients.value = loadedPatients as Patient[];
         // Only set customOrder if it's empty or if loading a new date
-        customOrder.value = [...loadedPatients];
+        customOrder.value = [...loadedPatients] as Patient[];
         updatePatientIdentifierArray(patients.value); // Update identifier map
       } else {
         patients.value = [];
@@ -162,11 +162,33 @@ const listAvailablePatientListDates = async (): Promise<string[]> => {
       error.value = "savePatients: Could not determine patients file path.";
       return false;
     }
-
+  
+    // Strictly require an array
+    if (!Array.isArray(updatedPatients)) {
+      error.value = "savePatients: Invalid input, expected Patient[].";
+      console.error(error.value, updatedPatients);
+      return false;
+    }
+  
     console.log("Saving patients to:", absolutePath);
     try {
-      await writeFileAbsolute(absolutePath, JSON.stringify(updatedPatients, null, 2));
-      patients.value = updatedPatients; // Update reactive state
+      // Only keep allowed Patient fields to avoid circular references
+      const sanitizedPatients = updatedPatients.map((p) => ({
+        id: p.id,
+        type: p.type,
+        umrn: p.umrn,
+        name: p.name,
+        location: p.location,
+        age: p.age,
+        los: p.los,
+        admission_date: p.admission_date,
+        cons_name: p.cons_name,
+        dsc_date: p.dsc_date,
+        diagnosis: p.diagnosis,
+        ward: p.ward,
+      }));
+      await writeFileAbsolute(absolutePath, JSON.stringify(sanitizedPatients, null, 2));
+      patients.value = sanitizedPatients; // Update reactive state
       updatePatientIdentifierArray(patients.value); // Update identifier map after save
       return true;
     } catch (err: any) {
@@ -566,7 +588,8 @@ const updatePatient = async (updatedPatient: Patient): Promise<boolean> => {
   // --- Internal Helper for CSV Parsing and Patient Mapping ---
   const _parseAndMapICMPatients = (
     csvContent: string,
-    currentPatients: Patient[]
+    currentPatients: Patient[],
+    skipExistingUmrns: boolean = true
   ): Patient[] => {
     console.log("Parsing CSV content...");
     const parseResult = Papa.parse<Record<string, any>>(csvContent, {
@@ -574,7 +597,7 @@ const updatePatient = async (updatedPatient: Patient): Promise<boolean> => {
       skipEmptyLines: true,
       dynamicTyping: true, // Automatically convert types where possible
     });
-
+  
     if (parseResult.errors.length > 0) {
       console.error("CSV Parsing Errors:", parseResult.errors);
       // Report the first error
@@ -582,38 +605,38 @@ const updatePatient = async (updatedPatient: Patient): Promise<boolean> => {
         `Error parsing CSV file: ${parseResult.errors[0].message} (Row: ${parseResult.errors[0].row})`
       );
     }
-
+  
     if (!parseResult.data || parseResult.data.length === 0) {
       console.warn("CSV file is empty or contains no data rows.");
       return []; // Return empty array, not an error
     }
-
+  
     console.log(`Parsed ${parseResult.data.length} rows from CSV.`);
     const importedPatients: Patient[] = [];
     const existingUmrns = new Set(
       currentPatients.filter((p) => p.type === "umrn").map((p) => p.id)
     );
-
+  
     for (const row of parseResult.data) {
       // Map relevant fields, skipping "trash" fields implicitly
       const umrn = row.umrn ? String(row.umrn).trim() : undefined;
       const name = row.name ? String(row.name).trim() : undefined;
-
+  
       // Basic validation: require at least a name or UMRN
       if (!umrn && !name) {
         console.warn("Skipping row due to missing UMRN and Name:", row);
         continue;
       }
-
-      // Skip if UMRN already exists in the current patient list
-      if (umrn && existingUmrns.has(umrn)) {
+  
+      // Optionally skip if UMRN already exists in the current patient list
+      if (skipExistingUmrns && umrn && existingUmrns.has(umrn)) {
         console.log(`Skipping existing UMRN: ${umrn}`);
         continue;
       }
-
+  
       const patientId = umrn || uuidv4();
       const patientType = umrn ? "umrn" : "uuid";
-
+  
       const newPatient: Patient = {
         id: patientId,
         type: patientType,
@@ -632,7 +655,7 @@ const updatePatient = async (updatedPatient: Patient): Promise<boolean> => {
       };
       importedPatients.push(newPatient);
     }
-
+  
     return importedPatients;
   };
 
@@ -772,7 +795,7 @@ const updatePatient = async (updatedPatient: Patient): Promise<boolean> => {
     isLoading.value = true;
     error.value = null;
     console.log("Starting iCM patient list import from file:", filePath);
-
+  
     try {
       const fileContent = await readFileAbsolute(filePath);
       if (!fileContent) {
@@ -781,23 +804,22 @@ const updatePatient = async (updatedPatient: Patient): Promise<boolean> => {
         isLoading.value = false;
         return;
       }
-
-      const newPatients = _parseAndMapICMPatients(fileContent, patients.value);
-
-      if (newPatients.length === 0) {
-        console.log("No new patients to import after filtering.");
+  
+      // Do NOT skip existing UMRNs; import all patients from file
+      const importedPatients = _parseAndMapICMPatients(fileContent, patients.value, false);
+  
+      if (importedPatients.length === 0) {
+        console.log("No patients found in imported file.");
         isLoading.value = false;
         return;
       }
-
-      console.log(`Adding ${newPatients.length} new patients to the list.`);
-      const updatedPatients = [...patients.value, ...newPatients];
-
-      console.log("Saving updated patient list after import...");
-      const saveSuccess = await savePatients(updatedPatients);
-
+  
+      // Replace the current patient list with the imported one (remove any not present in import)
+      console.log(`Replacing patient list with ${importedPatients.length} imported patients.`);
+      const saveSuccess = await savePatients(importedPatients);
+  
       if (saveSuccess) {
-        console.log("iCM patient list imported successfully from file.");
+        console.log("iCM patient list imported and replaced successfully from file.");
       } else {
         console.error("Failed to save patient list after import from file.");
         // Error should be set by savePatients

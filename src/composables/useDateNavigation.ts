@@ -6,9 +6,7 @@ import { useConfig } from '@/composables/useConfig';
 
 export function useDateNavigation() {
     const fileSystemAccess = useFileSystemAccess();
-    const noteEditor = useNoteEditor();
     const patientData = usePatientData();
-    const configState = useConfig();
 
     const dateMenu = ref(false);
     const allowedDates = ref<string[]>([]);
@@ -67,7 +65,7 @@ export function useDateNavigation() {
     };
 
     // Watch selectedDate to update allowedDates
-    watch(selectedDate, async (newDate) => {
+    watch(selectedDate, async (_newDate) => {
         // When selectedDate changes, reload allowedDates (in case new files are added)
         // This might be better handled in App.vue or usePatientData if it's about patient list dates
         // For now, keeping it here as it was in App.vue

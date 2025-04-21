@@ -119,7 +119,13 @@ export function usePatientList(
    };
 
    // Handler for when sorting ends (from SortableJS)
-   const onSortEnd = async (newOrderedList: Patient[]) => {
+   const onSortEnd = async (newOrderedList: Patient[] | any) => {
+      // Defensive: Only proceed if newOrderedList is an array
+      if (!Array.isArray(newOrderedList)) {
+         console.error("onSortEnd: Expected Patient[] array, received:", newOrderedList);
+         showSnackbar('Failed to update patient order: invalid data.', 'error');
+         return;
+      }
       // The newOrderedList is the updated array from SortableJS
       // We need to save this new order
       // Optionally, you can add an 'order' property if desired:

@@ -17,6 +17,7 @@ sort by location, name (while retaining the current custom sort)
   - FAB for edit patient list
   - footer at the bottom of navbar list containing info about something (currently debug info)
   draggable navbar width
+  move patient list related menu options to a new 3 dot menu next to patient list subheader
 
 
 - Monaco editor integration:
