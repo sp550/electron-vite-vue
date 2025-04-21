@@ -1,4 +1,6 @@
 **Priority 1: Core Functionality & Stability**
+toggle through notes according to day is broken
+add new patient - error on entering umrn
 
 **Priority 2: Basic UI & Configuration**
 - Display config.json for debugging.
