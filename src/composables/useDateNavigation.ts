@@ -1,8 +1,6 @@
 import { ref, computed, watch } from 'vue';
 import { useFileSystemAccess } from '@/composables/useFileSystemAccess';
-import { useNoteEditor } from '@/composables/useNoteEditor';
 import { usePatientData } from '@/composables/usePatientData';
-import { useConfig } from '@/composables/useConfig';
 
 export function useDateNavigation() {
     const fileSystemAccess = useFileSystemAccess();

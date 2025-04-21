@@ -1,4 +1,4 @@
-import { ref, computed, watch, nextTick } from 'vue';
+import { ref, computed, watch } from 'vue';
 import type { Ref } from 'vue';
 import type { Patient } from '@/types';
 import type { usePatientData } from './usePatientData';
