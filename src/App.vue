@@ -2,9 +2,7 @@
    <v-app>
       <!-- === App Bar === -->
       <v-app-bar app color="primary" dark density="compact">
-         <v-btn icon="true" @click="drawer = !drawer" title="Toggle Navigation Drawer">
-            <v-icon>mdi-menu</v-icon>
-         </v-btn>
+         <v-btn icon="mdi-menu" @click="drawer = !drawer" title="Toggle Navigation Drawer"></v-btn>
          <v-spacer></v-spacer>
          <v-toolbar-title></v-toolbar-title>
          <v-btn icon="mdi-chevron-left" @click="navigateToPreviousDay"
@@ -18,9 +16,7 @@
          <!-- Date Picker for Patient List Date Navigation -->
          <v-menu v-model="dateMenu" :close-on-content-click="false" offset-y>
             <template #activator="{ props }">
-               <v-btn v-bind="props" icon title="Select Date" aria-label="Select Date">
-                  <v-icon>mdi-calendar-search</v-icon>
-               </v-btn>
+               <v-btn v-bind="props" icon="mdi-calendar-search" title="Select Date" aria-label="Select Date"></v-btn>
             </template>
             <v-card>
                <v-date-picker v-model="selectedDate" :allowed-dates="allowedDates"
@@ -29,13 +25,11 @@
          </v-menu>
          <!-- Auto-Save Toggle -->
          <v-switch v-model="noteEditor.isAutoSaveEnabled.value" label="Auto-Save" color="primary" hide-details
-            density="compact" class="ml-2 mr-2 flex-grow-0" title="Toggle Auto-Save"></v-switch>
+            density="compact" class="mx-2 flex-shrink-0" title="Toggle Auto-Save"></v-switch>
          <!-- Overflow Menu -->
          <v-menu location="bottom end" offset-y>
             <template #activator="{ props }">
-               <v-btn v-bind="props" icon title="More actions" aria-label="More actions">
-                  <v-icon>mdi-dots-vertical</v-icon>
-               </v-btn>
+               <v-btn v-bind="props" icon="mdi-dots-vertical" title="More actions" aria-label="More actions"></v-btn>
             </template>
             <v-list>
                <v-list-item @click="goToSettings">
@@ -84,7 +78,7 @@
             @removePatientFromList="handleRemovePatientFromList"
             @removeSelectedPatientsFromList="removeSelectedPatientsFromList"
             @addSelectedToTodayList="addSelectedToTodayList" @checkboxSelectPatientList="checkboxSelectPatientList" />
-         <v-row class="mb-2 mt-auto ma-2">
+         <v-row class="mt-auto ma-2">
             <v-expansion-panels class="align-end">
                <v-expansion-panel title="Debug Info">
                   <v-expansion-panel-text>
@@ -95,7 +89,7 @@
                      Config Path: {{ configState.configPath.value || "Loading..." }}<br />
                      <div v-if="configState.config.value.dataDirectory">
                         Data Directory:
-                        <span class="text-caption wrap-text" :title="configState.config.value.dataDirectory">
+                        <span class="text-caption text-wrap" :title="configState.config.value.dataDirectory">
                            {{ configState.config.value.dataDirectory }}
                         </span>
                      </div>
@@ -107,104 +101,109 @@
 
       <!-- === Main Content Area === -->
       <v-main>
-         <v-container fluid class="main-content-container pa-0">
-            <!-- Editor View (global single editor) -->
-            <div v-if="!selectedPatientId || !configState.isDataDirectorySet.value" class="placeholder-content">
-               <v-icon size="64" :color="!configState.isDataDirectorySet.value ? 'orange' : 'grey-lighten-1'">
-                  {{ !configState.isDataDirectorySet.value ? 'mdi-folder-alert-outline' : 'mdi-account-heart-outline'
-                  }}
-               </v-icon>
-               <p v-if="!configState.isDataDirectorySet.value" class="text-h6 grey--text text--darken-1 mt-4">
-                  Please select your data storage directory.
-               </p>
-               <p v-else class="text-h6 grey--text text--lighten-1 mt-4">
-                  Select or add a patient.
-               </p>
-               <v-btn v-if="!configState.isDataDirectorySet.value" color="warning" class="mt-4"
-                  @click="selectDataDirectory" prepend-icon="mdi-folder-open-outline">
-                  Select Data Directory
-               </v-btn>
-               <v-btn v-else color="primary" class="mt-4" @click="handleAddNewPatient" prepend-icon="mdi-plus">
-                  Add New Patient
-               </v-btn>
-            </div>
-            <div v-else class="editor-layout">
-               <v-card flat class="editor-card">
-                  <v-toolbar density="compact" color="grey-lighten-3">
-                     <v-toolbar-title class="text-subtitle-1">
-                     </v-toolbar-title>
-                     <v-text-field v-model="selectedPatient!.name" label="Patient Name" hide-details single-line
-                        @blur="updatePatientName"></v-text-field>
-                     <v-text-field v-model="selectedPatient!.umrn" label="Patient UMRN" hide-details single-line
-                        @blur="updatePatientUmrn"></v-text-field>
-                     <v-spacer></v-spacer>
+         <v-container v-if="!selectedPatientId || !configState.isDataDirectorySet.value" fluid
+            class="pa-0 d-flex align-center justify-center fill-height">
+            <v-card v-if="!selectedPatientId || !configState.isDataDirectorySet.value" flat
+               class="d-flex flex-column align-center pa-8 justify-center">
+               <v-card-text class="d-flex flex-column align-center">
+                  <v-icon
+                     :icon="!configState.isDataDirectorySet.value ? 'mdi-folder-alert-outline' : 'mdi-account-heart-outline'"
+                     :color="!configState.isDataDirectorySet.value ? 'orange' : 'grey-lighten-1'" size="64"
+                     class="mb-4" />
 
-                     <v-spacer></v-spacer> <!-- Added spacer -->
-                     <v-btn :loading="noteEditor.isLoading.value"
-                        :disabled="noteEditor.isLoading.value || !isNoteLoaded || !configState.isDataDirectorySet.value"
-                        @click="saveCurrentNote" color="primary" variant="tonal" size="small" class="mr-2"
-                        title="Save Note">
-                        <v-icon start>mdi-content-save</v-icon> Save
+                  <div v-if="!configState.isDataDirectorySet.value" class="text-h6 text-grey-darken-1 mt-4 text-center">
+                     Please select your data storage directory.
+                  </div>
+                  <div v-else class="text-h6 text-grey-lighten-1 mt-4 text-center">
+                     Select or add a patient
+                  </div>
+               </v-card-text>
+               <v-card-actions class="justify-center">
+                  <template v-if="!configState.isDataDirectorySet.value">
+                     <v-btn color="warning" class="mt-4" @click="selectDataDirectory"
+                        prepend-icon="mdi-folder-open-outline" variant="elevated">
+                        Select Data Directory
                      </v-btn>
+                  </template>
+                  <template v-else>
+                     <v-btn color="primary" class="mt-4" @click="handleAddNewPatient" prepend-icon="mdi-plus"
+                        variant="elevated">
+                        Add New Patient
+                     </v-btn>
+                  </template>
+               </v-card-actions>
+            </v-card>
+         </v-container>
+         <v-container v-else class="pa-0 d-flex flex-column fill-height justify-start fill-width">
+            <v-toolbar color="grey-lighten-3">
+               <v-text-field v-model="selectedPatient!.name" label="Patient Name" hide-details single-line
+                  @blur="updatePatientName"></v-text-field>
+               <v-text-field v-model="selectedPatient!.umrn" label="Patient UMRN" hide-details single-line
+                  @blur="updatePatientUmrn"></v-text-field>
+               <v-spacer></v-spacer>
 
-                     <v-icon :icon="saveStatusIcon" :color="noteEditor.hasUnsavedChanges.value ? 'warning' : 'success'"
-                        size="small" class="ml-2" title="Save Status"></v-icon>
-                     <v-btn icon="mdi-delete" :disabled="!selectedPatient"
-                        @click="selectedPatient && confirmRemoveCurrentPatient()" title="Delete Patient"></v-btn>
-                  </v-toolbar>
-                  <v-card-text class="pa-0 editor-wrapper">
-                     <div v-if="noteEditor.isLoading.value && !isNoteLoaded" class="loading-overlay">
-                        <v-progress-circular indeterminate color="primary"></v-progress-circular>
-                        <p class="mt-2">Loading note...</p>
-                     </div>
-                     <div v-else-if="noteEditor.error.value" class="error-message pa-4 text-center text-error">
-                        <v-icon start>mdi-alert-circle-outline</v-icon>
-                        Error loading note: {{ noteEditor.error.value }}
-                        <v-btn @click="loadSelectedNote" small variant="tonal" class="ml-2">Retry</v-btn>
-                     </div>
-                     <MonacoEditorComponent ref="monacoEditorRef" v-model="noteContent" language="markdown"
-                        :options="{ theme: 'vs' }" class="editor-component pa-4" />
-                  </v-card-text>
-               </v-card>
+               <v-spacer></v-spacer> <!-- Added spacer -->
+               <v-btn :loading="noteEditor.isLoading.value"
+                  :disabled="noteEditor.isLoading.value || !isNoteLoaded || !configState.isDataDirectorySet.value"
+                  @click="saveCurrentNote" color="primary" variant="tonal" size="small" class="mr-2" title="Save Note">
+                  <v-icon start>mdi-content-save</v-icon> Save
+               </v-btn>
+
+               <v-icon :icon="saveStatusIcon" :color="noteEditor.hasUnsavedChanges.value ? 'warning' : 'success'"
+                  size="small" class="ml-2" title="Save Status"></v-icon>
+               <v-btn icon="mdi-delete" :disabled="!selectedPatient"
+                  @click="selectedPatient && confirmRemoveCurrentPatient()" title="Delete Patient"></v-btn>
+            </v-toolbar>
+            <v-overlay v-model="noteEditor.isLoading.value" contained persistent class="align-center justify-center"
+               scrim="white">
+               <v-progress-circular indeterminate color="primary" size="64"></v-progress-circular>
+               <p class="mt-2 text-center">Loading note...</p>
+            </v-overlay>
+            <div v-if="!noteEditor.isLoading.value && noteEditor.error.value"
+               class="error-message pa-4 text-center text-error">
+               <v-icon start>mdi-alert-circle-outline</v-icon>
+               Error loading note: {{ noteEditor.error.value }}
+               <v-btn @click="loadSelectedNote" small variant="tonal" class="ml-2">Retry</v-btn>
             </div>
-
+            <MonacoEditorComponent v-if="!noteEditor.isLoading.value && !noteEditor.error.value" ref="monacoEditorRef"
+               v-model="noteContent" language="markdown" :options="{ theme: 'vs' }" class="pa-4 flex-grow-1" style="height: 0;"/>
          </v-container>
       </v-main>
 
       <!-- === Snackbar === -->
-      <v-snackbar v-model="snackbar.show" :color="snackbar.color" timeout="3000" location="bottom right">
-         {{ snackbar.text }}
-         <template #actions>
-            <v-btn color="white" variant="text" @click="snackbar.show = false">Close</v-btn>
-         </template>
-      </v-snackbar>
+      <v-snackbar v-model=" snackbar.show" :color="snackbar.color" timeout="3000" location="bottom right">
+               {{ snackbar.text }}
+               <template #actions>
+                  <v-btn variant="text" @click="snackbar.show = false">Close</v-btn>
+               </template>
+               </v-snackbar>
 
-      <!-- Duplicate Patient Dialog -->
-      <v-dialog v-model="duplicateDialog" max-width="500">
-         <v-card>
-            <v-card-title class="text-h5">
-               Duplicate Patient Detected
-            </v-card-title>
-            <v-card-text>
-               A patient with similar information already exists.
-               <br>
-               Name: <b>{{ duplicatePatient?.name }}</b>
-               <br>
-               UMRN: <b>{{ duplicatePatient?.umrn }}</b>
-               <br>
-               Do you want to load the existing record?
-            </v-card-text>
-            <v-card-actions>
-               <v-spacer></v-spacer>
-               <v-btn color="blue-grey" text @click="duplicateDialog = false">
-                  Cancel
-               </v-btn>
-               <v-btn color="primary" text @click="handleLoadDuplicatePatient">
-                  Load Patient
-               </v-btn>
-            </v-card-actions>
-         </v-card>
-      </v-dialog>
+               <!-- Duplicate Patient Dialog -->
+               <v-dialog v-model="duplicateDialog" max-width="500">
+                  <v-card>
+                     <v-card-title class="text-h5">
+                        Duplicate Patient Detected
+                     </v-card-title>
+                     <v-card-text>
+                        A patient with similar information already exists.
+                        <br>
+                        Name: <b>{{ duplicatePatient?.name }}</b>
+                        <br>
+                        UMRN: <b>{{ duplicatePatient?.umrn }}</b>
+                        <br>
+                        Do you want to load the existing record?
+                     </v-card-text>
+                     <v-card-actions>
+                        <v-spacer></v-spacer>
+                        <v-btn color="blue-grey" variant="text" @click="duplicateDialog = false">
+                           Cancel
+                        </v-btn>
+                        <v-btn color="primary" variant="text" @click="handleLoadDuplicatePatient">
+                           Load Patient
+                        </v-btn>
+                     </v-card-actions>
+                  </v-card>
+               </v-dialog>
    </v-app>
 </template>
 
@@ -239,20 +238,20 @@ const autoExportStarted = ref(false);
 
 // --- Patient List Event Handlers (for PatientList.vue) ---
 function handleRemovePatientFromList(patient: any) {
-  removePatient(patient);
-  onPatientListChanged();
+   removePatient(patient);
+   onPatientListChanged();
 }
 function removeSelectedPatientsFromList() {
-  removeSelectedPatients();
-  onPatientListChanged();
+   removeSelectedPatients();
+   onPatientListChanged();
 }
 function addSelectedToTodayList() {
-  addSelectedToToday(todayString);
-  onPatientListChanged();
+   addSelectedToToday(todayString);
+   onPatientListChanged();
 }
 function checkboxSelectPatientList(patientId: string) {
-  checkboxSelect(patientId);
-  onPatientListChanged();
+   checkboxSelect(patientId);
+   onPatientListChanged();
 }
 
 // --- Patient List State/Logic (moved from PatientList.vue) ---
@@ -307,23 +306,23 @@ provide('showSnackbar', showSnackbar);
 
 // --- Patient List Logic ---
 const {
-  patientsDraggable,
-  removePatient,
-  removeSelectedPatients,
-  addSelectedToToday,
-  checkboxSelect,
-  onSortEnd,
-  sortMode,
-  setSortMode,
+   patientsDraggable,
+   removePatient,
+   removeSelectedPatients,
+   addSelectedToToday,
+   checkboxSelect,
+   onSortEnd,
+   sortMode,
+   setSortMode,
 } = usePatientList(patientData, showSnackbar, selectedPatientId) as {
-  patientsDraggable: any,
-  removePatient: any,
-  removeSelectedPatients: any,
-  addSelectedToToday: any,
-  checkboxSelect: any,
-  onSortEnd: any,
-  sortMode: import('vue').Ref<any>,
-  setSortMode: any,
+   patientsDraggable: any,
+   removePatient: any,
+   removeSelectedPatients: any,
+   addSelectedToToday: any,
+   checkboxSelect: any,
+   onSortEnd: any,
+   sortMode: import('vue').Ref<any>,
+   setSortMode: any,
 };
 
 console.log("[App.vue] sortMode (raw):", sortMode, "typeof:", typeof sortMode, "isRef:", !!(sortMode && typeof sortMode === 'object' && 'value' in sortMode), "value:", sortMode && typeof sortMode === 'object' && 'value' in sortMode ? sortMode.value : sortMode);
@@ -333,20 +332,20 @@ console.log("[App.vue] sortMode (raw):", sortMode, "typeof:", typeof sortMode, "
 
 // --- Drag-and-drop initialization for patient list (if needed) ---
 onMounted(async () => {
-  await nextTick();
-  if (patientListRef.value) {
-    Sortable.create(patientListRef.value as HTMLElement, {
-      handle: ".drag-handle",
-      animation: 150,
-      ghostClass: "sortable-ghost",
-      chosenClass: "sortable-chosen",
-      dragClass: "sortable-drag",
-      onEnd: () => {
-        onSortEnd(patientsDraggable.value);
-        onPatientListChanged();
-      },
-    });
-  }
+   await nextTick();
+   if (patientListRef.value) {
+      Sortable.create(patientListRef.value as HTMLElement, {
+         handle: ".drag-handle",
+         animation: 150,
+         ghostClass: "sortable-ghost",
+         chosenClass: "sortable-chosen",
+         dragClass: "sortable-drag",
+         onEnd: () => {
+            onSortEnd(patientsDraggable.value);
+            onPatientListChanged();
+         },
+      });
+   }
 });
 
 // --- Computed Properties ---
@@ -437,15 +436,15 @@ const loadSelectedNote = async () => {
          if (noteEditor.error.value && !noteEditor.error.value.includes('ENOENT') && !noteEditor.error.value.includes('Data directory not configured')) {
             showSnackbar(`Failed to load note: ${noteEditor.error.value}`, 'error');
          } else if (!noteEditor.currentNote.value && !noteEditor.error.value) {
-             // This case might indicate a logic error if loadNote finished without error but currentNote is still null
-             // Or it could mean a new note needs to be created implicitly
-             console.warn("loadSelectedNote: loadNote completed without error/ENOENT, but currentNote is still null. Ready for new note.");
-             isNoteLoaded.value = true; // Allow editor to show for new note creation
-             noteEditor.setUnsavedChanges(false); // Start clean
+            // This case might indicate a logic error if loadNote finished without error but currentNote is still null
+            // Or it could mean a new note needs to be created implicitly
+            console.warn("loadSelectedNote: loadNote completed without error/ENOENT, but currentNote is still null. Ready for new note.");
+            isNoteLoaded.value = true; // Allow editor to show for new note creation
+            noteEditor.setUnsavedChanges(false); // Start clean
          } else {
-             console.log(`Note not found for ${selectedPatientId.value} on ${selectedDate.value}. Ready for new note.`);
-             isNoteLoaded.value = true; // Allow editor to show for new note creation
-             noteEditor.setUnsavedChanges(false); // Start clean
+            console.log(`Note not found for ${selectedPatientId.value} on ${selectedDate.value}. Ready for new note.`);
+            isNoteLoaded.value = true; // Allow editor to show for new note creation
+            noteEditor.setUnsavedChanges(false); // Start clean
          }
       }
    } catch (e: any) {
@@ -572,14 +571,14 @@ const updatePatientUmrn = async () => {
 };
 
 const confirmRemoveCurrentPatient = async () => {
-    if (!selectedPatient.value) return;
-    const success = await patientData.removePatient(selectedPatient.value.id);
-    if (success) {
-       showSnackbar(`Patient "${selectedPatient.value.name}" removed.`, 'info');
-       // clearSelectedPatientState is called implicitly by the watcher when selectedPatientId becomes invalid
-    } else {
-       showSnackbar(`Failed to remove patient: ${patientData.error.value || 'Unknown error'}`, 'error');
-    }
+   if (!selectedPatient.value) return;
+   const success = await patientData.removePatient(selectedPatient.value.id);
+   if (success) {
+      showSnackbar(`Patient "${selectedPatient.value.name}" removed.`, 'info');
+      // clearSelectedPatientState is called implicitly by the watcher when selectedPatientId becomes invalid
+   } else {
+      showSnackbar(`Failed to remove patient: ${patientData.error.value || 'Unknown error'}`, 'error');
+   }
 };
 
 // Handler for the Import ICM Patient List menu item
@@ -652,23 +651,23 @@ const openDataDirectory = async () => {
 
 // Watch for changes in selected patient, date, or data directory readiness
 watch(
-    () => [selectedPatientId.value, selectedDate.value, configState.isDataDirectorySet.value],
-    async ([newPatientId, newDate, isDirSet], [oldPatientId, oldDate, oldIsDirSet]) => {
-        console.log('Watcher triggered: ID:', newPatientId, 'Date:', newDate, 'DirSet:', isDirSet);
-        // Only load if the patient or date actually changed, and directory is set
-        if (isDirSet && (newPatientId !== oldPatientId || newDate !== oldDate)) {
-            if (newPatientId) {
-                await loadSelectedNote();
-            } else {
-                // Patient ID became null (e.g., patient deleted)
-                clearSelectedPatientState();
-            }
-        } else if (!isDirSet && oldIsDirSet) {
-            // Data directory became unset
+   () => [selectedPatientId.value, selectedDate.value, configState.isDataDirectorySet.value],
+   async ([newPatientId, newDate, isDirSet], [oldPatientId, oldDate, oldIsDirSet]) => {
+      console.log('Watcher triggered: ID:', newPatientId, 'Date:', newDate, 'DirSet:', isDirSet);
+      // Only load if the patient or date actually changed, and directory is set
+      if (isDirSet && (newPatientId !== oldPatientId || newDate !== oldDate)) {
+         if (newPatientId) {
+            await loadSelectedNote();
+         } else {
+            // Patient ID became null (e.g., patient deleted)
             clearSelectedPatientState();
-        }
-    },
-    { immediate: false } // Don't run immediately on mount, let onMounted handle initial load
+         }
+      } else if (!isDirSet && oldIsDirSet) {
+         // Data directory became unset
+         clearSelectedPatientState();
+      }
+   },
+   { immediate: false } // Don't run immediately on mount, let onMounted handle initial load
 );
 
 
@@ -763,7 +762,7 @@ onMounted(async () => {
 
    // Attempt initial load if conditions are met (e.g., data dir already set)
    if (configState.isDataDirectorySet.value && selectedPatientId.value) {
-       await loadSelectedNote();
+      await loadSelectedNote();
    }
 });
 
