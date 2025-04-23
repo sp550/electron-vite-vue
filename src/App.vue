@@ -134,7 +134,7 @@
                </v-card-actions>
             </v-card>
          </v-container>
-         <v-container v-else class="pa-0 d-flex flex-column fill-height justify-start fill-width">
+         <v-container v-else  fluid class=" pa-0  px-xl-16 d-flex flex-column fill-height justify-start fill-width">
             <v-toolbar color="grey-lighten-3">
                <v-text-field v-model="selectedPatient!.name" label="Patient Name" hide-details single-line
                   @blur="updatePatientName"></v-text-field>
