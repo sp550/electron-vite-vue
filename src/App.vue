@@ -63,7 +63,7 @@
 
       <!-- === Navigation Drawer with Patient List and Controls === -->
       <v-navigation-drawer v-model="drawer" :permanent="smAndUp" :temporary="!smAndUp" app width="350">
-         <v-container class="px-2 py-3 d-flex flex-column" style="height: 100%;">
+         <v-container class="pa-0 d-flex flex-column" style="height: 100%;">
             <PatientList class="flex-grow-1"
                :patientsDraggable="patientsDraggable" :selectedPatientIds="selectedPatientIds"
                :isEditPatientListMode="isEditPatientListMode" :search="search" :todayString="todayString"
