@@ -32,28 +32,65 @@
         </v-list>
       </v-menu>
     </v-toolbar>
-    <v-list max-height="60vh" style="overflow-y:auto;">
-      <v-list-item-group
-        :model-value="selectedPatientIds"
-        @update:model-value="onSelectPatientIds"
-        multiple
-        :mandatory="false"
-      >
+    <v-card-text v-if="isEditPatientListMode" class="py-2">
+      {{ selectedPatientIds.length }} patient{{ selectedPatientIds.length === 1 ? '' : 's' }} selected
+    </v-card-text>
+    <v-list max-height="80vh" style="overflow-y:auto;">
+      <template v-if="isEditPatientListMode">
+        <v-list
+          :selected="selectedPatientIds"
+          multiple
+          max-height="60vh"
+          style="overflow-y:auto;"
+          @update:selected="onSelectPatientIds"
+        >
+          <v-list-item
+            v-for="(element, _index) in patientsDraggable"
+            :key="(element as any).id"
+            :value="(element as any).id"
+            :data-id="(element as any).id"
+          >
+            <template #prepend>
+              <v-icon
+                class="me-2"
+                title="Drag to reorder"
+                @mousedown.stop
+              >mdi-drag</v-icon>
+            </template>
+            <v-list-item-content>
+              <v-list-item-title>{{ (element as any).name }}</v-list-item-title>
+              <v-list-item-subtitle
+                v-if="(element as any).umrn || (element as any).location"
+                class="umrn-location"
+              >
+                {{ (element as any).umrn ? `${(element as any).umrn}` : "" }}
+                {{ (element as any).location ? `Location: ${(element as any).location}` : "" }}
+              </v-list-item-subtitle>
+            </v-list-item-content>
+            <template #append>
+              <v-list-item-action>
+                <v-btn
+                  icon="mdi-delete"
+                  variant="plain"
+                  size="small"
+                  color="error"
+                  @click.stop="onRemovePatientFromList(element)"
+                  title="Remove patient"
+                  density="compact"
+                  class="me-2"
+                />
+              </v-list-item-action>
+            </template>
+          </v-list-item>
+        </v-list>
+      </template>
+      <template v-else>
         <v-list-item
           v-for="(element, _index) in patientsDraggable"
           :key="(element as any).id"
-          :value="(element as any).id"
           :data-id="(element as any).id"
           @click="onPatientClick((element as any).id)"
         >
-          <template v-slot:prepend>
-            <v-icon
-              v-if="isEditPatientListMode"
-              class="me-2"
-              title="Drag to reorder"
-              @mousedown.stop
-            >mdi-drag</v-icon>
-          </template>
           <v-list-item-content>
             <v-list-item-title>{{ (element as any).name }}</v-list-item-title>
             <v-list-item-subtitle
@@ -64,29 +101,8 @@
               {{ (element as any).location ? `Location: ${(element as any).location}` : "" }}
             </v-list-item-subtitle>
           </v-list-item-content>
-          <template v-slot:append>
-            <v-list-item-action v-if="isEditPatientListMode">
-              <v-btn
-                icon="mdi-delete"
-                flat
-                size="small"
-                color="error"
-                @click.stop="onRemovePatientFromList(element)"
-                title="Remove patient"
-                density="compact"
-                class="me-2"
-              />
-              <v-checkbox
-                :model-value="selectedPatientIds.includes((element as any).id)"
-                @click.stop="onCheckboxSelectPatientList((element as any).id)"
-                color="primary"
-                density="compact"
-                hide-details
-              />
-            </v-list-item-action>
-          </template>
         </v-list-item>
-      </v-list-item-group>
+      </template>
     </v-list>
     <v-card-actions>
       <v-spacer></v-spacer>
@@ -106,7 +122,16 @@
 
 </template>
 <script setup lang="ts">
-import { defineProps, defineEmits, ref, computed, PropType, watch } from "vue";
+import { defineProps, defineEmits, ref, computed, PropType, watch, onMounted, onUnmounted } from "vue";
+
+// Debug: Log lifecycle for diagnosis
+console.log("[PatientList] setup() called at", new Date().toISOString());
+onMounted(() => {
+  console.log("[PatientList] mounted at", new Date().toISOString());
+});
+onUnmounted(() => {
+  console.log("[PatientList] unmounted at", new Date().toISOString());
+});
 
 // Props for presentational PatientList
 const props = defineProps({
@@ -145,11 +170,12 @@ const emit = defineEmits([
   "addNewPatient",
   "removePatientFromList",
   "removeSelectedPatientsFromList",
-  "addSelectedToTodayList",
-  "checkboxSelectPatientList"
+  "addSelectedToTodayList"
 ]);
 
 const showSortMenu = ref(false);
+
+// Debug: Log Vuetify version if available
 
 const sortModeLabel = computed(() => {
   console.log("[PatientList] sortModeLabel computed, sortMode.value:", props.sortMode.value);
@@ -175,14 +201,19 @@ function handleSortSelect(mode: "custom" | "name" | "location") {
 function onSearchInput(val: string) {
   emit("update:search", val);
 }
-function onSelectPatientIds(val: string[]) {
-  emit("update:selectedPatientIds", val);
+function onSelectPatientIds(val: unknown[]) {
+  // Convert unknown[] to string[]
+  const ids = val.map(String);
+  emit("update:selectedPatientIds", ids);
 }
 function onToggleEditMode() {
   emit("update:isEditPatientListMode", !props.isEditPatientListMode);
 }
 function onPatientClick(patientId: string) {
-  emit("patientSelected", patientId);
+  // In view mode, emit patientSelected. In edit mode, selection is handled by v-list-item-group.
+  if (!props.isEditPatientListMode) {
+    emit("patientSelected", patientId);
+  }
 }
 function onAddNewPatient() {
   emit("addNewPatient");
@@ -195,9 +226,6 @@ function onRemoveSelectedPatientsFromList() {
 }
 function onAddSelectedToTodayList() {
   emit("addSelectedToTodayList");
-}
-function onCheckboxSelectPatientList(patientId: string) {
-  emit("checkboxSelectPatientList", patientId);
 }
 </script>
 <style scoped>

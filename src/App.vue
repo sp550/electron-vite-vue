@@ -66,22 +66,46 @@
         v-model="drawer"
         :permanent="smAndUp"
         :temporary="!smAndUp"
+        expand-on-hover
+        rail
+        rail-width="30"
         app
         :width="drawerWidth"
+        @mouseenter="isDrawerRail = false"
+        @mouseleave="isDrawerRail = true"
       >
         <v-container class="pa-0 d-flex flex-column" style="height: 100%;">
-          <PatientList class="flex-grow-1"
-            :patientsDraggable="patientsDraggable" :selectedPatientIds="selectedPatientIds"
-            :isEditPatientListMode="isEditPatientListMode" :search="search" :todayString="todayString"
-            :selectedDate="selectedDate" :configState="configState" :version="version" :isPackaged="isPackaged"
-            :nodeEnv="nodeEnv" :sortMode="sortMode" :setSortMode="setSortMode" @update:search="val => search = val"
+          <!-- Patient List: hidden in rail mode -->
+          <PatientList
+            class="flex-grow-1"
+            :class="{ 'patient-list-rail-hidden': isDrawerRail }"
+            :patientsDraggable="patientsDraggable"
+            :selectedPatientIds="selectedPatientIds"
+            :isEditPatientListMode="isEditPatientListMode"
+            :search="search"
+            :todayString="todayString"
+            :selectedDate="selectedDate"
+            :configState="configState"
+            :version="version"
+            :isPackaged="isPackaged"
+            :nodeEnv="nodeEnv"
+            :sortMode="sortMode"
+            :setSortMode="setSortMode"
+            @update:search="val => search = val"
             @update:selectedPatientIds="val => selectedPatientIds = val"
-            @update:isEditPatientListMode="val => isEditPatientListMode = val" @patientSelected="onPatientSelected"
-            @patientListChanged="onPatientListChanged" @addNewPatient="handleAddNewPatient"
+            @update:isEditPatientListMode="val => isEditPatientListMode = val"
+            @patientSelected="onPatientSelected"
+            @patientListChanged="onPatientListChanged"
+            @addNewPatient="handleAddNewPatient"
             @removePatientFromList="handleRemovePatientFromList"
             @removeSelectedPatientsFromList="removeSelectedPatientsFromList"
             @addSelectedToTodayList="addSelectedToTodayList"
-            @checkboxSelectPatientList="checkboxSelectPatientList" />
+            @checkboxSelectPatientList="checkboxSelectPatientList"
+          />
+          <!-- Arrow icon shown in rail mode -->
+          <div v-if="isDrawerRail" class="rail-arrow-container">
+            <v-icon size="36" color="primary" title="Expand drawer">mdi-chevron-right</v-icon>
+          </div>
           <div>
             <v-divider class="my-2"></v-divider>
             <v-expansion-panels class="flex-shrink-0">
@@ -241,6 +265,9 @@
 
 <script setup lang="ts">
 import { ref, provide, computed, watch, nextTick, onMounted } from 'vue';
+
+const isDrawerRail = ref(true); // true = rail mode, false = expanded
+
 import { useNoteExport } from '@/composables/useNoteRetrieval';
 import { useDateNavigation } from '@/composables/useDateNavigation';
 import { useSnackbar } from '@/composables/useSnackbar';
@@ -870,3 +897,26 @@ onMounted(async () => {
 
 
 </script>
+
+<style>
+
+.patient-list-rail-hidden {
+   opacity: 0 !important;
+   pointer-events: none !important;
+   transition: opacity 0.2s;
+}
+
+.rail-arrow-container {
+   display: flex;
+   align-items: center;
+   justify-content: center;
+   height: 100%;
+   min-height: 80px;
+   width: 100%;
+   position: absolute;
+   top: 0;
+   left: 0;
+   z-index: 5;
+   pointer-events: none;
+}
+</style>
