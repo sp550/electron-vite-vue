@@ -62,41 +62,72 @@
       </v-system-bar>
 
       <!-- === Navigation Drawer with Patient List and Controls === -->
-      <v-navigation-drawer v-model="drawer" :permanent="smAndUp" :temporary="!smAndUp" app width="350">
-         <v-container class="pa-0 d-flex flex-column" style="height: 100%;">
-            <PatientList class="flex-grow-1"
-               :patientsDraggable="patientsDraggable" :selectedPatientIds="selectedPatientIds"
-               :isEditPatientListMode="isEditPatientListMode" :search="search" :todayString="todayString"
-               :selectedDate="selectedDate" :configState="configState" :version="version" :isPackaged="isPackaged"
-               :nodeEnv="nodeEnv" :sortMode="sortMode" :setSortMode="setSortMode" @update:search="val => search = val"
-               @update:selectedPatientIds="val => selectedPatientIds = val"
-               @update:isEditPatientListMode="val => isEditPatientListMode = val" @patientSelected="onPatientSelected"
-               @patientListChanged="onPatientListChanged" @addNewPatient="handleAddNewPatient"
-               @removePatientFromList="handleRemovePatientFromList"
-               @removeSelectedPatientsFromList="removeSelectedPatientsFromList"
-               @addSelectedToTodayList="addSelectedToTodayList"
-               @checkboxSelectPatientList="checkboxSelectPatientList" />
-            <div>
-              <v-divider class="my-2"></v-divider>
-              <v-expansion-panels class="flex-shrink-0">
-                 <v-expansion-panel title="Debug Info">
-                    <v-expansion-panel-text>
-                       App Info:<br />
-                       Version: {{ version }}<br />
-                       Packaged: {{ isPackaged ? "Yes" : "No" }}<br />
-                       Environment: {{ nodeEnv }}<br />
-                       Config Path: {{ configState.configPath.value || "Loading..." }}<br />
-                       <div v-if="configState.config.value.dataDirectory">
-                          Data Directory:
-                          <span class="text-caption text-wrap" :title="configState.config.value.dataDirectory">
-                             {{ configState.config.value.dataDirectory }}
-                          </span>
-                       </div>
-                    </v-expansion-panel-text>
-                 </v-expansion-panel>
-              </v-expansion-panels>
-            </div>
-         </v-container>
+      <v-navigation-drawer
+        v-model="drawer"
+        :permanent="smAndUp"
+        :temporary="!smAndUp"
+        app
+        :width="drawerWidth"
+      >
+        <v-container class="pa-0 d-flex flex-column" style="height: 100%;">
+          <PatientList class="flex-grow-1"
+            :patientsDraggable="patientsDraggable" :selectedPatientIds="selectedPatientIds"
+            :isEditPatientListMode="isEditPatientListMode" :search="search" :todayString="todayString"
+            :selectedDate="selectedDate" :configState="configState" :version="version" :isPackaged="isPackaged"
+            :nodeEnv="nodeEnv" :sortMode="sortMode" :setSortMode="setSortMode" @update:search="val => search = val"
+            @update:selectedPatientIds="val => selectedPatientIds = val"
+            @update:isEditPatientListMode="val => isEditPatientListMode = val" @patientSelected="onPatientSelected"
+            @patientListChanged="onPatientListChanged" @addNewPatient="handleAddNewPatient"
+            @removePatientFromList="handleRemovePatientFromList"
+            @removeSelectedPatientsFromList="removeSelectedPatientsFromList"
+            @addSelectedToTodayList="addSelectedToTodayList"
+            @checkboxSelectPatientList="checkboxSelectPatientList" />
+          <div>
+            <v-divider class="my-2"></v-divider>
+            <v-expansion-panels class="flex-shrink-0">
+              <v-expansion-panel title="Debug Info">
+                <v-expansion-panel-text>
+                  App Info:<br />
+                  Version: {{ version }}<br />
+                  Packaged: {{ isPackaged ? "Yes" : "No" }}<br />
+                  Environment: {{ nodeEnv }}<br />
+                  Config Path: {{ configState.configPath.value || "Loading..." }}<br />
+                  <div v-if="configState.config.value.dataDirectory">
+                    Data Directory:
+                    <span class="text-caption text-wrap" :title="configState.config.value.dataDirectory">
+                      {{ configState.config.value.dataDirectory }}
+                    </span>
+                  </div>
+                </v-expansion-panel-text>
+              </v-expansion-panel>
+            </v-expansion-panels>
+          </div>
+        </v-container>
+        <!-- === Drawer Resize Handle (Vuetify only) === -->
+        <v-divider
+          vertical
+          :thickness="10"
+          :inset="false"
+          :style="{
+            position: 'absolute',
+            top: 0,
+            right: 0,
+            height: '100%',
+            zIndex: 10,
+            cursor: isResizing ? 'ew-resize' : 'col-resize',
+            opacity: isResizing ? 0 : 0.,
+            transition: 'opacity 0.1s'
+          }"
+          tabindex="0"
+          role="separator"
+          aria-orientation="vertical"
+          aria-label="Resize navigation drawer"
+          :aria-valuenow="drawerWidth"
+          aria-valuemin="240"
+          aria-valuemax="600"
+          @mousedown="onResizeMouseDown"
+        >
+        </v-divider>
       </v-navigation-drawer>
 
       <!-- === Main Content Area === -->
@@ -231,6 +262,68 @@ const selectedPatientId = ref<string | null>(null); // ID of the currently activ
 // --- Drawer and Responsive ---
 const drawer = ref(true);
 const { smAndUp } = useDisplay();
+
+// === Resizable Drawer State (Vuetify only, no custom CSS) ===
+const DEFAULT_DRAWER_WIDTH = 350;
+const MIN_DRAWER_WIDTH = 240;
+const MAX_DRAWER_WIDTH = 600;
+const drawerWidth = ref(DEFAULT_DRAWER_WIDTH);
+const isResizing = ref(false);
+let startX = 0;
+let startWidth = 0;
+
+// Mouse events
+function onResizeMouseDown(e: MouseEvent) {
+  isResizing.value = true;
+  startX = e.clientX;
+  startWidth = drawerWidth.value;
+  document.body.style.cursor = 'ew-resize';
+  window.addEventListener('mousemove', onResizeMouseMove);
+  window.addEventListener('mouseup', onResizeMouseUp);
+}
+
+function onResizeMouseMove(e: MouseEvent) {
+  if (!isResizing.value) return;
+  const dx = e.clientX - startX;
+  let newWidth = startWidth + dx;
+  newWidth = Math.max(MIN_DRAWER_WIDTH, Math.min(MAX_DRAWER_WIDTH, newWidth));
+  drawerWidth.value = newWidth;
+}
+
+function onResizeMouseUp() {
+  isResizing.value = false;
+  document.body.style.cursor = '';
+  window.removeEventListener('mousemove', onResizeMouseMove);
+  window.removeEventListener('mouseup', onResizeMouseUp);
+}
+
+// Touch events
+function onResizeTouchStart(e: TouchEvent) {
+  if (e.touches.length !== 1) return;
+  isResizing.value = true;
+  startX = e.touches[0].clientX;
+  startWidth = drawerWidth.value;
+  document.body.style.cursor = 'ew-resize';
+  window.addEventListener('touchmove', onResizeTouchMove);
+  window.addEventListener('touchend', onResizeTouchEnd);
+}
+
+function onResizeTouchMove(e: TouchEvent) {
+  if (!isResizing.value || e.touches.length !== 1) return;
+  const dx = e.touches[0].clientX - startX;
+  let newWidth = startWidth + dx;
+  newWidth = Math.max(MIN_DRAWER_WIDTH, Math.min(MAX_DRAWER_WIDTH, newWidth));
+  drawerWidth.value = newWidth;
+}
+
+function onResizeTouchEnd() {
+  isResizing.value = false;
+  document.body.style.cursor = '';
+  window.removeEventListener('touchmove', onResizeTouchMove);
+  window.removeEventListener('touchend', onResizeTouchEnd);
+}
+
+
 
 // --- Patient List/Drawer/Export State ---
 const unsavedNotesCache: Record<string, string> = {};

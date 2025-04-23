@@ -1,86 +1,102 @@
 <template>
-  <v-toolbar class="pa-2" density="compact">
-    <v-text-field :model-value="search" @update:model-value="onSearchInput" label="Search patients"
-      prepend-inner-icon="mdi-magnify" dense hide-details clearable class="" />
 
-    <v-btn icon size="small" class="ml-2" @click.stop="showSortMenu = true" :title="`Sort: ${sortModeLabel}`" flat>
-      <v-icon>mdi-sort</v-icon>
-    </v-btn>
+  <v-card flat class="">
+    <v-toolbar class="" density="compact">
+      <v-text-field :model-value="search" @update:model-value="onSearchInput" label="Search patients"
+        prepend-inner-icon="mdi-magnify" dense hide-details clearable class="" />
 
-    <v-menu v-model="showSortMenu" :close-on-content-click="true" location="bottom center" origin="auto">
-      <v-list>
-        <v-list-item @click="handleSortSelect('name')">
-          <v-list-item-title>
-            <v-icon start v-if="sortMode.value === 'name'" color="primary">mdi-check</v-icon>
-            Sort by Name
-          </v-list-item-title>
-        </v-list-item>
-        <v-list-item @click="handleSortSelect('location')">
-          <v-list-item-title>
-            <v-icon start v-if="sortMode.value === 'location'" color="primary">mdi-check</v-icon>
-            Sort by Location
-          </v-list-item-title>
-        </v-list-item>
-        <v-list-item @click="handleSortSelect('custom')">
-          <v-list-item-title>
-            <v-icon start v-if="sortMode.value === 'custom'" color="primary">mdi-check</v-icon>
-            Custom Sort (Manual Order)
-          </v-list-item-title>
-        </v-list-item>
-      </v-list>
-    </v-menu>
-  </v-toolbar>
-  <!-- ORPHANED BUTTON, TO IMPLEMENT LATER -->
-  <v-btn v-if="selectedPatientIds.length > 0 && selectedDate !== todayString" color="primary" variant="tonal"
-    size="small" class="mb-2" @click="onAddSelectedToTodayList" block>
-    <v-icon start>mdi-calendar-plus</v-icon>
-    Add Selected to Today ({{ selectedPatientIds.length }})
-  </v-btn>
+      <v-btn icon size="small" class="ml-2" @click.stop="showSortMenu = true" :title="`Sort: ${sortModeLabel}`" flat>
+        <v-icon>mdi-sort</v-icon>
+      </v-btn>
 
-
-
-  <v-card flat title="Notes List" class="">
-    <v-card-subtitle>{{ sortModeLabel }}</v-card-subtitle>
-
-    <v-card-text>
-
-      <v-list max-height="60vh" style="overflow-y:auto;">
-        <v-list-item-group :model-value="selectedPatientIds" @update:model-value="onSelectPatientIds" multiple
-          :mandatory="false">
-          <v-list-item v-for="(element, _index) in patientsDraggable" :key="(element as any).id"
-            :value="(element as any).id" :data-id="(element as any).id" @click="onPatientClick((element as any).id)">
-            <template v-slot:prepend>
-              <v-icon v-if="isEditPatientListMode" class="drag-handle ma-1 pa-2" title="Drag to reorder"
-                @mousedown.stop>mdi-drag</v-icon>
-            </template>
-            <v-list-item-content>
-              <v-list-item-title>{{ (element as any).name }}</v-list-item-title>
-              <v-list-item-subtitle v-if="(element as any).umrn || (element as any).location" class="umrn-location">
-                {{ (element as any).umrn ? `${(element as any).umrn}` : "" }}
-                {{ (element as any).location ? `Location: ${(element as any).location}` : "" }}
-              </v-list-item-subtitle>
-            </v-list-item-content>
-            <template v-slot:append class="align-center justify-center align-self-center">
-              <v-btn v-if="isEditPatientListMode" icon size="small" color="error"
-                @click.stop="onRemovePatientFromList(element)" title="Remove patient" class="ma-1 pa-2">
-                <v-icon>mdi-delete</v-icon>
-              </v-btn>
-              <v-checkbox v-if="isEditPatientListMode" :model-value="selectedPatientIds.includes((element as any).id)"
-                @click.stop="onCheckboxSelectPatientList((element as any).id)" :ripple="true" color="primary"
-                class="align-center justify-center align-self-center" />
-            </template>
+      <v-menu v-model="showSortMenu" :close-on-content-click="true" location="bottom center" origin="auto">
+        <v-list>
+          <v-list-item @click="handleSortSelect('name')">
+            <v-list-item-title>
+              <v-icon start v-if="sortMode.value === 'name'" color="primary">mdi-check</v-icon>
+              Sort by Name
+            </v-list-item-title>
           </v-list-item>
-        </v-list-item-group>
-      </v-list>
-    </v-card-text>
+          <v-list-item @click="handleSortSelect('location')">
+            <v-list-item-title>
+              <v-icon start v-if="sortMode.value === 'location'" color="primary">mdi-check</v-icon>
+              Sort by Location
+            </v-list-item-title>
+          </v-list-item>
+          <v-list-item @click="handleSortSelect('custom')">
+            <v-list-item-title>
+              <v-icon start v-if="sortMode.value === 'custom'" color="primary">mdi-check</v-icon>
+              Custom Sort (Manual Order)
+            </v-list-item-title>
+          </v-list-item>
+        </v-list>
+      </v-menu>
+    </v-toolbar>
+    <v-list max-height="60vh" style="overflow-y:auto;">
+      <v-list-item-group
+        :model-value="selectedPatientIds"
+        @update:model-value="onSelectPatientIds"
+        multiple
+        :mandatory="false"
+      >
+        <v-list-item
+          v-for="(element, _index) in patientsDraggable"
+          :key="(element as any).id"
+          :value="(element as any).id"
+          :data-id="(element as any).id"
+          @click="onPatientClick((element as any).id)"
+        >
+          <template v-slot:prepend>
+            <v-icon
+              v-if="isEditPatientListMode"
+              class="me-2"
+              title="Drag to reorder"
+              @mousedown.stop
+            >mdi-drag</v-icon>
+          </template>
+          <v-list-item-content>
+            <v-list-item-title>{{ (element as any).name }}</v-list-item-title>
+            <v-list-item-subtitle
+              v-if="(element as any).umrn || (element as any).location"
+              class="umrn-location"
+            >
+              {{ (element as any).umrn ? `${(element as any).umrn}` : "" }}
+              {{ (element as any).location ? `Location: ${(element as any).location}` : "" }}
+            </v-list-item-subtitle>
+          </v-list-item-content>
+          <template v-slot:append>
+            <v-list-item-action v-if="isEditPatientListMode">
+              <v-btn
+                icon="mdi-delete"
+                flat
+                size="small"
+                color="error"
+                @click.stop="onRemovePatientFromList(element)"
+                title="Remove patient"
+                density="compact"
+                class="me-2"
+              />
+              <v-checkbox
+                :model-value="selectedPatientIds.includes((element as any).id)"
+                @click.stop="onCheckboxSelectPatientList((element as any).id)"
+                color="primary"
+                density="compact"
+                hide-details
+              />
+            </v-list-item-action>
+          </template>
+        </v-list-item>
+      </v-list-item-group>
+    </v-list>
     <v-card-actions>
+      <v-spacer></v-spacer>
 
-      <v-btn color="primary" size="large" @click="onAddNewPatient" :disabled="!configState.isDataDirectorySet.value">
-        <v-icon start>mdi-account-plus-outline</v-icon>
+      <v-btn color="primary" :disabled="!configState.isDataDirectorySet.value" @click="onAddNewPatient"
+        prepend-icon="mdi-account-plus-outline">
         Add New
       </v-btn>
-      <v-btn @click="onToggleEditMode">
-        <v-icon>mdi-pencil-plus</v-icon>
+      <v-btn :color="isEditPatientListMode ? 'success' : 'secondary'" @click="onToggleEditMode"
+        prepend-icon="mdi-pencil-plus">
         {{ isEditPatientListMode ? "Done Editing" : "Edit List" }}
       </v-btn>
     </v-card-actions>

@@ -43,6 +43,7 @@ const createWindow = () => {
       devTools: !app.isPackaged, // Enable DevTools only if not packaged
     },
     autoHideMenuBar: true,
+    resizable: true, // Allow the window to be resized
     // icon: path.join(__dirname, '../../public/logo.svg') // Optional: Uncomment and set path if you have an icon
   });
 
