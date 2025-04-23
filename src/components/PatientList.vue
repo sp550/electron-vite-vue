@@ -1,6 +1,4 @@
 <template>
-  <!-- Patient List and Controls (Drawer Removed) -->
-  <!-- Search and Multi-Select Controls -->
   <v-row class="pa-2">
     <v-text-field
       :model-value="search"

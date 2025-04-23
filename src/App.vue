@@ -1,7 +1,7 @@
 <template>
    <v-app>
       <!-- === App Bar === -->
-      <v-app-bar app color="primary" dark density="compact">
+      <v-app-bar app color="primary" density="comfortable">
          <v-btn icon="mdi-menu" @click="drawer = !drawer" title="Toggle Navigation Drawer"></v-btn>
          <v-spacer></v-spacer>
          <v-toolbar-title></v-toolbar-title>
@@ -32,25 +32,21 @@
                <v-btn v-bind="props" icon="mdi-dots-vertical" title="More actions" aria-label="More actions"></v-btn>
             </template>
             <v-list>
-               <v-list-item @click="goToSettings">
-                  <v-list-item-title>Settings</v-list-item-title>
+               <v-list-item @click="goToSettings" title="Settings" prepend-icon="mdi-cog"></v-list-item>
+               <v-list-item @click="selectDataDirectory" title="Select Data Directory"
+                  prepend-icon="mdi-folder-open-outline"></v-list-item>
+               <v-list-item @click="manualExportNotesForDay" title="Export Notes"
+                  prepend-icon="mdi-file-export-outline"></v-list-item>
+               <v-list-item @click="openDataDirectory" title="Open Data Directory"
+                  prepend-icon="mdi-folder-outline"></v-list-item>
+               <v-list-item @click="handleImportICMClick" :disabled="importICMLoading"
+                  title="Import ICM Patient List (Choose File)" prepend-icon="mdi-file-import-outline">
+                  <v-progress-circular v-if="importICMLoading" indeterminate size="16" color="primary" class="ml-2" />
                </v-list-item>
-               <v-list-item @click="selectDataDirectory">
-                  <v-list-item-title>Select Data Directory</v-list-item-title>
-               </v-list-item>
-
-               <v-list-item @click="manualExportNotesForDay">
-                  <v-list-item-title>Export Notes</v-list-item-title>
-               </v-list-item>
-               <v-list-item @click="openDataDirectory">
-                  <v-list-item-title>Open Data Directory</v-list-item-title>
-               </v-list-item>
-               <v-list-item @click="handleImportICMClick" :disabled="importICMLoading">
-                  <v-list-item-title>
-                     Import ICM Patient List (Choose File)
-                     <v-progress-circular v-if="importICMLoading" indeterminate size="16" color="primary"
-                        class="ml-2" />
-                  </v-list-item-title>
+               <v-divider></v-divider>
+               <v-list-subheader>Current Patient</v-list-subheader>
+               <v-list-item :disabled="!selectedPatient" @click="selectedPatient && confirmRemoveCurrentPatient()"
+                  append-icon="mdi-delete" title="Delete Patient from list">
                </v-list-item>
             </v-list>
          </v-menu>
@@ -67,36 +63,40 @@
 
       <!-- === Navigation Drawer with Patient List and Controls === -->
       <v-navigation-drawer v-model="drawer" :permanent="smAndUp" :temporary="!smAndUp" app width="350">
-         <!-- Patient List Controls and Debug Info -->
-         <PatientList :patientsDraggable="patientsDraggable" :selectedPatientIds="selectedPatientIds"
-            :isEditPatientListMode="isEditPatientListMode" :search="search" :todayString="todayString"
-            :selectedDate="selectedDate" :configState="configState" :version="version" :isPackaged="isPackaged"
-            :nodeEnv="nodeEnv" :sortMode="sortMode" :setSortMode="setSortMode" @update:search="val => search = val"
-            @update:selectedPatientIds="val => selectedPatientIds = val"
-            @update:isEditPatientListMode="val => isEditPatientListMode = val" @patientSelected="onPatientSelected"
-            @patientListChanged="onPatientListChanged" @addNewPatient="handleAddNewPatient"
-            @removePatientFromList="handleRemovePatientFromList"
-            @removeSelectedPatientsFromList="removeSelectedPatientsFromList"
-            @addSelectedToTodayList="addSelectedToTodayList" @checkboxSelectPatientList="checkboxSelectPatientList" />
-         <v-row class="mt-auto ma-2">
-            <v-expansion-panels class="align-end">
-               <v-expansion-panel title="Debug Info">
-                  <v-expansion-panel-text>
-                     App Info:<br />
-                     Version: {{ version }}<br />
-                     Packaged: {{ isPackaged ? "Yes" : "No" }}<br />
-                     Environment: {{ nodeEnv }}<br />
-                     Config Path: {{ configState.configPath.value || "Loading..." }}<br />
-                     <div v-if="configState.config.value.dataDirectory">
-                        Data Directory:
-                        <span class="text-caption text-wrap" :title="configState.config.value.dataDirectory">
-                           {{ configState.config.value.dataDirectory }}
-                        </span>
-                     </div>
-                  </v-expansion-panel-text>
-               </v-expansion-panel>
-            </v-expansion-panels>
-         </v-row>
+         <v-container class="px-2 py-3 d-flex flex-column" style="height: 100%;">
+            <PatientList class="flex-grow-1"
+               :patientsDraggable="patientsDraggable" :selectedPatientIds="selectedPatientIds"
+               :isEditPatientListMode="isEditPatientListMode" :search="search" :todayString="todayString"
+               :selectedDate="selectedDate" :configState="configState" :version="version" :isPackaged="isPackaged"
+               :nodeEnv="nodeEnv" :sortMode="sortMode" :setSortMode="setSortMode" @update:search="val => search = val"
+               @update:selectedPatientIds="val => selectedPatientIds = val"
+               @update:isEditPatientListMode="val => isEditPatientListMode = val" @patientSelected="onPatientSelected"
+               @patientListChanged="onPatientListChanged" @addNewPatient="handleAddNewPatient"
+               @removePatientFromList="handleRemovePatientFromList"
+               @removeSelectedPatientsFromList="removeSelectedPatientsFromList"
+               @addSelectedToTodayList="addSelectedToTodayList"
+               @checkboxSelectPatientList="checkboxSelectPatientList" />
+            <div>
+              <v-divider class="my-2"></v-divider>
+              <v-expansion-panels class="flex-shrink-0">
+                 <v-expansion-panel title="Debug Info">
+                    <v-expansion-panel-text>
+                       App Info:<br />
+                       Version: {{ version }}<br />
+                       Packaged: {{ isPackaged ? "Yes" : "No" }}<br />
+                       Environment: {{ nodeEnv }}<br />
+                       Config Path: {{ configState.configPath.value || "Loading..." }}<br />
+                       <div v-if="configState.config.value.dataDirectory">
+                          Data Directory:
+                          <span class="text-caption text-wrap" :title="configState.config.value.dataDirectory">
+                             {{ configState.config.value.dataDirectory }}
+                          </span>
+                       </div>
+                    </v-expansion-panel-text>
+                 </v-expansion-panel>
+              </v-expansion-panels>
+            </div>
+         </v-container>
       </v-navigation-drawer>
 
       <!-- === Main Content Area === -->
@@ -134,8 +134,8 @@
                </v-card-actions>
             </v-card>
          </v-container>
-         <v-container v-else  fluid class=" pa-0  px-xl-16 d-flex flex-column fill-height justify-start fill-width">
-            <v-toolbar color="grey-lighten-3">
+         <v-container v-else fluid class=" pa-0  px-xl-16 d-flex flex-column fill-height justify-start fill-width">
+            <v-toolbar color="grey-lighten-3 " density="comfortable">
                <v-text-field v-model="selectedPatient!.name" label="Patient Name" hide-details single-line
                   @blur="updatePatientName"></v-text-field>
                <v-text-field v-model="selectedPatient!.umrn" label="Patient UMRN" hide-details single-line
@@ -147,12 +147,12 @@
                   :disabled="noteEditor.isLoading.value || !isNoteLoaded || !configState.isDataDirectorySet.value"
                   @click="saveCurrentNote" color="primary" variant="tonal" size="small" class="mr-2" title="Save Note">
                   <v-icon start>mdi-content-save</v-icon> Save
+                  <v-icon :icon="saveStatusIcon" :color="noteEditor.hasUnsavedChanges.value ? 'warning' : 'success'"
+                     size="small" class="ml-2" title="Save Status"></v-icon>
                </v-btn>
 
-               <v-icon :icon="saveStatusIcon" :color="noteEditor.hasUnsavedChanges.value ? 'warning' : 'success'"
-                  size="small" class="ml-2" title="Save Status"></v-icon>
-               <v-btn icon="mdi-delete" :disabled="!selectedPatient"
-                  @click="selectedPatient && confirmRemoveCurrentPatient()" title="Delete Patient"></v-btn>
+
+
             </v-toolbar>
             <v-overlay v-model="noteEditor.isLoading.value" contained persistent class="align-center justify-center"
                scrim="white">
@@ -166,44 +166,45 @@
                <v-btn @click="loadSelectedNote" small variant="tonal" class="ml-2">Retry</v-btn>
             </div>
             <MonacoEditorComponent v-if="!noteEditor.isLoading.value && !noteEditor.error.value" ref="monacoEditorRef"
-               v-model="noteContent" language="markdown" :options="{ theme: 'vs' }" class="pa-4 flex-grow-1" style="height: 0;"/>
+               v-model="noteContent" language="markdown" :options="{ theme: 'vs' }" class="pa-4 flex-grow-1"
+               style="height: 0;" />
          </v-container>
       </v-main>
 
       <!-- === Snackbar === -->
       <v-snackbar v-model=" snackbar.show" :color="snackbar.color" timeout="3000" location="bottom right">
-               {{ snackbar.text }}
-               <template #actions>
-                  <v-btn variant="text" @click="snackbar.show = false">Close</v-btn>
-               </template>
-               </v-snackbar>
+         {{ snackbar.text }}
+         <template #actions>
+            <v-btn variant="text" @click="snackbar.show = false">Close</v-btn>
+         </template>
+      </v-snackbar>
 
-               <!-- Duplicate Patient Dialog -->
-               <v-dialog v-model="duplicateDialog" max-width="500">
-                  <v-card>
-                     <v-card-title class="text-h5">
-                        Duplicate Patient Detected
-                     </v-card-title>
-                     <v-card-text>
-                        A patient with similar information already exists.
-                        <br>
-                        Name: <b>{{ duplicatePatient?.name }}</b>
-                        <br>
-                        UMRN: <b>{{ duplicatePatient?.umrn }}</b>
-                        <br>
-                        Do you want to load the existing record?
-                     </v-card-text>
-                     <v-card-actions>
-                        <v-spacer></v-spacer>
-                        <v-btn color="blue-grey" variant="text" @click="duplicateDialog = false">
-                           Cancel
-                        </v-btn>
-                        <v-btn color="primary" variant="text" @click="handleLoadDuplicatePatient">
-                           Load Patient
-                        </v-btn>
-                     </v-card-actions>
-                  </v-card>
-               </v-dialog>
+      <!-- Duplicate Patient Dialog -->
+      <v-dialog v-model="duplicateDialog" max-width="500">
+         <v-card>
+            <v-card-title class="text-h5">
+               Duplicate Patient Detected
+            </v-card-title>
+            <v-card-text>
+               A patient with similar information already exists.
+               <br>
+               Name: <b>{{ duplicatePatient?.name }}</b>
+               <br>
+               UMRN: <b>{{ duplicatePatient?.umrn }}</b>
+               <br>
+               Do you want to load the existing record?
+            </v-card-text>
+            <v-card-actions>
+               <v-spacer></v-spacer>
+               <v-btn color="blue-grey" variant="text" @click="duplicateDialog = false">
+                  Cancel
+               </v-btn>
+               <v-btn color="primary" variant="text" @click="handleLoadDuplicatePatient">
+                  Load Patient
+               </v-btn>
+            </v-card-actions>
+         </v-card>
+      </v-dialog>
    </v-app>
 </template>
 

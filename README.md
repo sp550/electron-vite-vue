@@ -42,3 +42,7 @@ keyboard nav
 
 - Button with dropdown menu to open various directories.
 - Refactor and re-optimize code for clarity and maintainability.
+
+****ui polishes****
+right click menus
+ - patient list for delete, edit etc
