@@ -150,16 +150,8 @@
 
 </template>
 <script setup lang="ts">
-import { defineProps, defineEmits, ref, computed, PropType, watch, onMounted, onUnmounted } from "vue";
+import { defineProps, defineEmits, ref, computed, PropType, watch, } from "vue";
 
-// Debug: Log lifecycle for diagnosis
-console.log("[PatientList] setup() called at", new Date().toISOString());
-onMounted(() => {
-  console.log("[PatientList] mounted at", new Date().toISOString());
-});
-onUnmounted(() => {
-  console.log("[PatientList] unmounted at", new Date().toISOString());
-});
 
 // Props for presentational PatientList
 const props = defineProps({

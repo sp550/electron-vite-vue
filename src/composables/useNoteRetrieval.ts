@@ -103,11 +103,9 @@ export function useNoteExport({
         try {
           await autoExportNotesForDay();
         } catch (err) {
-          // Log error but do not stop the interval.
           console.error("Error during auto-export:", err);
         }
       }, 60000); // 60,000 ms = 1 minute
-      console.info("Auto-export interval started.");
     } catch (err) {
       console.error("Failed to start auto-export interval:", err);
     }
@@ -186,7 +184,6 @@ export function useNoteExport({
 
       try {
         await fileSystemAccess.writeFileAbsolute(filePath, exportString);
-        showSnackbar(`Auto-export successful: ${filePath}`, "success");
       } catch (err: any) {
         showSnackbar(
           `Auto-export failed: Could not write file (${filePath}): ${

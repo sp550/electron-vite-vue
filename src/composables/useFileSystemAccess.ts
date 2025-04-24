@@ -52,7 +52,6 @@ export function useFileSystemAccess() {
     patient: { id: string; umrn?: string | null; type?: "umrn" | "uuid" },
     date: Date
   ): Promise<string> {
-    console.log("here are the parameters received by getNOteFilePath: ",patient, " and   ", date)
 
     const dateString = date.toISOString().split('T')[0];
     const fileName = `${dateString}.json`;
@@ -172,7 +171,6 @@ export function useFileSystemAccess() {
     date: Date
   ): Promise<string | null> => {
     const filePath = await getNoteFilePath(patient, date);
-    console.log(filePath)
     const fileExists = await existsAbsolute(filePath);
     if (!fileExists) {
       return null;

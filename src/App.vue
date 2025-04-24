@@ -439,7 +439,6 @@ const {
    setSortMode: any,
 };
 
-console.log("[App.vue] sortMode (raw):", sortMode, "typeof:", typeof sortMode, "isRef:", !!(sortMode && typeof sortMode === 'object' && 'value' in sortMode), "value:", sortMode && typeof sortMode === 'object' && 'value' in sortMode ? sortMode.value : sortMode);
 
 // --- Patient List Event Handlers ---
 /* Patient list event handlers are now defined only once, see below for main handlers */
@@ -486,7 +485,6 @@ const selectPatient = (patientId: string) => {
    ) {
       const cacheKey = `${selectedPatientId.value}:${selectedDate.value}`;
       unsavedNotesCache[cacheKey] = noteContent.value;
-      console.log(`Cached note for ${cacheKey}`);
    }
    selectedPatientId.value = patientId;
    // loadSelectedNote will be triggered by the watcher
@@ -532,14 +530,12 @@ const loadSelectedNote = async () => {
           if (!noteEditor.isAutoSaveEnabled.value && unsavedNotesCache.hasOwnProperty(cacheKey)) {
              noteContent.value = unsavedNotesCache[cacheKey];
              noteEditor.setUnsavedChanges(true); // Mark as dirty if restored from cache
-             console.log(`[App.vue] Restored note from cache for ${cacheKey}`);
           } else {
              noteContent.value = noteEditor.currentNote.value.content;
              noteEditor.setUnsavedChanges(false); // Mark as clean if loaded from disk/new
           }
           currentNote.value = noteEditor.currentNote.value; // Keep local ref synced if needed
           isNoteLoaded.value = true;
-          console.log('[App.vue] Note loaded successfully.', { noteContent: noteContent.value });
        } else {
           // Failed to load (e.g., file not found, permission error)
           noteContent.value = ''; // Clear content on error/failure
@@ -573,11 +569,7 @@ const saveCurrentNote = async () => {
       showSnackbar('Please select a patient first.', 'error');
       return;
    }
-   // Allow saving even if isNoteLoaded was false initially (for creating new notes)
-   // if (!isNoteLoaded.value) {
-   //    showSnackbar('Cannot save: Note not loaded yet or loading.', 'error');
-   //    return;
-   // }
+
 
    const noteToSave: Note = { date: selectedDate.value, content: noteContent.value };
 
@@ -591,7 +583,6 @@ const saveCurrentNote = async () => {
       const cacheKey = `${selectedPatientId.value}:${selectedDate.value}`;
       if (unsavedNotesCache.hasOwnProperty(cacheKey)) {
          delete unsavedNotesCache[cacheKey];
-         console.log(`Removed note from cache for ${cacheKey} after save.`);
       }
    } else {
       showSnackbar(`Failed to save note: ${noteEditor.error.value || 'Unknown error'}`, 'error');
@@ -767,12 +758,8 @@ const openDataDirectory = async () => {
 watch(
    () => [selectedPatientId.value, selectedDate.value, configState.isDataDirectorySet.value],
    async ([newPatientId, newDate, isDirSet], [oldPatientId, oldDate, oldIsDirSet]) => {
-      console.log('[App.vue] Watcher triggered:', {
-        newPatientId, newDate, isDirSet, oldPatientId, oldDate, oldIsDirSet
-      });
       // Only load if the patient or date actually changed, and directory is set
       if (isDirSet && (newPatientId !== oldPatientId || newDate !== oldDate)) {
-         console.log('[App.vue] Watcher: loading note for', { patient: newPatientId, date: newDate });
          if (newPatientId) {
             await loadSelectedNote();
          } else {
@@ -810,7 +797,7 @@ const debouncedSaveNote = (() => {
             console.log('App.vue: Triggering debounced auto-save...');
             await saveCurrentNote();
          }
-      }, 500); // 500ms debounce time
+      }, 60000);
    };
 })();
 
@@ -862,7 +849,6 @@ watch(
          noteLoaded &&
          !autoExportStarted.value // Only run once
       ) {
-         console.log("Conditions met, starting auto-export.");
          startAutoExport();
          autoExportStarted.value = true;
       }
