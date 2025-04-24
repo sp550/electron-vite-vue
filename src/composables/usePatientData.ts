@@ -1,5 +1,5 @@
 // src/composables/usePatientData.ts
-import { ref, onMounted, watch } from "vue";
+import { ref, onMounted, watch, computed } from "vue"; // Added computed
 import { v4 as uuidv4 } from "uuid";
 import Papa from "papaparse";
 import type { Patient } from "@/types"; // Import the updated interface
@@ -7,9 +7,14 @@ import { useFileSystemAccess } from "./useFileSystemAccess";
 import { useConfig } from "./useConfig";
 
 
+// --- Date Navigation State (from useDateNavigation) ---
+const dateMenu = ref(false);
+const allowedDates = ref<string[]>([]);
+const todayString = () => new Date().toISOString().split("T")[0]; // Revert to function
+const selectedDate = ref<string>(todayString()); // Initialize with the function call
+
 // --- Active Patient List Date (YYYY-MM-DD) ---
-const todayString = () => new Date().toISOString().split("T")[0];
-const activePatientListDate = ref<string>(todayString());
+const activePatientListDate = ref<string>(todayString()); // Use the function call
 
 // --- List of available patient list snapshot dates ---
 const availablePatientListDates = ref<string[]>([]);
@@ -35,6 +40,17 @@ const isLoading = ref(false);
 const error = ref<string | null>(null);
 
 export function usePatientData() {
+  // --- Date Display Computed (from useDateNavigation) ---
+  const noteDateDisplay = computed(() => {
+    try {
+      const [year, month, day] = selectedDate.value.split('-');
+      const dateObj = new Date(Date.UTC(Number(year), Number(month) - 1, Number(day)));
+      return dateObj.toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric', timeZone: 'UTC' });
+    } catch {
+      return selectedDate.value;
+    }
+  });
+
   const {
     readFileAbsolute,
     writeFileAbsolute,
@@ -42,14 +58,70 @@ export function usePatientData() {
     rmdirAbsolute,
     showConfirmDialog,
     joinPaths,
-    listFiles
+    listFiles,
+    getPreviousDayNote, // Need these from fileSystemAccess for navigation
+    getNextDayNote
   } = useFileSystemAccess();
   const { config, isConfigLoaded, isDataDirectorySet } = useConfig();
 
-// --- Set the active patient list date and reload patients ---
+/**
+ * Set the active patient list date and reload patients.
+ * Also updates selectedDate for date navigation.
+ */
 const setActivePatientListDate = async (date: string) => {
-  activePatientListDate.value = date;
+  selectedDate.value = date;
+  activePatientListDate.value = date; // Keep this for clarity if needed, or remove if selectedDate is sufficient
   await loadPatients();
+};
+
+/**
+ * Handler for when the date is changed via UI (from useDateNavigation).
+ */
+const onDateChange = async (newDate: string) => {
+  selectedDate.value = newDate;
+  await setActivePatientListDate(newDate);
+  // Note: App.vue watches selectedDate and selectedPatientId to trigger loadSelectedNote
+  // We don't need to trigger it here directly.
+};
+
+/**
+ * Go to previous day with a note for the selected patient.
+ * (from useDateNavigation)
+ */
+const goToPreviousDay = async (selectedPatientId: string | null) => {
+  if (!selectedPatientId) return;
+  try {
+    const prevDate = await getPreviousDayNote(selectedPatientId, selectedDate.value);
+    if (prevDate) {
+      selectedDate.value = prevDate; // This will trigger watchers in App.vue
+    } else {
+      // UI feedback should be handled in the component (App.vue)
+      console.log('No previous note found.');
+    }
+  } catch (error: any) {
+    console.error(`Error navigating to previous day: ${error.message || 'Unknown error'}`);
+    // Handle error in calling component
+  }
+};
+
+/**
+ * Go to next day with a note for the selected patient.
+ * (from useDateNavigation)
+ */
+const goToNextDay = async (selectedPatientId: string | null) => {
+  if (!selectedPatientId) return;
+  try {
+    const nextDate = await getNextDayNote(selectedPatientId, selectedDate.value);
+    if (nextDate) {
+      selectedDate.value = nextDate; // This will trigger watchers in App.vue
+    } else {
+      // UI feedback should be handled in the component (App.vue)
+      console.log('No next note found.');
+    }
+  } catch (error: any) {
+    console.error(`Error navigating to next day: ${error.message || 'Unknown error'}`);
+    // Handle error in calling component
+  }
 };
 
 // --- List available patient list snapshot dates in the data directory ---
@@ -80,7 +152,7 @@ const listAvailablePatientListDates = async (): Promise<string[]> => {
   const getPatientsFilePath = async (): Promise<string | null> => {
     if (!isDataDirectorySet.value || !config.value.dataDirectory) return null;
     try {
-      const date = activePatientListDate.value;
+      const date = selectedDate.value; // Use selectedDate consistently
       return await joinPaths(config.value.dataDirectory, `patients_${date}.json`);
     } catch (error: any) {
       console.error("Error in getPatientsFilePath:", error);
@@ -853,9 +925,15 @@ const updatePatient = async (updatedPatient: Patient): Promise<boolean> => {
     { immediate: false }
   );
 
-  onMounted(() => {
+  // Watch selectedDate to update allowedDates (moved from useDateNavigation)
+  watch(selectedDate, async (_newDate) => {
+    allowedDates.value = await listAvailablePatientListDates();
+  }, { immediate: true }); // Load initially
+
+  onMounted(async () => { // Make onMounted async
     if (isConfigLoaded.value && isDataDirectorySet.value) {
-      loadPatients();
+      await loadPatients(); // Await initial load
+      await listAvailablePatientListDates(); // Load available dates on mount
     }
   });
 
@@ -941,8 +1019,18 @@ const updatePatient = async (updatedPatient: Patient): Promise<boolean> => {
   };
 
   return {
+    // --- Date Navigation (merged from useDateNavigation) ---
+    dateMenu,
+    allowedDates,
+    todayString,
+    selectedDate,
+    noteDateDisplay,
+    onDateChange,
+    goToPreviousDay,
+    goToNextDay,
+
     // --- Date-based patient list management ---
-    activePatientListDate,
+    activePatientListDate, // Keep if still used elsewhere, otherwise could be removed
     setActivePatientListDate,
     availablePatientListDates,
     listAvailablePatientListDates,

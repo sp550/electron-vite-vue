@@ -5,13 +5,13 @@
          <v-btn icon="mdi-menu" @click="drawer = !drawer" title="Toggle Navigation Drawer"></v-btn>
          <v-spacer></v-spacer>
          <v-toolbar-title></v-toolbar-title>
-         <v-btn icon="mdi-chevron-left" @click="navigateToPreviousDay"
+         <v-btn icon="mdi-chevron-left" @click="goToPreviousDay(selectedPatientId)"
             :disabled="!selectedPatientId || noteEditor.isLoading.value" title="Previous Day" size="small"></v-btn>
          <span class="text-subtitle-1 mx-2" :title="selectedDate">
             <v-icon start>mdi-calendar</v-icon>
             {{ noteDateDisplay }}
          </span>
-         <v-btn icon="mdi-chevron-right" @click="navigateToNextDay"
+         <v-btn icon="mdi-chevron-right" @click="goToNextDay(selectedPatientId)"
             :disabled="!selectedPatientId || noteEditor.isLoading.value" title="Next Day" size="small"></v-btn>
          <!-- Date Picker for Patient List Date Navigation -->
          <v-menu v-model="dateMenu" :close-on-content-click="false" offset-y>
@@ -139,7 +139,7 @@
             height: '100%',
             zIndex: 10,
             cursor: isResizing ? 'ew-resize' : 'col-resize',
-            opacity: isResizing ? 0 : 0.,
+            opacity: isResizing ? 0 : 0,
             transition: 'opacity 0.1s'
           }"
           tabindex="0"
@@ -269,7 +269,7 @@ import { ref, provide, computed, watch, nextTick, onMounted } from 'vue';
 const isDrawerRail = ref(true); // true = rail mode, false = expanded
 
 import { useNoteExport } from '@/composables/useNoteRetrieval';
-import { useDateNavigation } from '@/composables/useDateNavigation';
+// import { useDateNavigation } from '@/composables/useDateNavigation'; // Removed
 import { useSnackbar } from '@/composables/useSnackbar';
 import { useDuplicatePatient } from '@/composables/useDuplicatePatient';
 import packageJson from '../package.json';
@@ -382,7 +382,7 @@ const selectedPatientIds = ref<string[]>([]);
 const patientListRef = ref<HTMLElement | null>(null);
 
 const configState = useConfig();
-const patientData = usePatientData();
+const patientDataComposable = usePatientData(); // Rename to avoid conflict with patientData in useNoteExport
 const noteEditor = useNoteEditor();
 const fileSystemAccess = useFileSystemAccess();
 const { snackbar, showSnackbar } = useSnackbar();
@@ -393,10 +393,12 @@ const {
    dateMenu,
    allowedDates,
    todayString,
-   goToPreviousDay: navigateToPreviousDay,
-   goToNextDay: navigateToNextDay,
+   goToPreviousDay,
+   goToNextDay,
    onDateChange: handleDateChange
-} = useDateNavigation();
+} = patientDataComposable; // Destructure from the merged composable
+
+
 
 const {
    duplicateDialog,
@@ -410,7 +412,7 @@ const {
 } = useNoteExport({
    showSnackbar,
    configState,
-   patientData,
+   patientData: patientDataComposable, // Pass the composable instance
    fileSystemAccess,
    selectedDate,
    electronAPI: window.electronAPI
@@ -435,7 +437,7 @@ const {
    onSortEnd,
    sortMode,
    setSortMode,
-} = usePatientList(patientData, showSnackbar, selectedPatientId) as {
+} = usePatientList(patientDataComposable, showSnackbar, selectedPatientId) as { // Use patientDataComposable
    patientsDraggable: any,
    removePatient: any,
    removeSelectedPatients: any,
@@ -477,7 +479,7 @@ const saveStatusIcon = computed(() => {
 // Get the full Patient object for the selected ID
 const selectedPatient = computed<Patient | undefined>(() => {
    if (!selectedPatientId.value) return undefined;
-   return patientData.getPatientById(selectedPatientId.value);
+   return patientDataComposable.getPatientById(selectedPatientId.value); // Use patientDataComposable
 });
 
 // --- Core Functions ---
@@ -510,68 +512,68 @@ const clearSelectedPatientState = () => {
 
 // Load the note for the currently selected patient and date
 const loadSelectedNote = async () => {
-   console.log(`loadSelectedNote called for patient: ${selectedPatientId.value}, date: ${selectedDate.value}`);
-   if (!selectedPatientId.value || !selectedDate.value) {
-      console.log('Clearing state: No patient or date selected.');
-      clearSelectedPatientState();
-      return;
-   }
+    console.log(`[App.vue] loadSelectedNote called for patient: ${selectedPatientId.value}, date: ${selectedDate.value}`);
+    if (!selectedPatientId.value || !selectedDate.value) {
+       console.log('[App.vue] loadSelectedNote: Clearing state: No patient or date selected.');
+       clearSelectedPatientState();
+       return;
+    }
 
-   isNoteLoaded.value = false; // Set loading state
-   try {
-      const patient = selectedPatient.value; // Get the computed patient object
-      if (!patient) {
-         showSnackbar('Cannot load note: Patient data not found.', 'error');
-         clearSelectedPatientState();
-         return;
-      }
+    isNoteLoaded.value = false; // Set loading state
+    try {
+       const patient = selectedPatient.value; // Get the computed patient object
+       if (!patient) {
+          showSnackbar('Cannot load note: Patient data not found.', 'error');
+          clearSelectedPatientState();
+          return;
+       }
 
-      // Call useNoteEditor's loadNote function
-      await noteEditor.loadNote(patient, selectedDate.value);
+       // Call useNoteEditor's loadNote function
+       await noteEditor.loadNote(patient, selectedDate.value);
 
-      // Check the state *after* loadNote completes
-      if (noteEditor.currentNote.value && !noteEditor.error.value) {
-         noteEditor.setUnsavedChanges(false); // Reset flag before updating content
-         await nextTick(); // Ensure state update propagates
+       // Check the state *after* loadNote completes
+       if (noteEditor.currentNote.value && !noteEditor.error.value) {
+          noteEditor.setUnsavedChanges(false); // Reset flag before updating content
+          await nextTick(); // Ensure state update propagates
 
-         // Check cache for unsaved note (manual save mode)
-         const cacheKey = `${selectedPatientId.value}:${selectedDate.value}`;
-         if (!noteEditor.isAutoSaveEnabled.value && unsavedNotesCache.hasOwnProperty(cacheKey)) {
-            noteContent.value = unsavedNotesCache[cacheKey];
-            noteEditor.setUnsavedChanges(true); // Mark as dirty if restored from cache
-            console.log(`Restored note from cache for ${cacheKey}`);
-         } else {
-            noteContent.value = noteEditor.currentNote.value.content;
-            noteEditor.setUnsavedChanges(false); // Mark as clean if loaded from disk/new
-         }
-         currentNote.value = noteEditor.currentNote.value; // Keep local ref synced if needed
-         isNoteLoaded.value = true;
-         console.log('Note loaded successfully.');
-      } else {
-         // Failed to load (e.g., file not found, permission error)
-         noteContent.value = ''; // Clear content on error/failure
-         currentNote.value = null;
-         isNoteLoaded.value = false; // Ensure loading state is false
-         // Show snackbar only for actual errors, not 'file not found' (ENOENT)
-         // or if data directory isn't set yet.
-         if (noteEditor.error.value && !noteEditor.error.value.includes('ENOENT') && !noteEditor.error.value.includes('Data directory not configured')) {
-            showSnackbar(`Failed to load note: ${noteEditor.error.value}`, 'error');
-         } else if (!noteEditor.currentNote.value && !noteEditor.error.value) {
-            // This case might indicate a logic error if loadNote finished without error but currentNote is still null
-            // Or it could mean a new note needs to be created implicitly
-            console.warn("loadSelectedNote: loadNote completed without error/ENOENT, but currentNote is still null. Ready for new note.");
-            isNoteLoaded.value = true; // Allow editor to show for new note creation
-            noteEditor.setUnsavedChanges(false); // Start clean
-         } else {
-            console.log(`Note not found for ${selectedPatientId.value} on ${selectedDate.value}. Ready for new note.`);
-            isNoteLoaded.value = true; // Allow editor to show for new note creation
-            noteEditor.setUnsavedChanges(false); // Start clean
-         }
-      }
-   } catch (e: any) {
-      showSnackbar(`Error in loadSelectedNote: ${e.message || e}`, 'error');
-      clearSelectedPatientState();
-   }
+          // Check cache for unsaved note (manual save mode)
+          const cacheKey = `${selectedPatientId.value}:${selectedDate.value}`;
+          if (!noteEditor.isAutoSaveEnabled.value && unsavedNotesCache.hasOwnProperty(cacheKey)) {
+             noteContent.value = unsavedNotesCache[cacheKey];
+             noteEditor.setUnsavedChanges(true); // Mark as dirty if restored from cache
+             console.log(`[App.vue] Restored note from cache for ${cacheKey}`);
+          } else {
+             noteContent.value = noteEditor.currentNote.value.content;
+             noteEditor.setUnsavedChanges(false); // Mark as clean if loaded from disk/new
+          }
+          currentNote.value = noteEditor.currentNote.value; // Keep local ref synced if needed
+          isNoteLoaded.value = true;
+          console.log('[App.vue] Note loaded successfully.', { noteContent: noteContent.value });
+       } else {
+          // Failed to load (e.g., file not found, permission error)
+          noteContent.value = ''; // Clear content on error/failure
+          currentNote.value = null;
+          isNoteLoaded.value = false; // Ensure loading state is false
+          // Show snackbar only for actual errors, not 'file not found' (ENOENT)
+          // or if data directory isn't set yet.
+          if (noteEditor.error.value && !noteEditor.error.value.includes('ENOENT') && !noteEditor.error.value.includes('Data directory not configured')) {
+             showSnackbar(`Failed to load note: ${noteEditor.error.value}`, 'error');
+          } else if (!noteEditor.currentNote.value && !noteEditor.error.value) {
+             // This case might indicate a logic error if loadNote finished without error but currentNote is still null
+             // Or it could mean a new note needs to be created implicitly
+             console.warn("[App.vue] loadSelectedNote: loadNote completed without error/ENOENT, but currentNote is still null. Ready for new note.");
+             isNoteLoaded.value = true; // Allow editor to show for new note creation
+             noteEditor.setUnsavedChanges(false); // Start clean
+          } else {
+             console.log(`[App.vue] Note not found for ${selectedPatientId.value} on ${selectedDate.value}. Ready for new note.`);
+             isNoteLoaded.value = true; // Allow editor to show for new note creation
+             noteEditor.setUnsavedChanges(false); // Start clean
+          }
+       }
+    } catch (e: any) {
+       showSnackbar(`[App.vue] Error in loadSelectedNote: ${e.message || e}`, 'error');
+       clearSelectedPatientState();
+    }
 };
 
 // Save the current note content
@@ -627,8 +629,8 @@ const handleAddNewPatient = async () => {
       return;
    }
    // Add a new patient directly using patientData composable
-   const newPatientData: Omit<Patient, 'id'> = { name: 'New Patient', umrn: '', location: '', type: 'uuid' };
-   const newPatient = await patientData.addPatient(newPatientData);
+   const newPatientData: Omit<Patient, 'id' | 'type'> = { name: 'New Patient', umrn: '', location: '' }; // Corrected type
+   const newPatient = await patientDataComposable.addPatient(newPatientData); // Use patientDataComposable
    if (newPatient) {
       selectPatient(newPatient.id);
    }
@@ -638,9 +640,9 @@ const handleAddNewPatient = async () => {
 const updatePatientName = async () => {
    if (selectedPatient.value) {
       // The v-model already updated the name locally
-      const success = await patientData.updatePatient(selectedPatient.value);
+      const success = await patientDataComposable.updatePatient(selectedPatient.value); // Use patientDataComposable
       if (!success) {
-         showSnackbar(`Failed to update patient name: ${patientData.error.value || 'Unknown error'}`, 'error');
+         showSnackbar(`Failed to update patient name: ${patientDataComposable.error.value || 'Unknown error'}`, 'error'); // Use patientDataComposable
          // Optionally revert UI change here if needed
       } else {
          showSnackbar(`Patient name updated to: ${selectedPatient.value.name}`, 'success');
@@ -656,10 +658,10 @@ const updatePatientUmrn = async () => {
    const oldPatientId = patientBeforeUpdate.id;
 
    // The v-model already updated the UMRN locally
-   const success = await patientData.updatePatient(selectedPatient.value);
+   const success = await patientDataComposable.updatePatient(selectedPatient.value); // Use patientDataComposable
 
    if (!success) {
-      showSnackbar(`Failed to update patient UMRN: ${patientData.error.value || 'Unknown error'}`, 'error');
+      showSnackbar(`Failed to update patient UMRN: ${patientDataComposable.error.value || 'Unknown error'}`, 'error'); // Use patientDataComposable
       // Optionally revert UI change
       // selectedPatient.value.umrn = patientBeforeUpdate.umrn;
    } else {
@@ -668,12 +670,12 @@ const updatePatientUmrn = async () => {
       // Check if merge is needed (was UUID, now has UMRN)
       if (oldPatientType === 'uuid' && selectedPatient.value.umrn) {
          try {
-            const mergeSuccess = await patientData.mergePatientData(oldPatientId, selectedPatient.value.umrn);
+            const mergeSuccess = await patientDataComposable.mergePatientData(oldPatientId, selectedPatient.value.umrn); // Use patientDataComposable
             if (mergeSuccess) {
                showSnackbar(`Patient data merged to UMRN ${selectedPatient.value.umrn}.`, 'success');
                // Patient list should update reactively. Need to select the *new* ID.
                await nextTick();
-               const newPatientRecord = patientData.getPatientByUmrn(selectedPatient.value.umrn);
+               const newPatientRecord = patientDataComposable.getPatientByUmrn(selectedPatient.value.umrn); // Use patientDataComposable
                if (newPatientRecord) {
                   selectPatient(newPatientRecord.id); // Select the merged record
                } else {
@@ -681,7 +683,7 @@ const updatePatientUmrn = async () => {
                   showSnackbar('Could not find merged patient record.', 'error');
                }
             } else {
-               showSnackbar(`Failed to merge patient data: ${patientData.error.value || 'Unknown error'}`, 'error');
+               showSnackbar(`Failed to merge patient data: ${patientDataComposable.error.value || 'Unknown error'}`, 'error'); // Use patientDataComposable
             }
          } catch (error: any) {
             showSnackbar(`Error merging patient data: ${error.message || 'Unknown error'}`, 'error');
@@ -693,12 +695,12 @@ const updatePatientUmrn = async () => {
 
 const confirmRemoveCurrentPatient = async () => {
    if (!selectedPatient.value) return;
-   const success = await patientData.removePatient(selectedPatient.value.id);
+   const success = await patientDataComposable.removePatient(selectedPatient.value.id); // Use patientDataComposable
    if (success) {
       showSnackbar(`Patient "${selectedPatient.value.name}" removed.`, 'info');
       // clearSelectedPatientState is called implicitly by the watcher when selectedPatientId becomes invalid
    } else {
-      showSnackbar(`Failed to remove patient: ${patientData.error.value || 'Unknown error'}`, 'error');
+      showSnackbar(`Failed to remove patient: ${patientDataComposable.error.value || 'Unknown error'}`, 'error'); // Use patientDataComposable
    }
 };
 
@@ -713,7 +715,7 @@ const handleImportICMClick = async () => {
       }
       // Use the function from the usePatientList composable
       // Implement import logic directly using patientData composable
-      await patientData.importICMPatientListFromFile(filePath);
+      await patientDataComposable.importICMPatientListFromFile(filePath); // Use patientDataComposable
       // Snackbar handled within composable
    } catch (e: any) {
       // Catch errors specific to the dialog/file selection itself
@@ -774,9 +776,12 @@ const openDataDirectory = async () => {
 watch(
    () => [selectedPatientId.value, selectedDate.value, configState.isDataDirectorySet.value],
    async ([newPatientId, newDate, isDirSet], [oldPatientId, oldDate, oldIsDirSet]) => {
-      console.log('Watcher triggered: ID:', newPatientId, 'Date:', newDate, 'DirSet:', isDirSet);
+      console.log('[App.vue] Watcher triggered:', {
+        newPatientId, newDate, isDirSet, oldPatientId, oldDate, oldIsDirSet
+      });
       // Only load if the patient or date actually changed, and directory is set
       if (isDirSet && (newPatientId !== oldPatientId || newDate !== oldDate)) {
+         console.log('[App.vue] Watcher: loading note for', { patient: newPatientId, date: newDate });
          if (newPatientId) {
             await loadSelectedNote();
          } else {
@@ -879,7 +884,7 @@ watch(
 onMounted(async () => {
    // Load initial config, patient data etc. (handled by composables)
    // Load available patient list dates for date picker
-   // This is now handled within useDateNavigation's onMounted hook.
+   // This is now handled within usePatientData's onMounted hook.
 
    // Attempt initial load if conditions are met (e.g., data dir already set)
    if (configState.isDataDirectorySet.value && selectedPatientId.value) {
@@ -887,9 +892,9 @@ onMounted(async () => {
    }
 });
 
-// Watch selectedDate to update allowed dates (handled in useDateNavigation)
+// Watch selectedDate to update allowed dates (handled in usePatientData)
 // watch(selectedDate, async () => {
-//    allowedDates.value = await patientData.listAvailablePatientListDates();
+//    allowedDates.value = await patientDataComposable.listAvailablePatientListDates(); // Use patientDataComposable
 // });
 
 

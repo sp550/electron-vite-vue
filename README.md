@@ -10,7 +10,7 @@ patient lists for different days, add and remove functionality.
 
 **Priority 3: Advanced UI & Editor Enhancements**
 *ensure the AI knows to use Vuetify3 library*
-\
+
  toggle sidebar left/right.
 - Title bar display options (small, medium, large).
  - material design z-axis heights for all
