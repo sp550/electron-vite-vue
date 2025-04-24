@@ -1,32 +1,27 @@
-**Priority 1: Core Functionality & Stability**
-patient lists for different days, add and remove functionality.
 update usnotedtor to use predefined patient type
 
-
-**Priority 2: Basic UI & Configuration**
+# Patient Notes
 - Quick add feature (inspired by bloodproducts generator).
 add new patient - error on entering umrn
+- Title bar display options (small, medium, large).
+
+# App features
 - Display config.json for debugging.
 - Basic settings/config implementation (perhaps a new vue component)
 - Basic common hotkeys.
 
-**Priority 3: Advanced UI & Editor Enhancements**
-*ensure the AI knows to use Vuetify3 library*
-- Title bar display options (small, medium, large).
 
- - Patient list
-  move patient list related menu options to a new 3 dot menu next to patient list subheader
-
-
-- Monaco editor integration:
+# Monaco editor integration:
   - Insert options from previous project.
   - Implement templates and snippets.
   - Change font to non-monospace.
 
-Navdrawer
+# Navdrawer
  -  toggle sidebar left/right.
   - fix  container doestn resize on stlye change
 
+## Patient list
+patient lists for different day
 Sort by custom order and frag FUnctionality is a Pain to implement becuase it keeps breaking, lets prioritise it for later
 
 
@@ -36,8 +31,8 @@ Sort by custom order and frag FUnctionality is a Pain to implement becuase it ke
 /- import notes and patient database from plaintext ( i guess this can be used for migration from notepad-helper too!)
 **Priority 5: Large-Scale Features**
 keyboard nav
-- Auto-backup for each note (own DB with one-minute backups and history revert icon).
-- Todo list for patients.
+- history and revert from Auto-backup for each note (own DB with one-minute backups and history revert icon).
+- ?Todo list for patients.
 - Issues extractor.
 - Report generator.
 
