@@ -117,7 +117,7 @@ watch(() => props.readOnly, (newReadOnlyValue) => {
    width: 100%;
    height: 100%;
    /* Ensure container has height */
-   min-height: 300px;
+   min-height: 100px;
    /* Example minimum height */
    border: 1px solid #ccc;
    /* Add a border for visibility */

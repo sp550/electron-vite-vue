@@ -1,9 +1,9 @@
-update usnotedtor to use predefined patient type
-
 # Patient Notes
 - Quick add feature (inspired by bloodproducts generator).
 add new patient - error on entering umrn
-- Title bar display options (small, medium, large).
+before this i will have to implement patient first name Last Name, other names
+
+- Title bar UI, notes toolbar ui
 
 # App features
 - Display config.json for debugging.
@@ -16,16 +16,16 @@ add new patient - error on entering umrn
   - Implement templates and snippets.
   - Change font to non-monospace.
 
-# Navdrawer
- -  toggle sidebar left/right.
-  - fix  container doestn resize on stlye change
-
 ## Patient list
 patient lists for different day
 Sort by custom order and frag FUnctionality is a Pain to implement becuase it keeps breaking, lets prioritise it for later
 
 
 **Post Minimal Functional Product**
+
+# Navdrawer
+ -  toggle sidebar left/right.
+  - fix  container doestn resize on stlye change
 **Priority 4: Additional Features**
 - Parse additional patient content (issues and plan).
 /- import notes and patient database from plaintext ( i guess this can be used for migration from notepad-helper too!)
