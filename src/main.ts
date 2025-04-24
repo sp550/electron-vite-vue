@@ -7,17 +7,6 @@ import vuetify from "./plugins/vuetify";
 // import './styles/main.scss'; // Import global styles if you have them
 import Sortable from "sortablejs"
 
-
-
-// Log if electronAPI is available (for debugging)
-if (window.electronAPI) {
-  console.log("electronAPI found on window object.");
-} else {
-  console.warn(
-    "electronAPI NOT found on window object. Check preload script and contextBridge."
-  );
-}
-
 const app = createApp(App);
 
 app.directive("sortable", {
@@ -59,4 +48,3 @@ app.use(vuetify);
 
 app.mount("#app");
 
-console.log("Vue app mounted.");

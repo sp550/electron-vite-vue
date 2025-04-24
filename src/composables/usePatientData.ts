@@ -911,7 +911,6 @@ const updatePatient = async (updatedPatient: Patient): Promise<boolean> => {
     [isConfigLoaded, dataDirectoryChangeFlag],
     ([loaded]) => {
       if (loaded) {
-        console.log("Config loaded and directory set, reloading patients...");
         loadPatients();
       } else {
         console.log(

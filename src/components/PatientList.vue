@@ -175,16 +175,7 @@ const props = defineProps({
   onDateChange: { type: Function as PropType<(date: string) => void>, required: true },
 });
 
-// Debug logs to validate type and value of sortMode
-console.log("[PatientList] sortMode (raw):", props.sortMode);
-console.log("[PatientList] sortMode.value:", props.sortMode.value, "type:", typeof props.sortMode.value);
 
-watch(
-  () => props.sortMode.value,
-  (newVal, oldVal) => {
-    console.log(`[PatientList] sortMode changed from ${oldVal} to ${newVal}`);
-  }
-);
 
 // Emits for all actions
 const emit = defineEmits([
@@ -209,7 +200,6 @@ const dateMenu = ref(false); // State for the date picker menu
 // Debug: Log Vuetify version if available
 
 const sortModeLabel = computed(() => {
-  console.log("[PatientList] sortModeLabel computed, sortMode.value:", props.sortMode.value);
   switch (props.sortMode.value) {
     case "name":
       return "Name";
