@@ -89,8 +89,8 @@
             @removeSelectedPatientsFromList="removeSelectedPatientsFromList"
             @addSelectedToTodayList="addSelectedToTodayList"
             @checkboxSelectPatientList="checkboxSelectPatientList"
-            @request-previous-day="goToPreviousDay(selectedPatientId)"
-            @request-next-day="goToNextDay(selectedPatientId)"
+            @request-previous-day="handlePreviousDay"
+            @request-next-day="handleNextDay"
             @request-date-change="handleDateChange"
           />
           <!-- Arrow icon shown in rail mode -->
@@ -276,6 +276,22 @@ import MonacoEditorComponent from '@/components/MonacoEditorComponent.vue';
 import PatientList from '@/components/PatientList.vue';
 
 const selectedPatientId = ref<string | null>(null); // ID of the currently active patient
+
+// --- Date Navigation Handlers (for PatientList.vue) ---
+function handlePreviousDay() {
+  // Find the previous allowed date before selectedDate
+  const idx = allowedDates.value.indexOf(selectedDate.value);
+  if (idx !== -1 && idx < allowedDates.value.length - 1) {
+    selectedDate.value = allowedDates.value[idx + 1];
+  }
+}
+function handleNextDay() {
+  // Find the next allowed date after selectedDate
+  const idx = allowedDates.value.indexOf(selectedDate.value);
+  if (idx > 0) {
+    selectedDate.value = allowedDates.value[idx - 1];
+  }
+}
 
 // --- Drawer and Responsive ---
 const drawer = ref(true);

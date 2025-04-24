@@ -52,7 +52,6 @@ export function useNoteEditor() {
   };
 
   const loadNote = async (patient: { id: string; umrn?: string }, date: string): Promise<void> => {
-    console.log('loadNote called', patient, date);
     isLoading.value = true;
     error.value = null;
     hasUnsavedChanges.value = false;

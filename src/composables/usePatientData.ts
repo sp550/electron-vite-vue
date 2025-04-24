@@ -58,9 +58,7 @@ export function usePatientData() {
     rmdirAbsolute,
     showConfirmDialog,
     joinPaths,
-    listFiles,
-    getPreviousDayNote, // Need these from fileSystemAccess for navigation
-    getNextDayNote
+    listFiles
   } = useFileSystemAccess();
   const { config, isConfigLoaded, isDataDirectorySet } = useConfig();
 
@@ -88,40 +86,34 @@ const onDateChange = async (newDate: string) => {
  * Go to previous day with a note for the selected patient.
  * (from useDateNavigation)
  */
-const goToPreviousDay = async (selectedPatientId: string | null) => {
-  if (!selectedPatientId) return;
-  try {
-    const prevDate = await getPreviousDayNote(selectedPatientId, selectedDate.value);
-    if (prevDate) {
-      selectedDate.value = prevDate; // This will trigger watchers in App.vue
-    } else {
-      // UI feedback should be handled in the component (App.vue)
-      console.log('No previous note found.');
-    }
-  } catch (error: any) {
-    console.error(`Error navigating to previous day: ${error.message || 'Unknown error'}`);
-    // Handle error in calling component
-  }
+/**
+ * Go to previous day (unrestricted).
+ * Ignores available dates and always decrements the date by one day.
+ */
+const goToPreviousDay = async () => {
+  const [year, month, day] = selectedDate.value.split('-').map(Number);
+  const dateObj = new Date(Date.UTC(year, month - 1, day));
+  dateObj.setUTCDate(dateObj.getUTCDate() - 1);
+  const prevDate = dateObj.toISOString().split('T')[0];
+  selectedDate.value = prevDate;
+  // Watcher on selectedDate will trigger loadPatients
 };
 
 /**
  * Go to next day with a note for the selected patient.
  * (from useDateNavigation)
  */
-const goToNextDay = async (selectedPatientId: string | null) => {
-  if (!selectedPatientId) return;
-  try {
-    const nextDate = await getNextDayNote(selectedPatientId, selectedDate.value);
-    if (nextDate) {
-      selectedDate.value = nextDate; // This will trigger watchers in App.vue
-    } else {
-      // UI feedback should be handled in the component (App.vue)
-      console.log('No next note found.');
-    }
-  } catch (error: any) {
-    console.error(`Error navigating to next day: ${error.message || 'Unknown error'}`);
-    // Handle error in calling component
-  }
+/**
+ * Go to next day (unrestricted).
+ * Ignores available dates and always increments the date by one day.
+ */
+const goToNextDay = async () => {
+  const [year, month, day] = selectedDate.value.split('-').map(Number);
+  const dateObj = new Date(Date.UTC(year, month - 1, day));
+  dateObj.setUTCDate(dateObj.getUTCDate() + 1);
+  const nextDate = dateObj.toISOString().split('T')[0];
+  selectedDate.value = nextDate;
+  // Watcher on selectedDate will trigger loadPatients
 };
 
 // --- List available patient list snapshot dates in the data directory ---
@@ -176,7 +168,8 @@ const listAvailablePatientListDates = async (): Promise<string[]> => {
     }
   };
 
-  // Loads the patient list for the currently active date
+  // Loads the patient list for the currently active date.
+  // If the file does not exist, creates a blank patient list file for that date.
   const loadPatients = async () => {
     if (!isConfigLoaded.value || !isDataDirectorySet.value) {
       console.warn("loadPatients: Config not loaded or data directory not set.");
@@ -184,11 +177,11 @@ const listAvailablePatientListDates = async (): Promise<string[]> => {
       customOrder.value = [];
       return;
     }
-  
+
     isLoading.value = true;
     error.value = null;
     const absolutePath = await getPatientsFilePath();
-  
+
     if (!absolutePath) {
       error.value = "loadPatients: Could not determine patients file path.";
       isLoading.value = false;
@@ -196,8 +189,7 @@ const listAvailablePatientListDates = async (): Promise<string[]> => {
       customOrder.value = [];
       return;
     }
-  
-    console.log("Loading patients from:", absolutePath);
+
     try {
       const fileContent = await readFileAbsolute(absolutePath);
       if (fileContent) {
@@ -207,25 +199,52 @@ const listAvailablePatientListDates = async (): Promise<string[]> => {
           type: patient.umrn ? "umrn" : "uuid"
         }));
         patients.value = loadedPatients as Patient[];
-        // Only set customOrder if it's empty or if loading a new date
         customOrder.value = [...loadedPatients] as Patient[];
-        updatePatientIdentifierArray(patients.value); // Update identifier map
+        updatePatientIdentifierArray(patients.value);
       } else {
+        // File does not exist or is empty: create a blank patient list file
+        await writeFileAbsolute(absolutePath, JSON.stringify([], null, 2));
         patients.value = [];
         customOrder.value = [];
-        updatePatientIdentifierArray([]); // Clear identifier map
-        console.warn("loadPatients: Patients file not found or empty. Initializing.");
+        updatePatientIdentifierArray([]);
       }
     } catch (err: any) {
-      console.error("Error loading patients:", err);
-      error.value = `Failed to load patients: ${err.message || err}`;
-      patients.value = [];
-      customOrder.value = [];
-      updatePatientIdentifierArray([]); // Clear identifier map
+      // If file does not exist, create a blank patient list file
+      if (err && err.message && err.message.includes("ENOENT")) {
+        try {
+          await writeFileAbsolute(absolutePath, JSON.stringify([], null, 2));
+          patients.value = [];
+          customOrder.value = [];
+          updatePatientIdentifierArray([]);
+        } catch (writeErr) {
+          // Safely handle unknown error type
+          let writeErrMsg: string;
+          if (writeErr instanceof Error) {
+            writeErrMsg = writeErr.message;
+          } else if (typeof writeErr === "object" && writeErr !== null && "message" in writeErr && typeof (writeErr as any).message === "string") {
+            writeErrMsg = (writeErr as any).message;
+          } else {
+            writeErrMsg = String(writeErr);
+          }
+          console.error("Error creating blank patient list file:", writeErrMsg, writeErr);
+          error.value = `Failed to create blank patient list: ${writeErrMsg}`;
+        }
+      } else {
+        console.error("Error loading patients:", err);
+        error.value = `Failed to load patients: ${err.message || err}`;
+        patients.value = [];
+        customOrder.value = [];
+        updatePatientIdentifierArray([]);
+      }
     } finally {
       isLoading.value = false;
     }
   };
+
+  // Watch selectedDate to reload patients when the date changes
+  watch(selectedDate, async () => {
+    await loadPatients();
+  });
 
   // Saves the patient list for the currently active date
   const savePatients = async (updatedPatients: Patient[]): Promise<boolean> => {
@@ -1029,13 +1048,13 @@ const updatePatient = async (updatedPatient: Patient): Promise<boolean> => {
     goToNextDay,
 
     // --- Date-based patient list management ---
-    activePatientListDate, // Keep if still used elsewhere, otherwise could be removed
+    activePatientListDate,
     setActivePatientListDate,
     availablePatientListDates,
     listAvailablePatientListDates,
 
     patients,
-    patient_identifierArray, // Export the identifier map
+    patient_identifierArray,
     isLoading,
     error,
     loadPatients,
@@ -1047,10 +1066,10 @@ const updatePatient = async (updatedPatient: Patient): Promise<boolean> => {
     savePatients,
     mergePatientData,
     listFiles,
-    importICMPatientListFromDefault, // Export new function
-    importICMPatientListFromFolder, // Export existing function
-    importICMPatientListFromFile, // Export new function
-    addPatientsToDate, // Export the new method
-    sortPatients // Export sorting function
+    importICMPatientListFromDefault,
+    importICMPatientListFromFolder,
+    importICMPatientListFromFile,
+    addPatientsToDate,
+    sortPatients
   };
 }

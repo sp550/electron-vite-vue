@@ -53,7 +53,6 @@
           <v-date-picker
             :model-value="selectedDate"
             @update:model-value="handleDateChange"
-            :allowed-dates="allowedDates"
             color="primary"
             show-adjacent-months
             :max="todayString"
@@ -251,15 +250,15 @@ function onAddSelectedToTodayList() {
 
 // New date navigation event handlers
 function handlePreviousDayClick() {
-  emit("request-previous-day");
+  props.goToPreviousDay();
 }
 
 function handleNextDayClick() {
-  emit("request-next-day");
+  props.goToNextDay();
 }
 
 function handleDateChange(newDate: string) {
-  emit("request-date-change", newDate);
+  props.onDateChange(newDate);
   dateMenu.value = false; // Close the date picker after selection
 }
 </script>

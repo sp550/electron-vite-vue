@@ -1,5 +1,8 @@
 **Priority 1: Core Functionality & Stability**
 patient lists for different days, add and remove functionality.
+update usnotedtor to use predefined patient type
+
+
 **Priority 2: Basic UI & Configuration**
 - Quick add feature (inspired by bloodproducts generator).
 add new patient - error on entering umrn
