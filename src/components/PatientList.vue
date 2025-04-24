@@ -36,11 +36,11 @@
     <!-- === Date Navigation Toolbar === -->
     <v-toolbar density="compact" color="grey-lighten-4">
       <v-btn icon="mdi-chevron-left" @click="handlePreviousDayClick" title="Previous Day" size="small"></v-btn>
-      <span class="text-subtitle-2 mx-2" :title="selectedDate">
+      <span class="text-subtitle-2 mx-2" :title="activePatientListDate">
         <v-icon start>mdi-calendar</v-icon>
-        {{ noteDateDisplay }}
+        {{ patientListDateDisplayComputed }}
       </span>
-      <v-btn icon="mdi-chevron-right" @click="handleNextDayClick" title="Next Day" size="small"></v-btn>
+      <v-btn icon="mdi-chevron-right" @click="goToNextPatientListDay" title="Next Day" size="small"></v-btn>
 
       <v-spacer></v-spacer>
 
@@ -51,11 +51,10 @@
         </template>
         <v-card>
           <v-date-picker
-            :model-value="selectedDate"
-            @update:model-value="handleDateChange"
+            :model-value="activePatientListDate"
+            @update:model-value="setActivePatientListDate"
             color="primary"
             show-adjacent-months
-            :max="todayString"
           />
         </v-card>
       </v-menu>
@@ -150,7 +149,7 @@
 </template>
 <script setup lang="ts">
 import { defineProps, defineEmits, ref, computed, PropType, watch, } from "vue";
-
+import { usePatientData } from "@/composables/usePatientData"; // Import usePatientData
 
 // Props for presentational PatientList
 const props = defineProps({
@@ -159,22 +158,13 @@ const props = defineProps({
   isEditPatientListMode: { type: Boolean, required: true },
   search: { type: String, required: true },
   todayString: { type: String, required: true },
-  selectedDate: { type: String, required: true },
   configState: { type: Object, required: true },
   version: { type: String, required: true },
   isPackaged: { type: Boolean, required: true },
   nodeEnv: { type: String, required: true },
   sortMode: { type: Object as PropType<import('vue').Ref<any>>, required: true },
   setSortMode: { type: Function as PropType<(mode: "custom" | "name" | "location") => void>, required: true },
-  // New date navigation props
-  allowedDates: { type: Array as PropType<string[]>, required: true },
-  noteDateDisplay: { type: String, required: true },
-  goToPreviousDay: { type: Function as PropType<() => void>, required: true },
-  goToNextDay: { type: Function as PropType<() => void>, required: true },
-  onDateChange: { type: Function as PropType<(date: string) => void>, required: true },
 });
-
-
 
 // Emits for all actions
 const emit = defineEmits([
@@ -187,16 +177,31 @@ const emit = defineEmits([
   "removePatientFromList",
   "removeSelectedPatientsFromList",
   "addSelectedToTodayList",
-  // New date navigation emits
-  "request-previous-day",
-  "request-next-day",
-  "request-date-change",
 ]);
 
 const showSortMenu = ref(false);
 const dateMenu = ref(false); // State for the date picker menu
 
-// Debug: Log Vuetify version if available
+// Use the patient data composable
+const {
+  activePatientListDate,
+  setActivePatientListDate,
+  availablePatientListDates,
+  goToPreviousPatientListDay,
+  goToNextPatientListDay,
+} = usePatientData();
+
+// Computed property for displaying the active patient list date
+const patientListDateDisplayComputed = computed(() => {
+  try {
+    const [year, month, day] = activePatientListDate.value.split('-');
+    const dateObj = new Date(Date.UTC(Number(year), Number(month) - 1, Number(day)));
+    return dateObj.toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric', timeZone: 'UTC' });
+  } catch {
+    return activePatientListDate.value;
+  }
+});
+
 
 const sortModeLabel = computed(() => {
   switch (props.sortMode.value) {
@@ -248,17 +253,17 @@ function onAddSelectedToTodayList() {
   emit("addSelectedToTodayList");
 }
 
-// New date navigation event handlers
+// Date navigation event handlers (now directly using usePatientData functions)
 function handlePreviousDayClick() {
-  props.goToPreviousDay();
+  goToPreviousPatientListDay();
 }
 
 function handleNextDayClick() {
-  props.goToNextDay();
+  goToNextPatientListDay();
 }
 
 function handleDateChange(newDate: string) {
-  props.onDateChange(newDate);
+  setActivePatientListDate(newDate);
   dateMenu.value = false; // Close the date picker after selection
 }
 </script>

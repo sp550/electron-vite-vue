@@ -11,7 +11,9 @@ import { useConfig } from "./useConfig";
 const dateMenu = ref(false);
 const allowedDates = ref<string[]>([]);
 const todayString = () => new Date().toISOString().split("T")[0]; // Revert to function
-const selectedDate = ref<string>(todayString()); // Initialize with the function call
+
+// --- Note Date (YYYY-MM-DD) ---
+const noteDate = ref<string>(todayString()); // Initialize with the function call
 
 // --- Active Patient List Date (YYYY-MM-DD) ---
 const activePatientListDate = ref<string>(todayString()); // Use the function call
@@ -43,11 +45,11 @@ export function usePatientData() {
   // --- Date Display Computed (from useDateNavigation) ---
   const noteDateDisplay = computed(() => {
     try {
-      const [year, month, day] = selectedDate.value.split('-');
+      const [year, month, day] = noteDate.value.split('-');
       const dateObj = new Date(Date.UTC(Number(year), Number(month) - 1, Number(day)));
       return dateObj.toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric', timeZone: 'UTC' });
     } catch {
-      return selectedDate.value;
+      return noteDate.value;
     }
   });
 
@@ -67,8 +69,7 @@ export function usePatientData() {
  * Also updates selectedDate for date navigation.
  */
 const setActivePatientListDate = async (date: string) => {
-  selectedDate.value = date;
-  activePatientListDate.value = date; // Keep this for clarity if needed, or remove if selectedDate is sufficient
+  activePatientListDate.value = date;
   await loadPatients();
 };
 
@@ -76,9 +77,8 @@ const setActivePatientListDate = async (date: string) => {
  * Handler for when the date is changed via UI (from useDateNavigation).
  */
 const onDateChange = async (newDate: string) => {
-  selectedDate.value = newDate;
-  await setActivePatientListDate(newDate);
-  // Note: App.vue watches selectedDate and selectedPatientId to trigger loadSelectedNote
+  noteDate.value = newDate;
+  // Note: App.vue watches noteDate and selectedPatientId to trigger loadSelectedNote
   // We don't need to trigger it here directly.
 };
 
@@ -91,12 +91,12 @@ const onDateChange = async (newDate: string) => {
  * Ignores available dates and always decrements the date by one day.
  */
 const goToPreviousDay = async () => {
-  const [year, month, day] = selectedDate.value.split('-').map(Number);
+  const [year, month, day] = noteDate.value.split('-').map(Number);
   const dateObj = new Date(Date.UTC(year, month - 1, day));
   dateObj.setUTCDate(dateObj.getUTCDate() - 1);
   const prevDate = dateObj.toISOString().split('T')[0];
-  selectedDate.value = prevDate;
-  // Watcher on selectedDate will trigger loadPatients
+  noteDate.value = prevDate;
+  // Watcher on noteDate will trigger loadSelectedNote in App.vue
 };
 
 /**
@@ -108,12 +108,12 @@ const goToPreviousDay = async () => {
  * Ignores available dates and always increments the date by one day.
  */
 const goToNextDay = async () => {
-  const [year, month, day] = selectedDate.value.split('-').map(Number);
+  const [year, month, day] = noteDate.value.split('-').map(Number);
   const dateObj = new Date(Date.UTC(year, month - 1, day));
   dateObj.setUTCDate(dateObj.getUTCDate() + 1);
   const nextDate = dateObj.toISOString().split('T')[0];
-  selectedDate.value = nextDate;
-  // Watcher on selectedDate will trigger loadPatients
+  noteDate.value = nextDate;
+  // Watcher on noteDate will trigger loadSelectedNote in App.vue
 };
 
 // --- List available patient list snapshot dates in the data directory ---
@@ -140,11 +140,34 @@ const listAvailablePatientListDates = async (): Promise<string[]> => {
   }
 };
 
+/**
+ * Go to the previous available patient list date.
+ */
+const goToPreviousPatientListDay = async () => {
+  const [year, month, day] = activePatientListDate.value.split('-').map(Number);
+  const dateObj = new Date(Date.UTC(year, month - 1, day));
+  dateObj.setUTCDate(dateObj.getUTCDate() - 1);
+  const prevDate = dateObj.toISOString().split('T')[0];
+  await setActivePatientListDate(prevDate);
+};
+
+/**
+ * Go to the next available patient list date.
+ */
+const goToNextPatientListDay = async () => {
+  const [year, month, day] = activePatientListDate.value.split('-').map(Number);
+  const dateObj = new Date(Date.UTC(year, month - 1, day));
+  dateObj.setUTCDate(dateObj.getUTCDate() + 1);
+  const nextDate = dateObj.toISOString().split('T')[0];
+  await setActivePatientListDate(nextDate);
+};
+
+
   // Returns the file path for the currently active patient list date
   const getPatientsFilePath = async (): Promise<string | null> => {
     if (!isDataDirectorySet.value || !config.value.dataDirectory) return null;
     try {
-      const date = selectedDate.value; // Use selectedDate consistently
+      const date = activePatientListDate.value; // Use activePatientListDate for patient list file
       return await joinPaths(config.value.dataDirectory, `patients_${date}.json`);
     } catch (error: any) {
       console.error("Error in getPatientsFilePath:", error);
@@ -241,8 +264,8 @@ const listAvailablePatientListDates = async (): Promise<string[]> => {
     }
   };
 
-  // Watch selectedDate to reload patients when the date changes
-  watch(selectedDate, async () => {
+  // Watch activePatientListDate to reload patients when the date changes
+  watch(activePatientListDate, async () => {
     await loadPatients();
   });
 
@@ -253,14 +276,14 @@ const listAvailablePatientListDates = async (): Promise<string[]> => {
       error.value = "savePatients: Could not determine patients file path.";
       return false;
     }
-  
+
     // Strictly require an array
     if (!Array.isArray(updatedPatients)) {
       error.value = "savePatients: Invalid input, expected Patient[].";
       console.error(error.value, updatedPatients);
       return false;
     }
-  
+
     console.log("Saving patients to:", absolutePath);
     try {
       // Only keep allowed Patient fields to avoid circular references
@@ -365,19 +388,19 @@ const listAvailablePatientListDates = async (): Promise<string[]> => {
       if (!newPatientDir) {
         throw new Error("Could not construct patient notes directory path.");
       }
-  
+
       if (!umrnExists) {
         console.log("Creating notes directory for new patient:", newPatientDir);
         await mkdirAbsolute(newPatientDir);
         console.log("Directory created:", newPatientDir);
       }
-  
+
       const currentPatients = [...patients.value];
       currentPatients.push(newPatient);
-  
+
       console.log("Saving updated patient list...");
       const saveSuccess = await savePatients(currentPatients);
-  
+
       if (saveSuccess) {
         console.log("Patient added successfully:", newPatient.id);
         return newPatient;
@@ -687,7 +710,7 @@ const updatePatient = async (updatedPatient: Patient): Promise<boolean> => {
       skipEmptyLines: true,
       dynamicTyping: true, // Automatically convert types where possible
     });
-  
+
     if (parseResult.errors.length > 0) {
       console.error("CSV Parsing Errors:", parseResult.errors);
       // Report the first error
@@ -695,38 +718,38 @@ const updatePatient = async (updatedPatient: Patient): Promise<boolean> => {
         `Error parsing CSV file: ${parseResult.errors[0].message} (Row: ${parseResult.errors[0].row})`
       );
     }
-  
+
     if (!parseResult.data || parseResult.data.length === 0) {
       console.warn("CSV file is empty or contains no data rows.");
       return []; // Return empty array, not an error
     }
-  
+
     console.log(`Parsed ${parseResult.data.length} rows from CSV.`);
     const importedPatients: Patient[] = [];
     const existingUmrns = new Set(
       currentPatients.filter((p) => p.type === "umrn").map((p) => p.id)
     );
-  
+
     for (const row of parseResult.data) {
       // Map relevant fields, skipping "trash" fields implicitly
       const umrn = row.umrn ? String(row.umrn).trim() : undefined;
       const name = row.name ? String(row.name).trim() : undefined;
-  
+
       // Basic validation: require at least a name or UMRN
       if (!umrn && !name) {
         console.warn("Skipping row due to missing UMRN and Name:", row);
         continue;
       }
-  
+
       // Optionally skip if UMRN already exists in the current patient list
       if (skipExistingUmrns && umrn && existingUmrns.has(umrn)) {
         console.log(`Skipping existing UMRN: ${umrn}`);
         continue;
       }
-  
+
       const patientId = umrn || uuidv4();
       const patientType = umrn ? "umrn" : "uuid";
-  
+
       const newPatient: Patient = {
         id: patientId,
         type: patientType,
@@ -745,7 +768,7 @@ const updatePatient = async (updatedPatient: Patient): Promise<boolean> => {
       };
       importedPatients.push(newPatient);
     }
-  
+
     return importedPatients;
   };
 
@@ -885,7 +908,7 @@ const updatePatient = async (updatedPatient: Patient): Promise<boolean> => {
     isLoading.value = true;
     error.value = null;
     console.log("Starting iCM patient list import from file:", filePath);
-  
+
     try {
       const fileContent = await readFileAbsolute(filePath);
       if (!fileContent) {
@@ -894,20 +917,20 @@ const updatePatient = async (updatedPatient: Patient): Promise<boolean> => {
         isLoading.value = false;
         return;
       }
-  
+
       // Do NOT skip existing UMRNs; import all patients from file
       const importedPatients = _parseAndMapICMPatients(fileContent, patients.value, false);
-  
+
       if (importedPatients.length === 0) {
         console.log("No patients found in imported file.");
         isLoading.value = false;
         return;
       }
-  
+
       // Replace the current patient list with the imported one (remove any not present in import)
       console.log(`Replacing patient list with ${importedPatients.length} imported patients.`);
       const saveSuccess = await savePatients(importedPatients);
-  
+
       if (saveSuccess) {
         console.log("iCM patient list imported and replaced successfully from file.");
       } else {
@@ -943,8 +966,9 @@ const updatePatient = async (updatedPatient: Patient): Promise<boolean> => {
     { immediate: false }
   );
 
-  // Watch selectedDate to update allowedDates (moved from useDateNavigation)
-  watch(selectedDate, async (_newDate) => {
+  // Watch noteDate to update allowedDates (moved from useDateNavigation)
+  // allowedDates is used by the date picker UI, which is tied to the note date.
+  watch(noteDate, async (_newDate) => {
     allowedDates.value = await listAvailablePatientListDates();
   }, { immediate: true }); // Load initially
 
@@ -991,8 +1015,8 @@ const updatePatient = async (updatedPatient: Patient): Promise<boolean> => {
       const updatedPatients = [...existingPatients, ...newPatients];
       // Save updated list
       await writeFileAbsolute(filePath, JSON.stringify(updatedPatients, null, 2));
-      // If adding to today, update in-memory list as well
-      if (date === todayString()) {
+      // If adding to the active patient list date, update in-memory list as well
+      if (date === activePatientListDate.value) {
         patients.value = updatedPatients;
         updatePatientIdentifierArray(patients.value);
       }
@@ -1041,7 +1065,7 @@ const updatePatient = async (updatedPatient: Patient): Promise<boolean> => {
     dateMenu,
     allowedDates,
     todayString,
-    selectedDate,
+    noteDate, // Expose noteDate
     noteDateDisplay,
     onDateChange,
     goToPreviousDay,
@@ -1052,6 +1076,8 @@ const updatePatient = async (updatedPatient: Patient): Promise<boolean> => {
     setActivePatientListDate,
     availablePatientListDates,
     listAvailablePatientListDates,
+    goToPreviousPatientListDay, // Expose new function
+    goToNextPatientListDay,     // Expose new function
 
     patients,
     patient_identifierArray,

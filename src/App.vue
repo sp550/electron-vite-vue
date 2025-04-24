@@ -67,11 +67,11 @@
             :isEditPatientListMode="isEditPatientListMode"
             :search="search"
             :todayString="todayString"
-            :selectedDate="selectedDate"
+            :selectedDate="noteDate"
             :allowedDates="allowedDates"
             :noteDateDisplay="noteDateDisplay"
-            :goToPreviousDay="() => goToPreviousDay(selectedPatientId)"
-            :goToNextDay="() => goToNextDay(selectedPatientId)"
+            :goToPreviousDay="() => goToPreviousDay()"
+            :goToNextDay="() => goToNextDay()"
             :onDateChange="handleDateChange"
             :configState="configState"
             :version="version"
@@ -89,8 +89,6 @@
             @removeSelectedPatientsFromList="removeSelectedPatientsFromList"
             @addSelectedToTodayList="addSelectedToTodayList"
             @checkboxSelectPatientList="checkboxSelectPatientList"
-            @request-previous-day="handlePreviousDay"
-            @request-next-day="handleNextDay"
             @request-date-change="handleDateChange"
           />
           <!-- Arrow icon shown in rail mode -->
@@ -184,6 +182,17 @@
             <v-toolbar color="grey-lighten-3 " density="comfortable">
                <v-text-field v-model="selectedPatient!.name" label="Patient Name" hide-details single-line
                   @blur="updatePatientName"></v-text-field>
+               <!-- Independent Note Date Selector -->
+               <v-text-field
+                  v-model="selectedNoteDate"
+                  label="Note Date"
+                  type="date"
+                  hide-details
+                  single-line
+                  style="max-width: 180px; min-width: 140px;"
+                  :disabled="noteEditor.isLoading.value || !selectedPatientId"
+                  @change="onNoteDateChange"
+               ></v-text-field>
                <v-text-field v-model="selectedPatient!.umrn" label="Patient UMRN" hide-details single-line
                   @blur="updatePatientUmrn"></v-text-field>
                <v-spacer></v-spacer>
@@ -257,6 +266,22 @@
 <script setup lang="ts">
 import { ref, provide, computed, watch, nextTick, onMounted } from 'vue';
 
+function getTodayString() {
+   const today = new Date();
+   return today.toISOString().slice(0, 10);
+}
+
+// Independent note date state
+const selectedNoteDate = ref(getTodayString());
+
+// Handler for note date change
+function onNoteDateChange() {
+   // Defensive: If blank, reset to today
+   if (!selectedNoteDate.value) {
+      selectedNoteDate.value = getTodayString();
+   }
+}
+
 const isDrawerRail = ref(true); // true = rail mode, false = expanded
 
 import { useNoteExport } from '@/composables/useNoteRetrieval';
@@ -278,20 +303,8 @@ import PatientList from '@/components/PatientList.vue';
 const selectedPatientId = ref<string | null>(null); // ID of the currently active patient
 
 // --- Date Navigation Handlers (for PatientList.vue) ---
-function handlePreviousDay() {
-  // Find the previous allowed date before selectedDate
-  const idx = allowedDates.value.indexOf(selectedDate.value);
-  if (idx !== -1 && idx < allowedDates.value.length - 1) {
-    selectedDate.value = allowedDates.value[idx + 1];
-  }
-}
-function handleNextDay() {
-  // Find the next allowed date after selectedDate
-  const idx = allowedDates.value.indexOf(selectedDate.value);
-  if (idx > 0) {
-    selectedDate.value = allowedDates.value[idx - 1];
-  }
-}
+// These handlers are now managed within usePatientData and PatientList.vue
+// and operate on activePatientListDate. Removing redundant handlers in App.vue.
 
 // --- Drawer and Responsive ---
 const drawer = ref(true);
@@ -395,7 +408,7 @@ const fileSystemAccess = useFileSystemAccess();
 const { snackbar, showSnackbar } = useSnackbar();
 
 const {
-   selectedDate,
+   noteDate, // Use noteDate instead of selectedDate
    noteDateDisplay,
    dateMenu,
    allowedDates,
@@ -421,7 +434,7 @@ const {
    configState,
    patientData: patientDataComposable, // Pass the composable instance
    fileSystemAccess,
-   selectedDate,
+   selectedDate: selectedNoteDate, // Pass the local selectedNoteDate ref
    electronAPI: window.electronAPI
 });
 
@@ -497,12 +510,14 @@ const selectPatient = (patientId: string) => {
       !noteEditor.isAutoSaveEnabled.value &&
       noteEditor.hasUnsavedChanges.value &&
       selectedPatientId.value &&
-      selectedDate.value
+      selectedNoteDate.value
    ) {
-      const cacheKey = `${selectedPatientId.value}:${selectedDate.value}`;
+      const cacheKey = `${selectedPatientId.value}:${selectedNoteDate.value}`;
       unsavedNotesCache[cacheKey] = noteContent.value;
    }
    selectedPatientId.value = patientId;
+   // Optionally reset note date to today or keep previous
+   // selectedNoteDate.value = getTodayString();
    // loadSelectedNote will be triggered by the watcher
 };
 
@@ -517,8 +532,8 @@ const clearSelectedPatientState = () => {
 
 // Load the note for the currently selected patient and date
 const loadSelectedNote = async () => {
-    console.log(`[App.vue] loadSelectedNote called for patient: ${selectedPatientId.value}, date: ${selectedDate.value}`);
-    if (!selectedPatientId.value || !selectedDate.value) {
+    console.log(`[App.vue] loadSelectedNote called for patient: ${selectedPatientId.value}, date: ${selectedNoteDate.value}`);
+    if (!selectedPatientId.value || !selectedNoteDate.value) {
        console.log('[App.vue] loadSelectedNote: Clearing state: No patient or date selected.');
        clearSelectedPatientState();
        return;
@@ -534,7 +549,7 @@ const loadSelectedNote = async () => {
        }
 
        // Call useNoteEditor's loadNote function
-       await noteEditor.loadNote(patient, selectedDate.value);
+       await noteEditor.loadNote(patient, selectedNoteDate.value);
 
        // Check the state *after* loadNote completes
        if (noteEditor.currentNote.value && !noteEditor.error.value) {
@@ -542,7 +557,7 @@ const loadSelectedNote = async () => {
           await nextTick(); // Ensure state update propagates
 
           // Check cache for unsaved note (manual save mode)
-          const cacheKey = `${selectedPatientId.value}:${selectedDate.value}`;
+          const cacheKey = `${selectedPatientId.value}:${selectedNoteDate.value}`;
           if (!noteEditor.isAutoSaveEnabled.value && unsavedNotesCache.hasOwnProperty(cacheKey)) {
              noteContent.value = unsavedNotesCache[cacheKey];
              noteEditor.setUnsavedChanges(true); // Mark as dirty if restored from cache
@@ -568,7 +583,7 @@ const loadSelectedNote = async () => {
              isNoteLoaded.value = true; // Allow editor to show for new note creation
              noteEditor.setUnsavedChanges(false); // Start clean
           } else {
-             console.log(`[App.vue] Note not found for ${selectedPatientId.value} on ${selectedDate.value}. Ready for new note.`);
+             console.log(`[App.vue] Note not found for ${selectedPatientId.value} on ${selectedNoteDate.value}. Ready for new note.`);
              isNoteLoaded.value = true; // Allow editor to show for new note creation
              noteEditor.setUnsavedChanges(false); // Start clean
           }
@@ -586,8 +601,7 @@ const saveCurrentNote = async () => {
       return;
    }
 
-
-   const noteToSave: Note = { date: selectedDate.value, content: noteContent.value };
+   const noteToSave: Note = { date: selectedNoteDate.value, content: noteContent.value };
 
    // Use noteEditor's save function
    const success = await noteEditor.saveCurrentNote(selectedPatient.value, noteToSave);
@@ -596,7 +610,7 @@ const saveCurrentNote = async () => {
       // showSnackbar('Note saved successfully.', 'success'); // Often too noisy
       currentNote.value = { ...noteToSave }; // Update local state
       // Remove from cache if it existed (manual save mode)
-      const cacheKey = `${selectedPatientId.value}:${selectedDate.value}`;
+      const cacheKey = `${selectedPatientId.value}:${selectedNoteDate.value}`;
       if (unsavedNotesCache.hasOwnProperty(cacheKey)) {
          delete unsavedNotesCache[cacheKey];
       }
@@ -770,12 +784,12 @@ const openDataDirectory = async () => {
 
 // --- Watchers ---
 
-// Watch for changes in selected patient, date, or data directory readiness
+// Watch for changes in selected patient, note date, or data directory readiness
 watch(
-   () => [selectedPatientId.value, selectedDate.value, configState.isDataDirectorySet.value],
-   async ([newPatientId, newDate, isDirSet], [oldPatientId, oldDate, oldIsDirSet]) => {
-      // Only load if the patient or date actually changed, and directory is set
-      if (isDirSet && (newPatientId !== oldPatientId || newDate !== oldDate)) {
+   () => [selectedPatientId.value, selectedNoteDate.value, configState.isDataDirectorySet.value],
+   async ([newPatientId, newNoteDate, isDirSet], [oldPatientId, oldNoteDate, oldIsDirSet]) => {
+      // Only load if the patient or note date actually changed, and directory is set
+      if (isDirSet && (newPatientId !== oldPatientId || newNoteDate !== oldNoteDate)) {
          if (newPatientId) {
             await loadSelectedNote();
          } else {
