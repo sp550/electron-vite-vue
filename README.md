@@ -1,3 +1,5 @@
+use vuetify and monaco api MCP*******
+
 # Patient Notes
 - Quick add feature (inspired by bloodproducts generator).
 add new patient - error on entering umrn
