@@ -1,9 +1,8 @@
 **Priority 1: Core Functionality & Stability**
-toggle through notes according to day is broken
-add new patient - error on entering umrn
 patient lists for different days, add and remove functionality.
 **Priority 2: Basic UI & Configuration**
 - Quick add feature (inspired by bloodproducts generator).
+add new patient - error on entering umrn
 - Display config.json for debugging.
 - Basic settings/config implementation (perhaps a new vue component)
 - Basic common hotkeys.
@@ -13,7 +12,6 @@ patient lists for different days, add and remove functionality.
 
  toggle sidebar left/right.
 - Title bar display options (small, medium, large).
- - material design z-axis heights for all
 
  - Patient list
   move patient list related menu options to a new 3 dot menu next to patient list subheader

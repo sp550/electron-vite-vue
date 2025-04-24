@@ -5,24 +5,7 @@
          <v-btn icon="mdi-menu" @click="drawer = !drawer" title="Toggle Navigation Drawer"></v-btn>
          <v-spacer></v-spacer>
          <v-toolbar-title></v-toolbar-title>
-         <v-btn icon="mdi-chevron-left" @click="goToPreviousDay(selectedPatientId)"
-            :disabled="!selectedPatientId || noteEditor.isLoading.value" title="Previous Day" size="small"></v-btn>
-         <span class="text-subtitle-1 mx-2" :title="selectedDate">
-            <v-icon start>mdi-calendar</v-icon>
-            {{ noteDateDisplay }}
-         </span>
-         <v-btn icon="mdi-chevron-right" @click="goToNextDay(selectedPatientId)"
-            :disabled="!selectedPatientId || noteEditor.isLoading.value" title="Next Day" size="small"></v-btn>
-         <!-- Date Picker for Patient List Date Navigation -->
-         <v-menu v-model="dateMenu" :close-on-content-click="false" offset-y>
-            <template #activator="{ props }">
-               <v-btn v-bind="props" icon="mdi-calendar-search" title="Select Date" aria-label="Select Date"></v-btn>
-            </template>
-            <v-card>
-               <v-date-picker v-model="selectedDate" :allowed-dates="allowedDates"
-                  @update:model-value="handleDateChange" color="primary" show-adjacent-months :max="todayString" />
-            </v-card>
-         </v-menu>
+         <!-- Date navigation moved to PatientList.vue -->
          <!-- Auto-Save Toggle -->
          <v-switch v-model="noteEditor.isAutoSaveEnabled.value" label="Auto-Save" color="primary" hide-details
             density="compact" class="mx-2 flex-shrink-0" title="Toggle Auto-Save"></v-switch>
@@ -85,6 +68,11 @@
             :search="search"
             :todayString="todayString"
             :selectedDate="selectedDate"
+            :allowedDates="allowedDates"
+            :noteDateDisplay="noteDateDisplay"
+            :goToPreviousDay="() => goToPreviousDay(selectedPatientId)"
+            :goToNextDay="() => goToNextDay(selectedPatientId)"
+            :onDateChange="handleDateChange"
             :configState="configState"
             :version="version"
             :isPackaged="isPackaged"
@@ -101,6 +89,9 @@
             @removeSelectedPatientsFromList="removeSelectedPatientsFromList"
             @addSelectedToTodayList="addSelectedToTodayList"
             @checkboxSelectPatientList="checkboxSelectPatientList"
+            @request-previous-day="goToPreviousDay(selectedPatientId)"
+            @request-next-day="goToNextDay(selectedPatientId)"
+            @request-date-change="handleDateChange"
           />
           <!-- Arrow icon shown in rail mode -->
           <div v-if="isDrawerRail" class="rail-arrow-container">

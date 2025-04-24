@@ -32,6 +32,36 @@
         </v-list>
       </v-menu>
     </v-toolbar>
+
+    <!-- === Date Navigation Toolbar === -->
+    <v-toolbar density="compact" color="grey-lighten-4">
+      <v-btn icon="mdi-chevron-left" @click="handlePreviousDayClick" title="Previous Day" size="small"></v-btn>
+      <span class="text-subtitle-2 mx-2" :title="selectedDate">
+        <v-icon start>mdi-calendar</v-icon>
+        {{ noteDateDisplay }}
+      </span>
+      <v-btn icon="mdi-chevron-right" @click="handleNextDayClick" title="Next Day" size="small"></v-btn>
+
+      <v-spacer></v-spacer>
+
+      <!-- Date Picker for Patient List Date Navigation -->
+      <v-menu v-model="dateMenu" :close-on-content-click="false" location="bottom end" offset-y>
+        <template #activator="{ props }">
+          <v-btn v-bind="props" icon="mdi-calendar-search" title="Select Date" aria-label="Select Date" size="small"></v-btn>
+        </template>
+        <v-card>
+          <v-date-picker
+            :model-value="selectedDate"
+            @update:model-value="handleDateChange"
+            :allowed-dates="allowedDates"
+            color="primary"
+            show-adjacent-months
+            :max="todayString"
+          />
+        </v-card>
+      </v-menu>
+    </v-toolbar>
+
     <v-card-text v-if="isEditPatientListMode" class="py-2">
       {{ selectedPatientIds.length }} patient{{ selectedPatientIds.length === 1 ? '' : 's' }} selected
     </v-card-text>
@@ -118,8 +148,6 @@
     </v-card-actions>
   </v-card>
 
-
-
 </template>
 <script setup lang="ts">
 import { defineProps, defineEmits, ref, computed, PropType, watch, onMounted, onUnmounted } from "vue";
@@ -146,7 +174,13 @@ const props = defineProps({
   isPackaged: { type: Boolean, required: true },
   nodeEnv: { type: String, required: true },
   sortMode: { type: Object as PropType<import('vue').Ref<any>>, required: true },
-  setSortMode: { type: Function as PropType<(mode: "custom" | "name" | "location") => void>, required: true }
+  setSortMode: { type: Function as PropType<(mode: "custom" | "name" | "location") => void>, required: true },
+  // New date navigation props
+  allowedDates: { type: Array as PropType<string[]>, required: true },
+  noteDateDisplay: { type: String, required: true },
+  goToPreviousDay: { type: Function as PropType<() => void>, required: true },
+  goToNextDay: { type: Function as PropType<() => void>, required: true },
+  onDateChange: { type: Function as PropType<(date: string) => void>, required: true },
 });
 
 // Debug logs to validate type and value of sortMode
@@ -170,10 +204,15 @@ const emit = defineEmits([
   "addNewPatient",
   "removePatientFromList",
   "removeSelectedPatientsFromList",
-  "addSelectedToTodayList"
+  "addSelectedToTodayList",
+  // New date navigation emits
+  "request-previous-day",
+  "request-next-day",
+  "request-date-change",
 ]);
 
 const showSortMenu = ref(false);
+const dateMenu = ref(false); // State for the date picker menu
 
 // Debug: Log Vuetify version if available
 
@@ -226,6 +265,20 @@ function onRemoveSelectedPatientsFromList() {
 }
 function onAddSelectedToTodayList() {
   emit("addSelectedToTodayList");
+}
+
+// New date navigation event handlers
+function handlePreviousDayClick() {
+  emit("request-previous-day");
+}
+
+function handleNextDayClick() {
+  emit("request-next-day");
+}
+
+function handleDateChange(newDate: string) {
+  emit("request-date-change", newDate);
+  dateMenu.value = false; // Close the date picker after selection
 }
 </script>
 <style scoped>
