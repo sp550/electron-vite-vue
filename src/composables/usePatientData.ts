@@ -143,23 +143,69 @@ const listAvailablePatientListDates = async (): Promise<string[]> => {
 /**
  * Go to the previous available patient list date.
  */
+/**
+ * Navigates to a specific patient list date.
+ * If the patient list file for the date does not exist, it creates a new empty one.
+ * @param date The date string (YYYY-MM-DD) to navigate to.
+ */
+const navigateToPatientListDate = async (date: string) => {
+  const filePath = await getPatientsFilePathForDate(date);
+
+  if (!filePath) {
+    console.error(`Could not determine file path for date: ${date}`);
+    return; // Cannot proceed without a valid file path
+  }
+
+  const fileExists = await useFileSystemAccess().existsAbsolute(filePath);
+
+  if (fileExists) {
+    await setActivePatientListDate(date);
+  } else {
+    console.log(`No patient list file found for date: ${date}. Creating a new one.`);
+    try {
+      await useFileSystemAccess().writeFileAbsolute(filePath, JSON.stringify([], null, 2));
+      console.log(`Created new patient list file for ${date}`);
+      await setActivePatientListDate(date); // Navigate to the newly created file
+    } catch (error) {
+      console.error(`Error creating patient list file for ${date}:`, error);
+      // Optionally, provide user feedback about the creation failure
+    }
+  }
+};
+
+/**
+ * Go to the previous patient list date.
+ * Creates a new file if one does not exist for the previous day.
+ */
 const goToPreviousPatientListDay = async () => {
   const [year, month, day] = activePatientListDate.value.split('-').map(Number);
   const dateObj = new Date(Date.UTC(year, month - 1, day));
   dateObj.setUTCDate(dateObj.getUTCDate() - 1);
   const prevDate = dateObj.toISOString().split('T')[0];
-  await setActivePatientListDate(prevDate);
+  await navigateToPatientListDate(prevDate);
 };
 
 /**
- * Go to the next available patient list date.
+ * Go to the next patient list date.
+ * Creates a new file if one does not exist for the next day.
  */
 const goToNextPatientListDay = async () => {
   const [year, month, day] = activePatientListDate.value.split('-').map(Number);
   const dateObj = new Date(Date.UTC(year, month - 1, day));
   dateObj.setUTCDate(dateObj.getUTCDate() + 1);
   const nextDate = dateObj.toISOString().split('T')[0];
-  await setActivePatientListDate(nextDate);
+  await navigateToPatientListDate(nextDate);
+};
+
+// Helper function to get patient file path for a specific date
+const getPatientsFilePathForDate = async (date: string): Promise<string | null> => {
+  if (!isDataDirectorySet.value || !config.value.dataDirectory) return null;
+  try {
+    return await joinPaths(config.value.dataDirectory, `patients_${date}.json`);
+  } catch (error: any) {
+    console.error("Error in getPatientsFilePathForDate:", error);
+    return null;
+  }
 };
 
 

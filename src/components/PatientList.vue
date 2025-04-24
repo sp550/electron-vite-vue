@@ -36,28 +36,25 @@
     <!-- === Date Navigation Toolbar === -->
     <v-toolbar density="compact" color="grey-lighten-4">
       <v-btn icon="mdi-chevron-left" @click="handlePreviousDayClick" title="Previous Day" size="small"></v-btn>
+      <!-- Date Picker for Patient List Date Navigation -->
+      <v-menu v-model="dateMenu" :close-on-content-click="false" location="bottom end" offset-y>
+        <template #activator="{ props }">
+          <v-btn v-bind="props" icon="mdi-calendar" title="Select Date" aria-label="Select Date"
+            size="small"></v-btn>
+        </template>
+        <v-card>
+          <v-date-picker :model-value="activePatientListDate" @update:model-value="handleDatePickerUpdate"
+            color="primary" show-adjacent-months :max="todayString" :allowed-dates="availablePatientListDates" />
+        </v-card>
+      </v-menu>
       <span class="text-subtitle-2 mx-2" :title="activePatientListDate">
-        <v-icon start>mdi-calendar</v-icon>
         {{ patientListDateDisplayComputed }}
       </span>
       <v-btn icon="mdi-chevron-right" @click="goToNextPatientListDay" title="Next Day" size="small"></v-btn>
 
       <v-spacer></v-spacer>
 
-      <!-- Date Picker for Patient List Date Navigation -->
-      <v-menu v-model="dateMenu" :close-on-content-click="false" location="bottom end" offset-y>
-        <template #activator="{ props }">
-          <v-btn v-bind="props" icon="mdi-calendar-search" title="Select Date" aria-label="Select Date" size="small"></v-btn>
-        </template>
-        <v-card>
-          <v-date-picker
-            :model-value="activePatientListDate"
-            @update:model-value="setActivePatientListDate"
-            color="primary"
-            show-adjacent-months
-          />
-        </v-card>
-      </v-menu>
+
     </v-toolbar>
 
     <v-card-text v-if="isEditPatientListMode" class="py-2">
@@ -65,68 +62,37 @@
     </v-card-text>
     <v-list max-height="80vh" style="overflow-y:auto;">
       <template v-if="isEditPatientListMode">
-        <v-list
-          :selected="selectedPatientIds"
-          multiple
-          max-height="60vh"
-          style="overflow-y:auto;"
-          @update:selected="onSelectPatientIds"
-        >
-          <v-list-item
-            v-for="(element, _index) in patientsDraggable"
-            :key="(element as any).id"
-            :value="(element as any).id"
-            :data-id="(element as any).id"
-          >
+        <v-list :selected="selectedPatientIds" multiple max-height="60vh" style="overflow-y:auto;"
+          @update:selected="onSelectPatientIds">
+          <v-list-item v-for="(patient, _index) in patients" :key="patient.id" :value="patient.id" :data-id="patient.id">
             <template #prepend>
-              <v-icon
-                class="me-2"
-                title="Drag to reorder"
-                @mousedown.stop
-              >mdi-drag</v-icon>
+              <v-icon class="me-2" title="Drag to reorder" @mousedown.stop>mdi-drag</v-icon>
             </template>
             <v-list-item-content>
-              <v-list-item-title>{{ (element as any).name }}</v-list-item-title>
-              <v-list-item-subtitle
-                v-if="(element as any).umrn || (element as any).location"
-                class="umrn-location"
-              >
-                {{ (element as any).umrn ? `${(element as any).umrn}` : "" }}
-                {{ (element as any).location ? `Location: ${(element as any).location}` : "" }}
+              <v-list-item-title>{{ patient.name }}</v-list-item-title>
+              <v-list-item-subtitle v-if="patient.umrn || patient.location" class="umrn-location">
+                {{ patient.umrn ? `${patient.umrn}` : "" }}
+                {{ patient.location ? `Location: ${patient.location}` : "" }}
               </v-list-item-subtitle>
             </v-list-item-content>
             <template #append>
               <v-list-item-action>
-                <v-btn
-                  icon="mdi-delete"
-                  variant="plain"
-                  size="small"
-                  color="error"
-                  @click.stop="onRemovePatientFromList(element)"
-                  title="Remove patient"
-                  density="compact"
-                  class="me-2"
-                />
+                <v-btn icon="mdi-delete" variant="plain" size="small" color="error"
+                  @click.stop="onRemovePatientFromList(patient)" title="Remove patient" density="compact"
+                  class="me-2" />
               </v-list-item-action>
             </template>
           </v-list-item>
         </v-list>
       </template>
       <template v-else>
-        <v-list-item
-          v-for="(element, _index) in patientsDraggable"
-          :key="(element as any).id"
-          :data-id="(element as any).id"
-          @click="onPatientClick((element as any).id)"
-        >
+        <v-list-item v-for="(patient, _index) in patients" :key="patient.id" :data-id="patient.id"
+          @click="onPatientClick(patient.id)">
           <v-list-item-content>
-            <v-list-item-title>{{ (element as any).name }}</v-list-item-title>
-            <v-list-item-subtitle
-              v-if="(element as any).umrn || (element as any).location"
-              class="umrn-location"
-            >
-              {{ (element as any).umrn ? `${(element as any).umrn}` : "" }}
-              {{ (element as any).location ? `Location: ${(element as any).location}` : "" }}
+            <v-list-item-title>{{ patient.name }}</v-list-item-title>
+            <v-list-item-subtitle v-if="patient.umrn || patient.location" class="umrn-location">
+              {{ patient.umrn ? `${patient.umrn}` : "" }}
+              {{ patient.location ? `Location: ${patient.location}` : "" }}
             </v-list-item-subtitle>
           </v-list-item-content>
         </v-list-item>
@@ -153,7 +119,6 @@ import { usePatientData } from "@/composables/usePatientData"; // Import usePati
 
 // Props for presentational PatientList
 const props = defineProps({
-  patientsDraggable: { type: Array, required: true },
   selectedPatientIds: { type: Array, required: true },
   isEditPatientListMode: { type: Boolean, required: true },
   search: { type: String, required: true },
@@ -184,11 +149,13 @@ const dateMenu = ref(false); // State for the date picker menu
 
 // Use the patient data composable
 const {
+  patients, // Destructure patients ref
   activePatientListDate,
   setActivePatientListDate,
   availablePatientListDates,
   goToPreviousPatientListDay,
   goToNextPatientListDay,
+  todayString, // Destructure todayString
 } = usePatientData();
 
 // Computed property for displaying the active patient list date
@@ -264,6 +231,37 @@ function handleNextDayClick() {
 
 function handleDateChange(newDate: string) {
   setActivePatientListDate(newDate);
+  dateMenu.value = false; // Close the date picker after selection
+}
+
+// New function to handle date picker updates and format the date
+function handleDatePickerUpdate(newDateString: string | null) {
+  if (newDateString) {
+    try {
+      // Attempt to parse the date string directly
+      const dateObj = new Date(newDateString);
+      // Check if the parsed date is valid
+      if (!isNaN(dateObj.getTime())) {
+        // Format to YYYY-MM-DD UTC string
+        const year = dateObj.getFullYear();
+        const month = (dateObj.getMonth() + 1).toString().padStart(2, '0');
+        const day = dateObj.getDate().toString().padStart(2, '0');
+        const formattedDate = `${year}-${month}-${day}`;
+        setActivePatientListDate(formattedDate);
+      } else {
+        console.error("handleDatePickerUpdate: Invalid date string received:", newDateString);
+        // If parsing fails, default to today's date (which is already UTC YYYY-MM-DD)
+        setActivePatientListDate(todayString());
+      }
+    } catch (error) {
+      console.error("handleDatePickerUpdate: Error parsing date string:", newDateString, error);
+      // If an error occurs during parsing, default to today's date
+      setActivePatientListDate(todayString());
+    }
+  } else {
+    // If the date is cleared (null or empty string), set the active date to today.
+    setActivePatientListDate(todayString());
+  }
   dateMenu.value = false; // Close the date picker after selection
 }
 </script>

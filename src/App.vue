@@ -62,7 +62,6 @@
           <PatientList
             class="flex-grow-1"
             :class="{ 'patient-list-rail-hidden': isDrawerRail }"
-            :patientsDraggable="patientsDraggable"
             :selectedPatientIds="selectedPatientIds"
             :isEditPatientListMode="isEditPatientListMode"
             :search="search"
