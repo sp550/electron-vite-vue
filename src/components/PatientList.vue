@@ -91,7 +91,7 @@
           <v-list-item-content>
             <v-list-item-title>
              <span class="hide-small-2">{{ patient.name }}</span>
-             <span>{{ patient.name ? patient.name.charAt(0) : ' - ' }}</span> <!-- Show only initial in rail mode -->
+             <span class="show-small">{{ patient.name ? patient.name.charAt(0) : ' - ' }}</span> <!-- Show only initial in rail mode -->
            </v-list-item-title>
            <v-list-item-subtitle v-if="(patient.umrn || patient.location)" class="umrn-location hide-small">
               {{ patient.umrn ? `${patient.umrn}` : "" }}
@@ -268,4 +268,8 @@ function handleDatePickerUpdate(newDateString: string | null) {
     display: none;
   }
 }
+@container (min-width: 71px) {
+  .show-small {
+     display: none;
+}}
 </style>

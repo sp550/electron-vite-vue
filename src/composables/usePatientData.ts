@@ -13,7 +13,6 @@ const allowedDates = ref<string[]>([]);
 const todayString = () => new Date().toISOString().split("T")[0]; // Revert to function
 
 // --- Note Date (YYYY-MM-DD) ---
-const noteDate = ref<string>(todayString()); // Initialize with the function call
 
 // --- Active Patient List Date (YYYY-MM-DD) ---
 const activePatientListDate = ref<string>(todayString()); // Use the function call
@@ -43,13 +42,13 @@ const error = ref<string | null>(null);
 
 export function usePatientData() {
   // --- Date Display Computed (from useDateNavigation) ---
-  const noteDateDisplay = computed(() => {
+  const noteDateDisplay = computed(() => (dateString: string) => {
     try {
-      const [year, month, day] = noteDate.value.split('-');
+      const [year, month, day] = dateString.split('-');
       const dateObj = new Date(Date.UTC(Number(year), Number(month) - 1, Number(day)));
       return dateObj.toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric', timeZone: 'UTC' });
     } catch {
-      return noteDate.value;
+      return dateString;
     }
   });
 
@@ -77,43 +76,22 @@ const setActivePatientListDate = async (date: string) => {
  * Handler for when the date is changed via UI (from useDateNavigation).
  */
 const onDateChange = async (newDate: string) => {
-  noteDate.value = newDate;
-  // Note: App.vue watches noteDate and selectedPatientId to trigger loadSelectedNote
-  // We don't need to trigger it here directly.
+  // Logic related to date change can be added here if needed in the future,
+  // but for now, the date state is managed externally in App.vue.
 };
 
-/**
- * Go to previous day with a note for the selected patient.
- * (from useDateNavigation)
- */
-/**
- * Go to previous day (unrestricted).
- * Ignores available dates and always decrements the date by one day.
- */
-const goToPreviousDay = async () => {
-  const [year, month, day] = noteDate.value.split('-').map(Number);
+const goToPreviousNoteDay = (currentDateString: string): string => {
+  const [year, month, day] = currentDateString.split('-').map(Number);
   const dateObj = new Date(Date.UTC(year, month - 1, day));
   dateObj.setUTCDate(dateObj.getUTCDate() - 1);
-  const prevDate = dateObj.toISOString().split('T')[0];
-  noteDate.value = prevDate;
-  // Watcher on noteDate will trigger loadSelectedNote in App.vue
+  return dateObj.toISOString().split('T')[0];
 };
 
-/**
- * Go to next day with a note for the selected patient.
- * (from useDateNavigation)
- */
-/**
- * Go to next day (unrestricted).
- * Ignores available dates and always increments the date by one day.
- */
-const goToNextDay = async () => {
-  const [year, month, day] = noteDate.value.split('-').map(Number);
+const goToNextNoteDay = (currentDateString: string): string => {
+  const [year, month, day] = currentDateString.split('-').map(Number);
   const dateObj = new Date(Date.UTC(year, month - 1, day));
   dateObj.setUTCDate(dateObj.getUTCDate() + 1);
-  const nextDate = dateObj.toISOString().split('T')[0];
-  noteDate.value = nextDate;
-  // Watcher on noteDate will trigger loadSelectedNote in App.vue
+  return dateObj.toISOString().split('T')[0];
 };
 
 // --- List available patient list snapshot dates in the data directory ---
@@ -1012,16 +990,13 @@ const updatePatient = async (updatedPatient: Patient): Promise<boolean> => {
     { immediate: false }
   );
 
-  // Watch noteDate to update allowedDates (moved from useDateNavigation)
   // allowedDates is used by the date picker UI, which is tied to the note date.
-  watch(noteDate, async (_newDate) => {
-    allowedDates.value = await listAvailablePatientListDates();
-  }, { immediate: true }); // Load initially
+  // We will rely on App.vue to trigger listAvailablePatientListDates when selectedNoteDate changes.
 
   onMounted(async () => { // Make onMounted async
     if (isConfigLoaded.value && isDataDirectorySet.value) {
       await loadPatients(); // Await initial load
-      await listAvailablePatientListDates(); // Load available dates on mount
+      // App.vue will call listAvailablePatientListDates after mount and config load
     }
   });
 
@@ -1111,11 +1086,10 @@ const updatePatient = async (updatedPatient: Patient): Promise<boolean> => {
     dateMenu,
     allowedDates,
     todayString,
-    noteDate, // Expose noteDate
     noteDateDisplay,
     onDateChange,
-    goToPreviousDay,
-    goToNextDay,
+    goToPreviousNoteDay,
+    goToNextNoteDay,
 
     // --- Date-based patient list management ---
     activePatientListDate,

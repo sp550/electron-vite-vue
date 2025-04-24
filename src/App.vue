@@ -64,11 +64,10 @@
            :isEditPatientListMode="isEditPatientListMode"
            :search="search"
            :todayString="todayString"
-           :selectedDate="noteDate"
-           :allowedDates="allowedDates"
-           :noteDateDisplay="noteDateDisplay"
-           :goToPreviousDay="() => goToPreviousDay()"
-           :goToNextDay="() => goToNextDay()"
+           :selectedDate="selectedNoteDate"
+           :noteDateDisplay="noteDateDisplay(selectedNoteDate)"
+           :goToPreviousNoteDay="() => { selectedNoteDate = goToPreviousNoteDay(selectedNoteDate); loadSelectedNote(); }"
+           :goToNextNoteDay="() => { selectedNoteDate = goToNextNoteDay(selectedNoteDate); loadSelectedNote(); }"
            :onDateChange="handleDateChange"
            :configState="configState"
            :version="version"
@@ -181,16 +180,20 @@
                <v-text-field v-model="selectedPatient!.name" label="Patient Name" hide-details single-line
                   @blur="updatePatientName"></v-text-field>
                <!-- Independent Note Date Selector -->
-               <v-text-field
-                  v-model="selectedNoteDate"
-                  label="Note Date"
-                  type="date"
-                  hide-details
-                  single-line
-                  style="max-width: 180px; min-width: 140px;"
-                  :disabled="noteEditor.isLoading.value || !selectedPatientId"
-                  @change="onNoteDateChange"
-               ></v-text-field>
+               <div class="d-flex align-center">
+                  <v-btn icon="mdi-chevron-left" size="small" variant="text" @click="selectedNoteDate = goToPreviousNoteDay(selectedNoteDate); loadSelectedNote();" title="Previous Day"></v-btn>
+                  <v-menu>
+                     <template v-slot:activator="{ props }">
+                        <span v-bind="props" class="text-subtitle-1 mx-2" style="cursor: pointer;">
+                           {{ noteDateDisplay(selectedNoteDate) }}
+                        </span>
+                     </template>
+                     <v-card>
+                        <v-date-picker v-model="selectedNoteDate" @update:model-value="onNoteDateChange"></v-date-picker>
+                     </v-card>
+                  </v-menu>
+                  <v-btn icon="mdi-chevron-right" size="small" variant="text" @click="selectedNoteDate = goToNextNoteDay(selectedNoteDate); loadSelectedNote();" title="Next Day"></v-btn>
+               </div>
                <v-text-field v-model="selectedPatient!.umrn" label="Patient UMRN" hide-details single-line
                   @blur="updatePatientUmrn"></v-text-field>
                <v-spacer></v-spacer>
@@ -278,6 +281,8 @@ function onNoteDateChange() {
    if (!selectedNoteDate.value) {
       selectedNoteDate.value = getTodayString();
    }
+   // Explicitly load note after date change
+   loadSelectedNote();
 }
 
 
@@ -402,13 +407,12 @@ const fileSystemAccess = useFileSystemAccess();
 const { snackbar, showSnackbar } = useSnackbar();
 
 const {
-   noteDate, // Use noteDate instead of selectedDate
    noteDateDisplay,
-   allowedDates,
    todayString,
-   goToPreviousDay,
-   goToNextDay,
-   onDateChange: handleDateChange
+   goToPreviousNoteDay,
+   goToNextNoteDay,
+   onDateChange: handleDateChange,
+   allowedDates // Keep allowedDates for the date picker
 } = patientDataComposable; // Destructure from the merged composable
 
 
@@ -777,12 +781,12 @@ const openDataDirectory = async () => {
 
 // --- Watchers ---
 
-// Watch for changes in selected patient, note date, or data directory readiness
+// Watch for changes in selected patient or data directory readiness
 watch(
-   () => [selectedPatientId.value, selectedNoteDate.value, configState.isDataDirectorySet.value],
-   async ([newPatientId, newNoteDate, isDirSet], [oldPatientId, oldNoteDate, oldIsDirSet]) => {
-      // Only load if the patient or note date actually changed, and directory is set
-      if (isDirSet && (newPatientId !== oldPatientId || newNoteDate !== oldNoteDate)) {
+   () => [selectedPatientId.value, configState.isDataDirectorySet.value],
+   async ([newPatientId, isDirSet], [oldPatientId, oldIsDirSet]) => {
+      // Only load if the patient actually changed, and directory is set
+      if (isDirSet && newPatientId !== oldPatientId) {
          if (newPatientId) {
             await loadSelectedNote();
          } else {
@@ -892,10 +896,6 @@ onMounted(async () => {
    }
 });
 
-// Watch selectedDate to update allowed dates (handled in usePatientData)
-// watch(selectedDate, async () => {
-//    allowedDates.value = await patientDataComposable.listAvailablePatientListDates(); // Use patientDataComposable
-// });
 
 
 

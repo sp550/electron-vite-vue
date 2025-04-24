@@ -12,8 +12,6 @@ add new patient - error on entering umrn
 
 **Priority 3: Advanced UI & Editor Enhancements**
 *ensure the AI knows to use Vuetify3 library*
-
- toggle sidebar left/right.
 - Title bar display options (small, medium, large).
 
  - Patient list
@@ -25,6 +23,9 @@ add new patient - error on entering umrn
   - Implement templates and snippets.
   - Change font to non-monospace.
 
+Navdrawer
+ -  toggle sidebar left/right.
+  - fix  container doestn resize on stlye change
 
 Sort by custom order and frag FUnctionality is a Pain to implement becuase it keeps breaking, lets prioritise it for later
 
