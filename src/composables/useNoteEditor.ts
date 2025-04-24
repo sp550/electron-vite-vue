@@ -1,5 +1,5 @@
 import { ref,  computed } from 'vue';
-import type { Note } from '@/types';
+import type { Note, Patient } from '@/types';
 import { useFileSystemAccess } from './useFileSystemAccess';
 import { useConfig } from './useConfig';
 
@@ -19,11 +19,11 @@ export function useNoteEditor() {
   const isLoading = ref(false);
   const error = ref<string | null>(null);
   const currentNote = ref<Note | null>(null);
-  const currentPatient = ref<{ id: string; umrn?: string } | null>(null);
+  const currentPatient = ref<Patient | null>(null);
   const isAutoSaveEnabled = ref(true);
   const hasUnsavedChanges = ref(false);
 
-  const getNotePath = async (patient: { id: string; umrn?: string }, date: string): Promise<string | null> => {
+  const getNotePath = async (patient: Patient, date: string): Promise<string | null> => {
     if (!isDataDirectorySet.value || !config.value.dataDirectory) {
         error.value = "Data directory not configured.";
         return null;
@@ -33,13 +33,23 @@ export function useNoteEditor() {
       const basePath = config.value.dataDirectory;
       const notesBaseDir = config.value.notesBaseDir;
 
-      const patientIdentifier = patient.umrn ? ['by-umrn', patient.umrn] : ['by-uuid', patient.id];
+      // Use patient.type and umrn/id for pathing
+      let patientIdentifier: string[];
+      if (patient.type === "umrn" && patient.umrn) {
+        patientIdentifier = ["by-umrn", patient.umrn];
+      } else if (patient.type === "uuid") {
+        patientIdentifier = ["by-uuid", patient.id];
+      } else {
+        // fallback for legacy or incomplete data
+        patientIdentifier = patient.umrn ? ["by-umrn", patient.umrn] : ["by-uuid", patient.id];
+      }
       const patientDir = await joinPaths(notesBaseDir, ...patientIdentifier);
 
       return await joinPaths(basePath, patientDir, `${formattedDate}.json`);
     } catch (e: any) {
-      console.error("Error determining note path:", e);
-      error.value = `Failed to determine note path: ${e.message || e}`;
+      const patientName = patient.name ? ` (${patient.name})` : '';
+      console.error(`Error determining note path for patient ${patient.id}${patientName}:`, e);
+      error.value = `Failed to determine note path for patient ${patient.id}${patientName}: ${e.message || e}`;
       return null;
     }
   };
@@ -51,7 +61,7 @@ export function useNoteEditor() {
     isLoading.value = false;
   };
 
-  const loadNote = async (patient: { id: string; umrn?: string }, date: string): Promise<void> => {
+  const loadNote = async (patient: Patient, date: string): Promise<void> => {
     isLoading.value = true;
     error.value = null;
     hasUnsavedChanges.value = false;
@@ -75,8 +85,9 @@ export function useNoteEditor() {
         currentNote.value = { date: date.split('T')[0], content: '' };
       }
     } catch (err: any) {
-      console.error(`Error loading note for ${patient.id} on ${date}:`, err);
-      error.value = `Failed to load note: ${err.message || err}`;
+      const patientName = patient.name ? ` (${patient.name})` : '';
+      console.error(`Error loading note for patient ${patient.id}${patientName} on ${date}:`, err);
+      error.value = `Failed to load note for patient ${patient.id}${patientName}: ${err.message || err}`;
       resetState();
     } finally {
       isLoading.value = false; // Ensure loading is false even if resetState wasn't called
@@ -84,8 +95,9 @@ export function useNoteEditor() {
   };
 
   // Modified to accept patient and the full note object to save
-  const saveCurrentNote = async (patient: { id: string; umrn?: string }, noteToSave: Note): Promise<boolean> => {
-    console.log('useNoteEditor: saveCurrentNote called');
+  const saveCurrentNote = async (patient: Patient, noteToSave: Note): Promise<boolean> => {
+    const patientName = patient.name ? ` (${patient.name})` : '';
+    console.log(`useNoteEditor: saveCurrentNote called for patient ${patient.id}${patientName}`);
     // Validate inputs directly
     if (!patient || !noteToSave) {
       error.value = "Invalid patient or note data provided for saving.";
@@ -111,15 +123,18 @@ export function useNoteEditor() {
     try {
       // Prepare the note object from the argument, ensuring date format is correct
       const finalNoteToSave = { ...noteToSave, date: noteToSave.date.split('T')[0] };
-      console.log('useNoteEditor: Content being sent to writeFileAbsolute:', JSON.stringify(finalNoteToSave.content)); // Log the content being saved
-      const writeResult = await writeFileAbsolute(absolutePath, JSON.stringify(finalNoteToSave, null, 2)); // ADDED LOG
-      console.log('useNoteEditor: writeFileAbsolute result = ', writeResult); // ADDED LOG
+      console.log(
+        `useNoteEditor: Content being sent to writeFileAbsolute for patient ${patient.id}${patientName}:`,
+        JSON.stringify(finalNoteToSave.content)
+      );
+      const writeResult = await writeFileAbsolute(absolutePath, JSON.stringify(finalNoteToSave, null, 2));
+      console.log('useNoteEditor: writeFileAbsolute result = ', writeResult);
       hasUnsavedChanges.value = false;
       return true;
     } catch (err: any) {
       // Use the date from the noteToSave argument in error message
-      console.error(`Error saving note for ${patient.id} on ${noteToSave.date}:`, err);
-      error.value = `Failed to save note: ${err.message || err}`;
+      console.error(`Error saving note for patient ${patient.id}${patientName} on ${noteToSave.date}:`, err);
+      error.value = `Failed to save note for patient ${patient.id}${patientName}: ${err.message || err}`;
       return false;
     } finally {
       isLoading.value = false;
