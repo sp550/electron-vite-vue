@@ -2,7 +2,7 @@
    <v-app>
       <!-- === App Bar === -->
       <v-app-bar app color="primary" density="comfortable">
-         <v-btn icon="mdi-menu" @click="drawer = !drawer" title="Toggle Navigation Drawer"></v-btn>
+         <v-btn :icon="menuIcon" @click="toggleDrawerMode" title="Toggle Navigation Drawer Mode"></v-btn>
          <v-spacer></v-spacer>
          <v-toolbar-title></v-toolbar-title>
          <!-- Date navigation moved to PatientList.vue -->
@@ -47,53 +47,52 @@
       <!-- === Navigation Drawer with Patient List and Controls === -->
       <v-navigation-drawer
         v-model="drawer"
-        :permanent="smAndUp"
-        :temporary="!smAndUp"
-        expand-on-hover
-        rail
-        rail-width="30"
+        :permanent="isPermanent"
+        :temporary="isTemporary"
+        :expand-on-hover="isExpandOnHover"
+        :rail="isRail"
+        rail-width="56"
         app
         :width="drawerWidth"
-        @mouseenter="isDrawerRail = false"
-        @mouseleave="isDrawerRail = true"
+        open-delay="10"
       >
         <v-container class="pa-0 d-flex flex-column" style="height: 100%;">
           <!-- Patient List: hidden in rail mode -->
           <PatientList
-            class="flex-grow-1"
-            :class="{ 'patient-list-rail-hidden': isDrawerRail }"
-            :selectedPatientIds="selectedPatientIds"
-            :isEditPatientListMode="isEditPatientListMode"
-            :search="search"
-            :todayString="todayString"
-            :selectedDate="noteDate"
-            :allowedDates="allowedDates"
-            :noteDateDisplay="noteDateDisplay"
-            :goToPreviousDay="() => goToPreviousDay()"
-            :goToNextDay="() => goToNextDay()"
-            :onDateChange="handleDateChange"
-            :configState="configState"
-            :version="version"
-            :isPackaged="isPackaged"
-            :nodeEnv="nodeEnv"
-            :sortMode="sortMode"
-            :setSortMode="setSortMode"
-            @update:search="val => search = val"
-            @update:selectedPatientIds="val => selectedPatientIds = val"
-            @update:isEditPatientListMode="val => isEditPatientListMode = val"
-            @patientSelected="onPatientSelected"
-            @patientListChanged="onPatientListChanged"
-            @addNewPatient="handleAddNewPatient"
-            @removePatientFromList="handleRemovePatientFromList"
-            @removeSelectedPatientsFromList="removeSelectedPatientsFromList"
-            @addSelectedToTodayList="addSelectedToTodayList"
-            @checkboxSelectPatientList="checkboxSelectPatientList"
-            @request-date-change="handleDateChange"
-          />
-          <!-- Arrow icon shown in rail mode -->
-          <div v-if="isDrawerRail" class="rail-arrow-container">
+           class="flex-grow-1"
+           :selectedPatientIds="selectedPatientIds"
+           :isEditPatientListMode="isEditPatientListMode"
+           :search="search"
+           :todayString="todayString"
+           :selectedDate="noteDate"
+           :allowedDates="allowedDates"
+           :noteDateDisplay="noteDateDisplay"
+           :goToPreviousDay="() => goToPreviousDay()"
+           :goToNextDay="() => goToNextDay()"
+           :onDateChange="handleDateChange"
+           :configState="configState"
+           :version="version"
+           :isPackaged="isPackaged"
+           :nodeEnv="nodeEnv"
+           :sortMode="sortMode"
+           :setSortMode="setSortMode"
+           :isRail="isRail" 
+           @update:search="val => search = val"
+           @update:selectedPatientIds="val => selectedPatientIds = val"
+           @update:isEditPatientListMode="val => isEditPatientListMode = val"
+           @patientSelected="onPatientSelected"
+           @patientListChanged="onPatientListChanged"
+           @addNewPatient="handleAddNewPatient"
+           @removePatientFromList="handleRemovePatientFromList"
+           @removeSelectedPatientsFromList="removeSelectedPatientsFromList"
+           @addSelectedToTodayList="addSelectedToTodayList"
+           @checkboxSelectPatientList="checkboxSelectPatientList"
+           @request-date-change="handleDateChange"
+         />
+         <!-- Arrow icon shown in rail mode -->
+          <!-- <div v-if="isRail" class="rail-arrow-container">
             <v-icon size="36" color="primary" title="Expand drawer">mdi-chevron-right</v-icon>
-          </div>
+          </div> -->
           <div>
             <v-divider class="my-2"></v-divider>
             <v-expansion-panels class="flex-shrink-0">
@@ -281,7 +280,6 @@ function onNoteDateChange() {
    }
 }
 
-const isDrawerRail = ref(true); // true = rail mode, false = expanded
 
 import { useNoteExport } from '@/composables/useNoteRetrieval';
 // import { useDateNavigation } from '@/composables/useDateNavigation'; // Removed
@@ -293,11 +291,34 @@ import { useNoteEditor } from '@/composables/useNoteEditor';
 import { useConfig } from '@/composables/useConfig';
 import { useFileSystemAccess } from '@/composables/useFileSystemAccess';
 import { usePatientList } from '@/composables/usePatientList';
-import { useDisplay } from 'vuetify';
 import Sortable from 'sortablejs';
 import type { Patient, Note } from '@/types';
 import MonacoEditorComponent from '@/components/MonacoEditorComponent.vue';
 import PatientList from '@/components/PatientList.vue';
+
+const drawerState = ref(2); // 0: Permanent, 1: Temporary Rail, 2: Temporary Full
+
+const isPermanent = computed(() => (drawerState.value === 0 ||drawerState.value === 1));
+const isTemporary = computed(
+   () => drawerState.value === 2
+)
+
+const isRail = computed(() => drawerState.value === 1);
+const isExpandOnHover = computed(() => drawerState.value === 1 || drawerState.value === 2);
+
+const menuIcon = computed(() => {
+  switch (drawerState.value) {
+    case 0: return 'mdi-menu'; // Permanent
+    case 1: return 'mdi-chevron-right'; // Temporary Rail
+    case 2: return 'mdi-chevron-left'; // Temporary Full
+    default: return 'mdi-menu';
+  }
+});
+
+const toggleDrawerMode = () => {
+  drawerState.value = (drawerState.value + 1) % 3;
+  drawer.value = true; // Ensure drawer is visible when mode is changed
+};
 
 const selectedPatientId = ref<string | null>(null); // ID of the currently active patient
 
@@ -307,7 +328,6 @@ const selectedPatientId = ref<string | null>(null); // ID of the currently activ
 
 // --- Drawer and Responsive ---
 const drawer = ref(true);
-const { smAndUp } = useDisplay();
 
 // === Resizable Drawer State (Vuetify only, no custom CSS) ===
 const DEFAULT_DRAWER_WIDTH = 350;
@@ -343,31 +363,6 @@ function onResizeMouseUp() {
   window.removeEventListener('mouseup', onResizeMouseUp);
 }
 
-// Touch events
-function onResizeTouchStart(e: TouchEvent) {
-  if (e.touches.length !== 1) return;
-  isResizing.value = true;
-  startX = e.touches[0].clientX;
-  startWidth = drawerWidth.value;
-  document.body.style.cursor = 'ew-resize';
-  window.addEventListener('touchmove', onResizeTouchMove);
-  window.addEventListener('touchend', onResizeTouchEnd);
-}
-
-function onResizeTouchMove(e: TouchEvent) {
-  if (!isResizing.value || e.touches.length !== 1) return;
-  const dx = e.touches[0].clientX - startX;
-  let newWidth = startWidth + dx;
-  newWidth = Math.max(MIN_DRAWER_WIDTH, Math.min(MAX_DRAWER_WIDTH, newWidth));
-  drawerWidth.value = newWidth;
-}
-
-function onResizeTouchEnd() {
-  isResizing.value = false;
-  document.body.style.cursor = '';
-  window.removeEventListener('touchmove', onResizeTouchMove);
-  window.removeEventListener('touchend', onResizeTouchEnd);
-}
 
 
 
@@ -409,7 +404,6 @@ const { snackbar, showSnackbar } = useSnackbar();
 const {
    noteDate, // Use noteDate instead of selectedDate
    noteDateDisplay,
-   dateMenu,
    allowedDates,
    todayString,
    goToPreviousDay,

@@ -1,7 +1,7 @@
 <template>
 
   <v-card flat class="">
-    <v-toolbar class="" density="compact">
+    <v-toolbar class="hide-small" density="compact">
       <v-text-field :model-value="search" @update:model-value="onSearchInput" label="Search patients"
         prepend-inner-icon="mdi-magnify" dense hide-details clearable class="" />
 
@@ -34,7 +34,7 @@
     </v-toolbar>
 
     <!-- === Date Navigation Toolbar === -->
-    <v-toolbar density="compact" color="grey-lighten-4">
+    <v-toolbar density="compact" color="grey-lighten-4" class="hide-small">
       <v-btn icon="mdi-chevron-left" @click="handlePreviousDayClick" title="Previous Day" size="small"></v-btn>
       <!-- Date Picker for Patient List Date Navigation -->
       <v-menu v-model="dateMenu" :close-on-content-click="false" location="bottom end" offset-y>
@@ -48,8 +48,8 @@
         </v-card>
       </v-menu>
       <span class="text-subtitle-2 mx-2" :title="activePatientListDate">
-        {{ patientListDateDisplayComputed }}
-      </span>
+       {{ patientListDateDisplayComputed }}
+     </span>
       <v-btn icon="mdi-chevron-right" @click="goToNextPatientListDay" title="Next Day" size="small"></v-btn>
 
       <v-spacer></v-spacer>
@@ -70,10 +70,10 @@
             </template>
             <v-list-item-content>
               <v-list-item-title>{{ patient.name }}</v-list-item-title>
-              <v-list-item-subtitle v-if="patient.umrn || patient.location" class="umrn-location">
-                {{ patient.umrn ? `${patient.umrn}` : "" }}
-                {{ patient.location ? `Location: ${patient.location}` : "" }}
-              </v-list-item-subtitle>
+              <v-list-item-subtitle v-if="(patient.umrn || patient.location)" class="umrn-location">
+               {{ patient.umrn ? `${patient.umrn}` : "" }}
+               {{ patient.location ? `Location: ${patient.location}` : "" }}
+             </v-list-item-subtitle>
             </v-list-item-content>
             <template #append>
               <v-list-item-action>
@@ -89,8 +89,11 @@
         <v-list-item v-for="(patient, _index) in patients" :key="patient.id" :data-id="patient.id"
           @click="onPatientClick(patient.id)">
           <v-list-item-content>
-            <v-list-item-title>{{ patient.name }}</v-list-item-title>
-            <v-list-item-subtitle v-if="patient.umrn || patient.location" class="umrn-location">
+            <v-list-item-title>
+             <span class="hide-small-2">{{ patient.name }}</span>
+             <span>{{ patient.name ? patient.name.charAt(0) : ' - ' }}</span> <!-- Show only initial in rail mode -->
+           </v-list-item-title>
+           <v-list-item-subtitle v-if="(patient.umrn || patient.location)" class="umrn-location hide-small">
               {{ patient.umrn ? `${patient.umrn}` : "" }}
               {{ patient.location ? `Location: ${patient.location}` : "" }}
             </v-list-item-subtitle>
@@ -98,7 +101,7 @@
         </v-list-item>
       </template>
     </v-list>
-    <v-card-actions>
+    <v-card-actions class="hide-small">
       <v-spacer></v-spacer>
 
       <v-btn color="primary" :disabled="!configState.isDataDirectorySet.value" @click="onAddNewPatient"
@@ -114,7 +117,7 @@
 
 </template>
 <script setup lang="ts">
-import { defineProps, defineEmits, ref, computed, PropType, watch, } from "vue";
+import { defineProps, defineEmits, ref, computed, PropType, onMounted, onBeforeUnmount } from "vue";
 import { usePatientData } from "@/composables/usePatientData"; // Import usePatientData
 
 // Props for presentational PatientList
@@ -213,25 +216,10 @@ function onAddNewPatient() {
 function onRemovePatientFromList(patient: any) {
   emit("removePatientFromList", patient);
 }
-function onRemoveSelectedPatientsFromList() {
-  emit("removeSelectedPatientsFromList");
-}
-function onAddSelectedToTodayList() {
-  emit("addSelectedToTodayList");
-}
 
 // Date navigation event handlers (now directly using usePatientData functions)
 function handlePreviousDayClick() {
   goToPreviousPatientListDay();
-}
-
-function handleNextDayClick() {
-  goToNextPatientListDay();
-}
-
-function handleDateChange(newDate: string) {
-  setActivePatientListDate(newDate);
-  dateMenu.value = false; // Close the date picker after selection
 }
 
 // New function to handle date picker updates and format the date
@@ -265,6 +253,19 @@ function handleDatePickerUpdate(newDateString: string | null) {
   dateMenu.value = false; // Close the date picker after selection
 }
 </script>
+
 <style scoped>
 /* Add any component-specific styles here if needed */
+.v-card {
+  container-type: inline-size;
+}
+
+@container (max-width: 70px) {
+  .hide-small {
+    opacity: 0;
+  }
+  .hide-small-2 {
+    display: none;
+  }
+}
 </style>
