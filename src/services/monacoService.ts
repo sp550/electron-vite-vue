@@ -245,8 +245,15 @@ class MonacoService {
       {
         provideCompletionItems: (
           model: monaco.editor.ITextModel,
-          position: monaco.Position
+          position: monaco.Position,
+          context: monaco.languages.CompletionContext // Add context parameter
         ): monaco.languages.ProviderResult<monaco.languages.CompletionList> => {
+
+          // Only provide suggestions if triggered manually (e.g., Ctrl+Space)
+          if (context.triggerKind !== monaco.languages.CompletionTriggerKind.Invoke) {
+            return { suggestions: [] }; // Return empty list if not invoked manually
+          }
+
           const word = model.getWordUntilPosition(position);
           const range = new monaco.Range(
             position.lineNumber,
@@ -264,7 +271,6 @@ class MonacoService {
           }));
           return { suggestions };
         },
-        triggerCharacters: [' ', '.'],
       }
     );
   }
@@ -675,8 +681,17 @@ class MonacoService {
         });
         const lastWordMatch = textUntilPosition.match(/(\w+)$/);
         const lastWord = lastWordMatch ? lastWordMatch[1].toLowerCase() : '';
+
+// DEBUG LOG: Show lastWord and suggestions
+console.log('[InlineCompletion] lastWord:', lastWord);
+        // Only provide suggestions if the last word exists and has at least 3 characters
+        if (!lastWord || lastWord.length < 3) {
+          return null;
+        }
+
+// DEBUG LOG: Show suggestions
         const suggestions = keyTerms
-          .filter(term => term.toLowerCase().includes(lastWord))
+          .filter(term => term.toLowerCase().startsWith(lastWord))
           .map(term => ({
             insertText: term,
             filterText: term,
@@ -688,6 +703,10 @@ class MonacoService {
             },
             command: undefined,
           }));
+
+        // DEBUG LOG: Show suggestions
+        console.log('[InlineCompletion] suggestions:', suggestions);
+
         return { items: suggestions, dispose: () => {} };
       },
       handleItemDidShow: () => {},

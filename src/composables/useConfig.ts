@@ -67,24 +67,19 @@ function joinPath(...parts: string[]) {
 // --- Loader for medicalLangConfig.json ---
 export async function loadMedicalLangConfig(forceReload = false): Promise<any> {
   if (cachedMedicalLangConfig && !forceReload) {
-    console.log("[loadMedicalLangConfig] Returning cached config");
     return cachedMedicalLangConfig;
   }
   const dataDir = config.value.dataDirectory;
-  console.log("[loadMedicalLangConfig] dataDirectory:", dataDir);
 
   const configFilePath = dataDir
     ? joinPath(dataDir, "config", "medicalLangConfig.json")
     : "public/medicalLangConfig.json";
-  console.log("[loadMedicalLangConfig] Trying Electron API with path:", configFilePath);
 
   try {
     // Try Electron API first (absolute path)
     const fileContent = await window.electronAPI.readFileAbsolute(configFilePath);
-    console.log("[loadMedicalLangConfig] Electron API read result:", fileContent ? "success" : "null/empty");
     if (fileContent) {
       cachedMedicalLangConfig = JSON.parse(fileContent);
-      console.log("[loadMedicalLangConfig] Loaded and parsed config via Electron API",fileContent);
       return cachedMedicalLangConfig;
     }
   } catch (e) {
@@ -94,12 +89,9 @@ export async function loadMedicalLangConfig(forceReload = false): Promise<any> {
       const fetchPath = dataDir
         ? joinPath(dataDir, "config", "medicalLangConfig.json")
         : "/public/medicalLangConfig.json";
-      console.log("[loadMedicalLangConfig] Trying fetch with path:", fetchPath);
       const res = await fetch(fetchPath);
-      console.log("[loadMedicalLangConfig] Fetch response ok?", res.ok);
       if (res.ok) {
         cachedMedicalLangConfig = await res.json();
-        console.log("[loadMedicalLangConfig] Loaded and parsed config via fetch");
         return cachedMedicalLangConfig;
       }
     } catch (e2) {
@@ -115,23 +107,18 @@ export async function loadMedicalLangConfig(forceReload = false): Promise<any> {
 // --- Loader for templates.json ---
 export async function loadTemplates(forceReload = false): Promise<any[]> {
   if (cachedTemplates && !forceReload) {
-    console.log("[loadTemplates] Returning cached templates");
     return cachedTemplates;
   }
   const dataDir = config.value.dataDirectory;
-  console.log("[loadTemplates] dataDirectory:", dataDir);
 
   const templatesFilePath = dataDir
     ? joinPath(dataDir, "config", "templates.json")
     : "public/templates.json";
-  console.log("[loadTemplates] Trying Electron API with path:", templatesFilePath);
 
   try {
     const fileContent = await window.electronAPI.readFileAbsolute(templatesFilePath);
-    console.log("[loadTemplates] Electron API read result:", fileContent ? "success" : "null/empty");
     if (fileContent) {
       cachedTemplates = JSON.parse(fileContent);
-      console.log("[loadTemplates] Loaded and parsed templates via Electron API");
       return cachedTemplates;
     }
   } catch (e) {
