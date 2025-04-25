@@ -62,7 +62,7 @@ async function registerLanguageAndTheme() {
  * Register custom actions and keybindings.
  * Emits 'onAction' when a custom action is triggered.
  */
-function registerActionsAndKeybindings(editor: monaco.editor.IStandaloneCodeEditor) {
+function registerActionsAndKeybindings(_editor: monaco.editor.IStandaloneCodeEditor) {
   // Example: Save action (Ctrl+S)
   monacoService.registerAction({
     id: 'save',
@@ -75,7 +75,7 @@ function registerActionsAndKeybindings(editor: monaco.editor.IStandaloneCodeEdit
     keybindingContext: undefined,
     contextMenuGroupId: 'navigation',
     contextMenuOrder: 1.5,
-    run: (editor: any, ...args: any[]) => {
+    run: (_editor: any, ..._args: any[]) => {
       emit('onAction', 'save');
     },
   });
@@ -84,7 +84,7 @@ function registerActionsAndKeybindings(editor: monaco.editor.IStandaloneCodeEdit
   monacoService.registerAction({
     id: 'format',
     label: 'Format Note',
-    run: (editor: any, ...args: any[]) => {
+    run: (_editor: any, ..._args: any[]) => {
       emit('onAction', 'format');
     },
   });
