@@ -1,6 +1,7 @@
 use vuetify and monaco api MCP*******
 
 # Patient Notes
+patients_datstamp.json should be in dataDir/patient-lists
 - Quick add feature (inspired by bloodproducts generator).
 add new patient - error on entering umrn
 before this i will have to implement patient first name Last Name, other names
