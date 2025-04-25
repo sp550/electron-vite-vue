@@ -222,7 +222,7 @@
                <v-btn @click="loadSelectedNote" small variant="tonal" class="ml-2">Retry</v-btn>
             </div>
             <MonacoEditorComponent v-if="!noteEditor.isLoading.value && !noteEditor.error.value" ref="monacoEditorRef"
-               v-model="noteContent" language="markdown" :options="{ theme: 'vs' }" class="pa-4 flex-grow-1"
+               v-model="noteContent" language="medicalLang" theme="medical-notes-theme" :options="{}" class="pa-4 flex-grow-1"
                style="height: 0;" />
          </v-container>
       </v-main>
@@ -287,7 +287,6 @@ function onNoteDateChange() {
 
 
 import { useNoteExport } from '@/composables/useNoteRetrieval';
-// import { useDateNavigation } from '@/composables/useDateNavigation'; // Removed
 import { useSnackbar } from '@/composables/useSnackbar';
 import { useDuplicatePatient } from '@/composables/useDuplicatePatient';
 import packageJson from '../package.json';
@@ -326,10 +325,6 @@ const toggleDrawerMode = () => {
 };
 
 const selectedPatientId = ref<string | null>(null); // ID of the currently active patient
-
-// --- Date Navigation Handlers (for PatientList.vue) ---
-// These handlers are now managed within usePatientData and PatientList.vue
-// and operate on activePatientListDate. Removing redundant handlers in App.vue.
 
 // --- Drawer and Responsive ---
 const drawer = ref(true);
@@ -412,7 +407,6 @@ const {
    goToPreviousNoteDay,
    goToNextNoteDay,
    onDateChange: handleDateChange,
-   allowedDates // Keep allowedDates for the date picker
 } = patientDataComposable; // Destructure from the merged composable
 
 
