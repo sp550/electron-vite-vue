@@ -1,16 +1,22 @@
 {
-  "tokenizer": {
-    "root": [
-      ["^//\\s*.*", "header"],
-      ["^#\\s*.*", "issue"],
-      ["\\b(chase|examine|request|addon)\\b", "action"],
-      [".*[A-Z]\\d{7}.*", "umrn"],
-      ["\\[x\\]", "green"],
-      ["\\[xx\\]", "dark-green"],
-      ["\\[\\s*\\]", "red"]
-    ]
+  "language": {
+    "id": "medical-notes",
+    "extensions": [".mednote", ".mnote"],
+    "aliases": ["Medical Notes", "mednote"],
+    "tokenizer": {
+      "root": [
+        ["^//\\s*.*", "header"],
+        ["^#\\s*.*", "issue"],
+        ["\\b(chase|examine|request|addon)\\b", "action"],
+        [".*[A-Z]\\d{7}.*", "umrn"],
+        ["\\[x\\]", "green"],
+        ["\\[xx\\]", "dark-green"],
+        ["\\[\\s*\\]", "red"]
+      ]
+    }
   },
   "theme": {
+    "id": "medical-notes-theme",
     "base": "vs",
     "inherit": true,
     "rules": [

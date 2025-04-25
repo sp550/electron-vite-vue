@@ -1,127 +1,277 @@
 <template>
-   <div ref="editorContainer" class="monaco-editor-container"></div>
+  <div ref="editorContainer" class="monaco-editor-container"></div>
 </template>
 
 <script setup lang="ts">
 import { ref, onMounted, onBeforeUnmount, watch, nextTick } from 'vue';
-import { editor, Range } from 'monaco-editor';
-import { initializeMedicalTemplates,initializeMedicalLanguage } from '@/monacoLanguage';
-// Props using defineProps
+import type { PropType } from 'vue';
+import { monacoService, MonacoServiceOptions } from '@/services/monacoService';
+import type * as monaco from 'monaco-editor';
+
+/**
+ * Props for MonacoEditorComponent
+ */
 const props = defineProps({
-   modelValue: {
-      type: String,
-      required: true,
-   },
-   language: {
-      type: String,
-      default: 'markdown', // Default to markdown for MVP
-   },
-   options: {
-      type: Object,
-      default: () => ({}),
-   },
-   readOnly: {
-      type: Boolean,
-      default: false,
-   },
+  modelValue: {
+    type: String,
+    required: true,
+  },
+  language: {
+    type: String,
+    default: 'markdown',
+  },
+  theme: {
+    type: String,
+    default: 'vs-dark',
+  },
+  options: {
+    type: Object as PropType<monaco.editor.IStandaloneEditorConstructionOptions>,
+    default: () => ({}),
+  },
+  readOnly: {
+    type: Boolean,
+    default: false,
+  },
 });
 
-// Emits using defineEmits
-const emit = defineEmits(['update:modelValue', 'editorMounted']);
+/**
+ * Emits for MonacoEditorComponent
+ */
+const emit = defineEmits<{
+  (e: 'update:modelValue', value: string): void;
+  (e: 'editorMounted', editor: monaco.editor.IStandaloneCodeEditor): void;
+  (e: 'onAction', actionId: string): void;
+}>();
 
 const editorContainer = ref<HTMLElement | null>(null);
-let editorInstance: editor.IStandaloneCodeEditor | null = null;
-let preventUpdate = false; // Flag to prevent feedback loop with v-model
+let preventUpdate = false;
 
-const defaultOptions: editor.IStandaloneEditorConstructionOptions = {
-   // theme: 'vs-dark', // or 'vs' for light
-   automaticLayout: true, // Adjusts editor layout on container resize
-   minimap: { enabled: true },
-   wordWrap: 'on', // Enable word wrapping
-   scrollBeyondLastLine: false,
-   fontSize: 14,
-   readOnly: props.readOnly,
-};
+/**
+ * Register language and theme if needed.
+ * This should be replaced with dynamic config loading if required.
+ */
+async function registerLanguageAndTheme() {
+  // Example: Load config from file or use static config
+  // import config from '@/config/medicalLangConfig.json';
+  // monacoService.registerLanguage(config.language);
+  // monacoService.registerTheme(config.theme);
+  // For now, assume language and theme are already registered or use built-in
+}
+
+/**
+ * Register custom actions and keybindings.
+ * Emits 'onAction' when a custom action is triggered.
+ */
+function registerActionsAndKeybindings(editor: monaco.editor.IStandaloneCodeEditor) {
+  // Example: Save action (Ctrl+S)
+  monacoService.registerAction({
+    id: 'save',
+    label: 'Save Note',
+    keybindings: [
+      // @ts-ignore
+      window.monaco?.KeyMod?.CtrlCmd | window.monaco?.KeyCode?.KeyS || 2048 | 49 // fallback
+    ],
+    precondition: undefined,
+    keybindingContext: undefined,
+    contextMenuGroupId: 'navigation',
+    contextMenuOrder: 1.5,
+    run: (editor: any, ...args: any[]) => {
+      emit('onAction', 'save');
+    },
+  });
+
+  // Example: Format action
+  monacoService.registerAction({
+    id: 'format',
+    label: 'Format Note',
+    run: (editor: any, ...args: any[]) => {
+      emit('onAction', 'format');
+    },
+  });
+
+  // Add more actions/keybindings as needed
+}
+
+/**
+ * Register completions/templates if needed.
+ * This should be replaced with dynamic template loading if required.
+ */
+function registerCompletions() {
+  // Example: Register dummy completions for demonstration
+  // monacoService.registerCompletions(props.language, [
+  //   { label: 'Template1', insertText: 'This is a template.' }
+  // ]);
+}
 
 onMounted(async () => {
-   await nextTick(); // Ensure the container is fully rendered
+  await nextTick();
+  if (!editorContainer.value) {
+    console.error('Monaco Editor container not found.');
+    return;
+  }
 
-   if (editorContainer.value) {
-      // Merge default options with provided options
-      const finalOptions = { ...defaultOptions, ...props.options, readOnly: props.readOnly };
+  await registerLanguageAndTheme();
 
-      editorInstance = editor.create(editorContainer.value, {
-         value: props.modelValue,
-         language: props.language,
-         ...finalOptions,
-      });
+  // Create editor via service
+  const editor = monacoService.createEditor({
+    container: editorContainer.value,
+    value: props.modelValue,
+    language: props.language,
+    theme: props.theme,
+    readOnly: props.readOnly,
+    options: props.options,
+  } as MonacoServiceOptions);
 
-      // Listen for content changes and emit update:modelValue
-      editorInstance.onDidChangeModelContent(() => {
-         if (editorInstance && !preventUpdate) {
-            const currentValue = editorInstance.getValue();
-            if (currentValue !== props.modelValue) { // Only emit if value actually changed
-               emit('update:modelValue', currentValue);
-            }
-         }
-      });
+  // Register actions, keybindings, completions
+  registerActionsAndKeybindings(editor);
+  registerCompletions();
 
-      emit('editorMounted', editorInstance); // Emit event when editor is ready
-   } else {
-      console.error("Monaco Editor container not found.");
-   }
+  // Listen for content changes and emit update:modelValue
+  editor.onDidChangeModelContent(() => {
+    if (!preventUpdate) {
+      const currentValue = monacoService.getValue();
+      if (currentValue !== props.modelValue) {
+        emit('update:modelValue', currentValue);
+      }
+    }
+  });
 
-   initializeMedicalLanguage();
-   initializeMedicalTemplates();
+  emit('editorMounted', editor);
 });
 
 onBeforeUnmount(() => {
-   if (editorInstance) {
-      editorInstance.dispose();
-      editorInstance = null;
-   }
+  monacoService.disposeEditor();
 });
 
-// Watch for external changes to modelValue
+/**
+ * Watch for external changes to modelValue and update the editor.
+ */
 watch(() => props.modelValue, (newValue) => {
-   if (editorInstance) {
-      const editorValue = editorInstance.getValue();
-      if (newValue !== editorValue) {
-         preventUpdate = true; // Prevent emitting the change back
-         // Use pushEditOperations for better undo/redo stack handling
-         editorInstance.executeEdits('external', [{
-            range: editorInstance.getModel()?.getFullModelRange() ?? new Range(1, 1, 1, 1),
-            text: newValue,
-            forceMoveMarkers: true
-         }]);
-         // Or simpler way: editorInstance.setValue(newValue); but might reset undo stack
-         preventUpdate = false;
-      }
-   }
+  const currentValue = monacoService.getValue();
+  if (newValue !== currentValue) {
+    preventUpdate = true;
+    monacoService.setValue(newValue);
+    preventUpdate = false;
+  }
 });
 
-// Watch for changes in readOnly prop
-watch(() => props.readOnly, (newReadOnlyValue) => {
-   if (editorInstance) {
-      editorInstance.updateOptions({ readOnly: newReadOnlyValue });
-   }
+/**
+ * Watch for changes in language prop and update the editor.
+ */
+watch(() => props.language, (newLang) => {
+  monacoService.setLanguage(newLang);
 });
 
-// Expose editor instance if needed (optional)
-// defineExpose({ editorInstance });
+/**
+ * Watch for changes in theme prop and update the editor.
+ */
+watch(() => props.theme, (newTheme) => {
+  monacoService.setTheme(newTheme);
+});
 
+/**
+ * Watch for changes in readOnly prop and update the editor.
+ */
+watch(() => props.readOnly, (newReadOnly) => {
+  monacoService.updateOptions({ readOnly: newReadOnly });
+});
+
+/**
+ * Watch for changes in options prop and update the editor.
+ */
+watch(() => props.options, (newOptions) => {
+  monacoService.updateOptions(newOptions);
+});
+
+/**
+ * Expose editor instance and utility methods for parent access.
+ * All methods are strongly typed and documented.
+ */
+defineExpose({
+  /**
+   * The Monaco editor instance.
+   */
+  get editorInstance(): monaco.editor.IStandaloneCodeEditor | null {
+    return monacoService['editor'] ?? null;
+  },
+
+  /**
+   * Focus the editor programmatically.
+   * @returns {void}
+   */
+  focus(): void {
+    monacoService.focus();
+  },
+
+  /**
+   * Get the current editor content.
+   * @returns {string}
+   */
+  getValue(): string {
+    return monacoService.getValue();
+  },
+
+  /**
+   * Set the editor content.
+   * @param {string} value - The new content for the editor.
+   * @returns {void}
+   */
+  setValue(value: string): void {
+    monacoService.setValue(value);
+  },
+
+  /**
+   * Programmatically trigger a registered action.
+   * @param {string} actionId - The action's ID.
+   * @returns {void}
+   */
+  triggerAction(actionId: string): void {
+    monacoService.triggerAction(actionId);
+  },
+
+  /**
+   * Change the editor theme at runtime.
+   * @param {string} themeName - The name of the registered theme.
+   * @returns {void}
+   */
+  setTheme(themeName: string): void {
+    monacoService.setTheme(themeName);
+  },
+
+  /**
+   * Change the language mode at runtime.
+   * @param {string} languageId - The language ID to switch to.
+   * @returns {void}
+   */
+  setLanguage(languageId: string): void {
+    monacoService.setLanguage(languageId);
+  },
+
+  /**
+   * Update editor options dynamically.
+   * @param {monaco.editor.IStandaloneEditorConstructionOptions} options - Partial editor options.
+   * @returns {void}
+   */
+  updateOptions(options: monaco.editor.IStandaloneEditorConstructionOptions): void {
+    monacoService.updateOptions(options);
+  },
+
+  /**
+   * Access the current Monaco model for advanced operations.
+   * @returns {monaco.editor.ITextModel | null}
+   */
+  getModel(): monaco.editor.ITextModel | null {
+    return monacoService.getModel();
+  },
+});
 </script>
 
 <style scoped>
 .monaco-editor-container {
-   width: 100%;
-   height: 100%;
-   /* Ensure container has height */
-   min-height: 100px;
-   /* Example minimum height */
-   border: 1px solid #ccc;
-   /* Add a border for visibility */
-   overflow: hidden;
-   /* Prevent editor overflow issues */
+  width: 100%;
+  height: 100%;
+  min-height: 100px;
+  border: 1px solid #ccc;
+  overflow: hidden;
 }
 </style>

@@ -1,0 +1,55 @@
+[
+  {
+    "label": "Presenting Complaint",
+    "insertText": "Presenting Complaint: ",
+    "detail": "Section header for presenting complaint",
+    "documentation": "Start the note with the patient's main complaint or reason for admission."
+  },
+  {
+    "label": "History of Present Illness",
+    "insertText": "History of Present Illness: ",
+    "detail": "Section header for HPI",
+    "documentation": "Describe the course of the patient's current illness."
+  },
+  {
+    "label": "Physical Exam",
+    "insertText": "Physical Exam: ",
+    "detail": "Section header for physical examination findings"
+  },
+  {
+    "label": "Assessment and Plan",
+    "insertText": "Assessment and Plan:\n- ",
+    "detail": "Section header for assessment and plan",
+    "documentation": "Summarize the assessment and outline the plan for the patient."
+  },
+  {
+    "label": "Chase Bloods",
+    "insertText": "Chase bloods for ",
+    "detail": "Action item: chase blood results"
+  },
+  {
+    "label": "Review Results",
+    "insertText": "Review results of ",
+    "detail": "Action item: review investigation results"
+  },
+  {
+    "label": "Continue Antibiotics",
+    "insertText": "Continue antibiotics as charted.",
+    "detail": "Standard plan item"
+  },
+  {
+    "label": "Discharge Planning",
+    "insertText": "Ongoing disposition planning: ",
+    "detail": "Action item: discharge planning"
+  },
+  {
+    "label": "Request Imaging",
+    "insertText": "Request CXR for ",
+    "detail": "Action item: request chest x-ray"
+  },
+  {
+    "label": "Wound Care Nurse Review",
+    "insertText": "Wound care nurse review requested.",
+    "detail": "Action item: wound care"
+  }
+]
