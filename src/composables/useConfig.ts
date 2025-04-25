@@ -1,6 +1,10 @@
 import { ref, readonly, onMounted, computed } from "vue";
 import type { AppConfig } from "@/types";
 
+// --- Caching for medicalLangConfig and templates ---
+let cachedMedicalLangConfig: any = null;
+let cachedTemplates: any = null;
+
 const isLoading = ref(false);
 const error = ref<string | null>(null);
 
@@ -12,10 +16,148 @@ const defaultConfig: AppConfig = {
   iCMListDirectory: null, // Default path for iCM list
 };
 
+// Hardcoded fallback for medicalLangConfig (minimal, can be expanded)
+const fallbackMedicalLangConfig = {
+  language: {
+    id: "medical-notes",
+    extensions: [".mednote", ".mnote"],
+    aliases: ["Medical Notes", "mednote"],
+    tokenizer: {
+      root: [
+        ["^//\\s*.*", "header"],
+        ["^#\\s*.*", "issue"],
+        ["\\b(chase|examine|request|addon)\\b", "action"],
+        [".*[A-Z]\\d{7}.*", "umrn"],
+        ["\\[x\\]", "green"],
+        ["\\[xx\\]", "dark-green"],
+        ["\\[\\s*\\]", "red"]
+      ]
+    }
+  },
+  theme: {
+    id: "medical-notes-theme",
+    base: "vs",
+    inherit: true,
+    rules: [],
+    colors: {}
+  },
+  keyTerms: [],
+  templates: {}
+};
+
+// Hardcoded fallback for templates (minimal, can be expanded)
+const fallbackTemplates = [
+  {
+    label: "Presenting Complaint",
+    insertText: "Presenting Complaint: ",
+    detail: "Section header for presenting complaint"
+  }
+];
+
 const config = ref<AppConfig>({ ...defaultConfig });
 const isConfigLoaded = ref(false);
 const dataDirectoryChangeFlag = ref(0); // Used to trigger reactivity on path change
 const configPathDisplay = ref<string | null>(null); // Ref to store the config path for display
+
+// Cross-platform path join helper (moved to module scope)
+function joinPath(...parts: string[]) {
+  // Join with "/" and remove duplicate slashes
+  return parts.filter(Boolean).join("/").replace(/\/+/g, "/");
+}
+// --- Loader for medicalLangConfig.json ---
+export async function loadMedicalLangConfig(forceReload = false): Promise<any> {
+  if (cachedMedicalLangConfig && !forceReload) {
+    console.log("[loadMedicalLangConfig] Returning cached config");
+    return cachedMedicalLangConfig;
+  }
+  const dataDir = config.value.dataDirectory;
+  console.log("[loadMedicalLangConfig] dataDirectory:", dataDir);
+
+  const configFilePath = dataDir
+    ? joinPath(dataDir, "config", "medicalLangConfig.json")
+    : "public/medicalLangConfig.json";
+  console.log("[loadMedicalLangConfig] Trying Electron API with path:", configFilePath);
+
+  try {
+    // Try Electron API first (absolute path)
+    const fileContent = await window.electronAPI.readFileAbsolute(configFilePath);
+    console.log("[loadMedicalLangConfig] Electron API read result:", fileContent ? "success" : "null/empty");
+    if (fileContent) {
+      cachedMedicalLangConfig = JSON.parse(fileContent);
+      console.log("[loadMedicalLangConfig] Loaded and parsed config via Electron API",fileContent);
+      return cachedMedicalLangConfig;
+    }
+  } catch (e) {
+    console.error("[loadMedicalLangConfig] Electron API error:", e);
+    // Try fallback path (for dev or web context)
+    try {
+      const fetchPath = dataDir
+        ? joinPath(dataDir, "config", "medicalLangConfig.json")
+        : "/public/medicalLangConfig.json";
+      console.log("[loadMedicalLangConfig] Trying fetch with path:", fetchPath);
+      const res = await fetch(fetchPath);
+      console.log("[loadMedicalLangConfig] Fetch response ok?", res.ok);
+      if (res.ok) {
+        cachedMedicalLangConfig = await res.json();
+        console.log("[loadMedicalLangConfig] Loaded and parsed config via fetch");
+        return cachedMedicalLangConfig;
+      }
+    } catch (e2) {
+      console.error("[loadMedicalLangConfig] Fetch error:", e2);
+      // Ignore, fallback below
+    }
+  }
+  console.warn("[loadMedicalLangConfig] Using fallbackMedicalLangConfig");
+  cachedMedicalLangConfig = fallbackMedicalLangConfig;
+  return cachedMedicalLangConfig;
+}
+
+// --- Loader for templates.json ---
+export async function loadTemplates(forceReload = false): Promise<any[]> {
+  if (cachedTemplates && !forceReload) {
+    console.log("[loadTemplates] Returning cached templates");
+    return cachedTemplates;
+  }
+  const dataDir = config.value.dataDirectory;
+  console.log("[loadTemplates] dataDirectory:", dataDir);
+
+  const templatesFilePath = dataDir
+    ? joinPath(dataDir, "config", "templates.json")
+    : "public/templates.json";
+  console.log("[loadTemplates] Trying Electron API with path:", templatesFilePath);
+
+  try {
+    const fileContent = await window.electronAPI.readFileAbsolute(templatesFilePath);
+    console.log("[loadTemplates] Electron API read result:", fileContent ? "success" : "null/empty");
+    if (fileContent) {
+      cachedTemplates = JSON.parse(fileContent);
+      console.log("[loadTemplates] Loaded and parsed templates via Electron API");
+      return cachedTemplates;
+    }
+  } catch (e) {
+    console.error("[loadTemplates] Electron API error:", e);
+    try {
+      const fetchPath = dataDir
+        ? joinPath(dataDir, "config", "templates.json")
+        : "/public/templates.json";
+      console.log("[loadTemplates] Trying fetch with path:", fetchPath);
+      const res = await fetch(fetchPath);
+      console.log("[loadTemplates] Fetch response ok?", res.ok);
+      if (res.ok) {
+        cachedTemplates = await res.json();
+        console.log("[loadTemplates] Loaded and parsed templates via fetch");
+        return cachedTemplates;
+      }
+    } catch (e2) {
+      console.error("[loadTemplates] Fetch error:", e2);
+      // Ignore, fallback below
+    }
+  }
+
+  console.warn("[loadTemplates] Using fallbackTemplates");
+  cachedTemplates = fallbackTemplates;
+  return cachedTemplates;
+}
 
 export function useConfig() {
 
@@ -28,6 +170,7 @@ export function useConfig() {
   const readConfigFile = async (): Promise<AppConfig | null> => {
     try {
       const configPath = await getConfigPath();
+      console.log(configPath)
       configPathDisplay.value = configPath; // Store the path
       const fileContent = await window.electronAPI.readFileAbsolute(configPath);
       return fileContent ? JSON.parse(fileContent) : null;
@@ -124,5 +267,7 @@ export function useConfig() {
     setDataDirectory,
     dataDirectoryChangeFlag: readonly(dataDirectoryChangeFlag),
     configPath: readonly(configPathDisplay), // Expose the config path
+    loadMedicalLangConfig,
+    loadTemplates,
   };
 }

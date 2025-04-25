@@ -18,7 +18,7 @@ const props = defineProps({
   },
   language: {
     type: String,
-    default: 'markdown',
+    default: 'medical-notes',
   },
   theme: {
     type: String,
@@ -50,13 +50,10 @@ let preventUpdate = false;
  * Register language and theme if needed.
  * This should be replaced with dynamic config loading if required.
  */
-async function registerLanguageAndTheme() {
-  // Example: Load config from file or use static config
-  // import config from '@/config/medicalLangConfig.json';
-  // monacoService.registerLanguage(config.language);
-  // monacoService.registerTheme(config.theme);
-  // For now, assume language and theme are already registered or use built-in
-}
+/**
+ * All custom language, theme, and config registration is handled by
+ * monacoService.initializeMonacoCustomizations(editor).
+ */
 
 /**
  * Register custom actions and keybindings.
@@ -96,12 +93,9 @@ function registerActionsAndKeybindings(_editor: monaco.editor.IStandaloneCodeEdi
  * Register completions/templates if needed.
  * This should be replaced with dynamic template loading if required.
  */
-function registerCompletions() {
-  // Example: Register dummy completions for demonstration
-  // monacoService.registerCompletions(props.language, [
-  //   { label: 'Template1', insertText: 'This is a template.' }
-  // ]);
-}
+/**
+ * Custom completions/templates are registered via monacoService.initializeMonacoCustomizations(editor).
+ */
 
 onMounted(async () => {
   await nextTick();
@@ -109,8 +103,6 @@ onMounted(async () => {
     console.error('Monaco Editor container not found.');
     return;
   }
-
-  await registerLanguageAndTheme();
 
   // Create editor via service
   const editor = monacoService.createEditor({
@@ -122,9 +114,11 @@ onMounted(async () => {
     options: props.options,
   } as MonacoServiceOptions);
 
-  // Register actions, keybindings, completions
+  // Ensure all custom language, theme, and config is loaded and applied
+  await monacoService.initializeMonacoCustomizations(editor);
+
+  // Register actions and keybindings
   registerActionsAndKeybindings(editor);
-  registerCompletions();
 
   // Listen for content changes and emit update:modelValue
   editor.onDidChangeModelContent(() => {

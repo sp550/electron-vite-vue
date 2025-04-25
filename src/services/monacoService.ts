@@ -1,4 +1,5 @@
 import * as monaco from 'monaco-editor';
+import { loadMedicalLangConfig, loadTemplates } from '@/composables/useConfig';
 
 /**
  * Types for language and theme config, and template completions.
@@ -288,44 +289,12 @@ class MonacoService {
   public registerCustomKeybindingsAndActions(): void {
     if (!this.editor) return;
 
-    // --- Placeholders for not-yet-implemented logic ---
-    /**
-     * TODO: Implement patient UMRN navigation logic.
-     */
-    const searchForUmrnLines = async (editor: monaco.editor.ICodeEditor) => {
-      // TODO: Implement search for UMRN lines
-      // Placeholder: No-op
-    };
-    /**
-     * TODO: Implement navigation between UMRN lines.
-     */
-    const navigateUmrnLines = async (direction: 'up' | 'down', editor: monaco.editor.ICodeEditor) => {
-      // TODO: Implement navigation logic
-    };
-    /**
-     * TODO: Implement select whole note text logic.
-     */
-    const selectWholeNoteTextByPos = async (editor: monaco.editor.ICodeEditor) => {
-      // TODO: Implement select whole note text
-    };
-    /**
-     * TODO: Implement getMonthsNotes logic.
-     */
-    const getMonthsNotes = async (params: { umrn: string }) => {
-      // TODO: Implement retrieval of whole months notes
-    };
-    /**
-     * TODO: Implement checkbox toggle logic.
-     */
-    const checkTheBox = async (index: number) => {
-      // TODO: Implement checkbox toggle
-    };
-
+   
     // --- Keybindings registration ---
     // Helper to register a keybinding and (optionally) an action
     const registerKeybinding = (
       keybinding: number,
-      actionId: string,
+      _actionId: string,
       callback: (editor: monaco.editor.IStandaloneCodeEditor) => void
     ) => {
       this.editor!.addCommand(keybinding, () => callback(this.editor!), undefined);
@@ -337,8 +306,6 @@ class MonacoService {
       'editor.action.inlineSuggest.trigger': monaco.KeyMod.Shift | monaco.KeyCode.Space,
       'editor.action.triggerSuggest': monaco.KeyMod.CtrlCmd | monaco.KeyCode.Space,
       'editor.foldLevel1': monaco.KeyCode.F3,
-      'navigate-umrn-up': monaco.KeyMod.CtrlCmd | monaco.KeyCode.UpArrow,
-      'navigate-umrn-down': monaco.KeyMod.CtrlCmd | monaco.KeyCode.DownArrow,
       'select-whole-note-text': monaco.KeyMod.CtrlCmd | monaco.KeyMod.Shift | monaco.KeyCode.KeyC,
       'checkbox-0': monaco.KeyMod.CtrlCmd | monaco.KeyCode.Digit0,
       'checkbox-1': monaco.KeyMod.CtrlCmd | monaco.KeyCode.Digit1,
@@ -372,56 +339,7 @@ class MonacoService {
       },
     });
 
-    // Navigate UMRN Up
-    this.editor.addAction({
-      id: 'navigate-umrn-up',
-      label: 'Navigate UMRN Up',
-      run: async (editor) => {
-        await searchForUmrnLines(editor);
-        await navigateUmrnLines('up', editor);
-      },
-    });
 
-    // Navigate UMRN Down
-    this.editor.addAction({
-      id: 'navigate-umrn-down',
-      label: 'Navigate UMRN Down',
-      run: async (editor) => {
-        await searchForUmrnLines(editor);
-        await navigateUmrnLines('down', editor);
-      },
-    });
-
-    // Select whole note text
-    this.editor.addAction({
-      id: 'select-whole-note-text',
-      label: 'Select Patient Note',
-      contextMenuGroupId: 'navigation',
-      contextMenuOrder: 1.5,
-      run: async (editor) => {
-        await selectWholeNoteTextByPos(editor);
-      },
-    });
-
-    // WholeMonths notes
-    this.editor.addAction({
-      id: 'month-nots',
-      label: 'WholeMonths notes',
-      run: async () => {
-        await getMonthsNotes({ umrn: 'B2047794' });
-      },
-    });
-
-    // Checkbox actions
-    [0, 1, 2].forEach(idx => {
-      this.editor!.addAction({
-        id: `checkbox-${idx}`,
-        label: `Checkbox ${idx}`,
-        run: async () => {
-          await checkTheBox(idx);
-        },
-      });
-    });
   }
   /**
    * Loads and merges language configuration for 'medicalLang' from config/medicalLangConfig.json
@@ -442,7 +360,7 @@ class MonacoService {
     monarchTokensProvider?: monaco.languages.IMonarchLanguage
   ): Promise<void> {
     // Dynamically import config (avoids bundling, works in Electron/Vite context)
-    const config = await fetch('/config/medicalLangConfig.json').then(res => res.json());
+    const config = await loadMedicalLangConfig();
 
     // Extract Monarch tokens from config if not provided
     let monarchTokens: monaco.languages.IMonarchLanguage | undefined = monarchTokensProvider;
@@ -489,7 +407,7 @@ class MonacoService {
    */
   public async extendTokenizerAndRegisterProvider(languageId: string = "medical-notes"): Promise<void> {
     // Fetch config dynamically (avoids bundling, works in Electron/Vite context)
-    const config = await fetch('/config/medicalLangConfig.json').then(res => res.json());
+    const config = await loadMedicalLangConfig();
 
     // Extract tokenizer rules from config
     const tokenizer: Record<string, any[]> = config.language?.tokenizer ?? {};
@@ -633,8 +551,7 @@ class MonacoService {
    * @returns Promise<TemplateCompletion[]>
    */
   private async _loadTemplates(): Promise<TemplateCompletion[]> {
-    const res = await fetch('/templates.json');
-    const templates = await res.json();
+    const templates = await loadTemplates();
     // Optionally infer kind for each template
     return templates.map((t: Omit<TemplateCompletion, 'kind'>) => ({
       ...t,
@@ -647,8 +564,7 @@ class MonacoService {
    * @returns Promise<string[]>
    */
   private async _loadKeyTerms(): Promise<string[]> {
-    const res = await fetch('/config/medicalLangConfig.json');
-    const config = await res.json();
+    const config = await loadMedicalLangConfig();
     return Array.isArray(config.keyTerms) ? config.keyTerms : [];
   }
 
@@ -776,6 +692,72 @@ class MonacoService {
       handleItemDidShow: () => {},
       freeInlineCompletions: () => {},
     });
+  }
+/**
+   * Initializes all Monaco Editor customizations for a given editor instance.
+   *
+   * This is the single entry point for setting up Monaco customizations in the application.
+   * It orchestrates the registration and application of language configuration, theme, actions,
+   * keybindings, tokenizer, folding, and completion providers. This method should be called
+   * every time a new Monaco editor instance is created to ensure all customizations are (re)applied.
+   *
+   * @param editorInstance The Monaco editor instance to customize.
+   * @returns Promise<void>
+   *
+   * Usage:
+   *   await monacoService.initializeMonacoCustomizations(editorInstance);
+   */
+  public async initializeMonacoCustomizations(
+    editorInstance: monaco.editor.IStandaloneCodeEditor
+  ): Promise<void> {
+    // Set the current editor instance for per-instance registrations
+    this.editor = editorInstance;
+
+    // 1. Register language configuration and tokenizer
+    // 1. Register language configuration and tokenizer using config
+    await this.registerLanguageConfiguration(
+      'medicalLang',
+      {
+        // Provide minimal config; real config is loaded/merged in the method
+        wordPattern: /(-?\d*\.\d\w*)|([^\`\~\!\@\#\%\^\&\*\(\)\=\+\[\{\]\}\\\|\;\:\'\"\,\<\>\/\?\s]+)/g,
+        comments: {
+          lineComment: '//'
+        },
+        autoClosingPairs: [
+          { open: '{', close: '}' },
+          { open: '[', close: ']' },
+          { open: '(', close: ')' },
+          { open: '"', close: '"' },
+          { open: "'", close: "'" }
+        ]
+      }
+    );
+    await this.extendTokenizerAndRegisterProvider('medicalLang');
+
+    // 2. Register folding provider
+    this.registerFoldingRangeProvider('medicalLang');
+
+    // 3. Register and set theme from config/medicalLangConfig.json
+    const config = await loadMedicalLangConfig();
+    if (config.theme) {
+      const themeConfig = {
+        name: config.theme.id || 'medicalLang-theme',
+        base: config.theme.base || 'vs',
+        inherit: config.theme.inherit !== undefined ? config.theme.inherit : true,
+        rules: config.theme.rules || [],
+        colors: config.theme.colors || {}
+      };
+      this.registerTheme(themeConfig);
+      this.setTheme(themeConfig.name);
+    }
+
+    // 4. Register completion providers
+    await this.registerMedicalLangCompletionProvider();
+    await this.registerMedicalLangTemplateInlineCompletionProvider();
+    await this.registerMedicalLangKeyTermInlineCompletionProvider();
+
+    // 5. Register custom actions and keybindings for this editor instance
+    this.registerCustomKeybindingsAndActions();
   }
 }
 
