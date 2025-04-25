@@ -222,7 +222,7 @@
                <v-btn @click="loadSelectedNote" small variant="tonal" class="ml-2">Retry</v-btn>
             </div>
             <MonacoEditorComponent v-if="!noteEditor.isLoading.value && !noteEditor.error.value" ref="monacoEditorRef"
-               v-model="noteContent" language="medicalLang" theme="medical-notes-theme" :options="{}" class="pa-4 flex-grow-1"
+               v-model="noteContent" language="medicalLang" theme="medicalLang-theme" :options="{}" class="pa-4 flex-grow-1"
                style="height: 0;" />
          </v-container>
       </v-main>

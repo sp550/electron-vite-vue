@@ -349,7 +349,7 @@ class MonacoService {
    * - Applies provided language configuration (word pattern, indentation rules, onEnter rules).
    * - Registers the language and configuration with Monaco.
    *
-   * @param languageId The Monaco language ID (e.g., 'medicalLang' or 'medical-notes').
+   * @param languageId The Monaco language ID (e.g., 'medicalLang' or 'medicalLang').
    * @param languageConfiguration Monaco language configuration (word pattern, indentation rules, onEnter rules).
    * @param monarchTokensProvider Optional Monarch tokens provider (if not provided, loaded from config).
    * @returns Promise<void>
@@ -402,35 +402,36 @@ class MonacoService {
    * - Merges rules, avoiding duplication.
    * - Registers the Monarch tokens provider for the language.
    *
-   * @param languageId The Monaco language ID to extend (default: "medical-notes").
+   * @param languageId The Monaco language ID to extend (default: "medicalLang").
    * @returns Promise<void>
    */
-  public async extendTokenizerAndRegisterProvider(languageId: string = "medical-notes"): Promise<void> {
+  public async extendTokenizerAndRegisterProvider(languageId: string = "medicalLang"): Promise<void> {
     // Fetch config dynamically (avoids bundling, works in Electron/Vite context)
     const config = await loadMedicalLangConfig();
 
     // Extract tokenizer rules from config
-    const tokenizer: Record<string, any[]> = config.language?.tokenizer ?? {};
-    // Defensive: ensure root exists and is an array
-    if (!Array.isArray(tokenizer.root)) {
-      tokenizer.root = [];
+    const tokenizer: Record<string, any[]> = config.language?.tokenizer;
+    if (!tokenizer) {
+      console.warn("Medical language tokenizer configuration is empty.");
+    } else if (!Array.isArray(tokenizer.root)) {
+       console.warn("Medical language tokenizer root is not an array.");
     }
 
-    // Define the custom header rule (from old project)
-    const customHeaderRule: [string, string] = ["^//\\s*.*", "header"];
+    // // Define the custom header rule (from old project)
+    // const customHeaderRule: [string, string] = ["^//\\s*.*", "header"];
 
-    // Check if the custom header rule is already present (by pattern and token)
-    const hasHeaderRule = tokenizer.root.some(
-      (rule: any) =>
-        Array.isArray(rule) &&
-        rule[0] === customHeaderRule[0] &&
-        rule[1] === customHeaderRule[1]
-    );
+    // // Check if the custom header rule is already present (by pattern and token)
+    // const hasHeaderRule = tokenizer.root.some(
+    //   (rule: any) =>
+    //     Array.isArray(rule) &&
+    //     rule[0] === customHeaderRule[0] &&
+    //     rule[1] === customHeaderRule[1]
+    // );
 
-    // Add the custom header rule if not present
-    if (!hasHeaderRule) {
-      tokenizer.root.unshift(customHeaderRule);
-    }
+    // // Add the custom header rule if not present
+    // if (!hasHeaderRule) {
+    //   tokenizer.root.unshift(customHeaderRule);
+    // }
 
     // Build the Monarch tokens provider object
     const monarchTokensProvider: monaco.languages.IMonarchLanguage = {
@@ -718,18 +719,18 @@ class MonacoService {
     await this.registerLanguageConfiguration(
       'medicalLang',
       {
-        // Provide minimal config; real config is loaded/merged in the method
-        wordPattern: /(-?\d*\.\d\w*)|([^\`\~\!\@\#\%\^\&\*\(\)\=\+\[\{\]\}\\\|\;\:\'\"\,\<\>\/\?\s]+)/g,
-        comments: {
-          lineComment: '//'
-        },
-        autoClosingPairs: [
-          { open: '{', close: '}' },
-          { open: '[', close: ']' },
-          { open: '(', close: ')' },
-          { open: '"', close: '"' },
-          { open: "'", close: "'" }
-        ]
+        // // Provide minimal config; real config is loaded/merged in the method
+        // wordPattern: /(-?\d*\.\d\w*)|([^\`\~\!\@\#\%\^\&\*\(\)\=\+\[\{\]\}\\\|\;\:\'\"\,\<\>\/\?\s]+)/g,
+        // comments: {
+        //   lineComment: '//'
+        // },
+        // autoClosingPairs: [
+        //   { open: '{', close: '}' },
+        //   { open: '[', close: ']' },
+        //   { open: '(', close: ')' },
+        //   { open: '"', close: '"' },
+        //   { open: "'", close: "'" }
+        // ]
       }
     );
     await this.extendTokenizerAndRegisterProvider('medicalLang');
