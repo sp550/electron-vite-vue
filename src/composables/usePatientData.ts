@@ -98,7 +98,8 @@ const goToNextNoteDay = (currentDateString: string): string => {
 const listAvailablePatientListDates = async (): Promise<string[]> => {
   if (!isDataDirectorySet.value || !config.value.dataDirectory) return [];
   try {
-    const files = (await listFiles(config.value.dataDirectory)) ?? [];
+    const patientListsDir = await joinPaths(config.value.dataDirectory, 'patient-lists');
+    const files = (await listFiles(patientListsDir)) ?? [];
     // Match files like patients_YYYY-MM-DD.json
     const dateRegex = /^patients_(\d{4}-\d{2}-\d{2})\.json$/;
     const dates = files
@@ -179,7 +180,8 @@ const goToNextPatientListDay = async () => {
 const getPatientsFilePathForDate = async (date: string): Promise<string | null> => {
   if (!isDataDirectorySet.value || !config.value.dataDirectory) return null;
   try {
-    return await joinPaths(config.value.dataDirectory, `patients_${date}.json`);
+    const patientListsDir = await joinPaths(config.value.dataDirectory, 'patient-lists');
+    return await joinPaths(patientListsDir, `patients_${date}.json`);
   } catch (error: any) {
     console.error("Error in getPatientsFilePathForDate:", error);
     return null;
@@ -192,7 +194,8 @@ const getPatientsFilePathForDate = async (date: string): Promise<string | null> 
     if (!isDataDirectorySet.value || !config.value.dataDirectory) return null;
     try {
       const date = activePatientListDate.value; // Use activePatientListDate for patient list file
-      return await joinPaths(config.value.dataDirectory, `patients_${date}.json`);
+      const patientListsDir = await joinPaths(config.value.dataDirectory, 'patient-lists');
+      return await joinPaths(patientListsDir, `patients_${date}.json`);
     } catch (error: any) {
       console.error("Error in getPatientsFilePath:", error);
       return null;
@@ -1010,7 +1013,8 @@ const updatePatient = async (updatedPatient: Patient): Promise<boolean> => {
     if (!isDataDirectorySet.value || !config.value.dataDirectory) return false;
     try {
       // Compute file path for the target date
-      const filePath = await joinPaths(config.value.dataDirectory, `patients_${date}.json`);
+      const patientListsDir = await joinPaths(config.value.dataDirectory, 'patient-lists');
+      const filePath = await joinPaths(patientListsDir, `patients_${date}.json`);
       // Load existing patients for that date
       let existingPatients: Patient[] = [];
       try {
