@@ -3,6 +3,7 @@
   "appId": "medical-notepad",
   "asar": true,
   "productName": "Medical Notepad",
+  "icon": "src/assets/icons/icons/mac/icon.icns", // Path to the macOS icon file
   "directories": {
     "output": "release/${version}"
   },

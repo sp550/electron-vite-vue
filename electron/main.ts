@@ -153,7 +153,7 @@ const createWindow = () => {
     },
     autoHideMenuBar: true,
     resizable: true, // Allow the window to be resized
-    // icon: path.join(__dirname, '../../public/logo.svg') // Optional: Uncomment and set path if you have an icon
+    icon: path.join(__dirname, '../src/assets/icons/icons/'), // Set the application icon
   });
 
   // Load the app content
