@@ -59,27 +59,6 @@ const saveSettings = () => {
             </v-card-text>
           </v-card>
 
-          <!-- File Naming Settings -->
-          <v-card class="mb-4">
-            <v-card-title>File Naming</v-card-title>
-            <v-card-text>
-              <v-text-field
-                label="Patients File Name"
-                v-model="configState.config.value.patientsFilename"
-                density="compact"
-                variant="outlined"
-                hide-details
-                class="mb-4"
-              ></v-text-field>
-              <v-text-field
-                label="Notes Base Directory"
-                v-model="configState.config.value.notesBaseDir"
-                density="compact"
-                variant="outlined"
-                hide-details
-              ></v-text-field>
-            </v-card-text>
-          </v-card>
 
           <!-- Appearance Settings -->
           <v-card class="mb-4">

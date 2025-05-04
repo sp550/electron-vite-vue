@@ -19,7 +19,7 @@ Sort by custom order and frag FUnctionality is a Pain to implement becuase it ke
 **Post Minimal Functional Product**
 # Aesthetics 
 - Title bar UI, notes toolbar ui
-
+- light and dark mode
 # Navdrawer
  -  toggle sidebar left/right.
   - fix  container doestn resize on stlye change

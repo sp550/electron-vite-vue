@@ -14,9 +14,6 @@ import {
 } from "electron";
 import path from "node:path";
 import fs from "node:fs";
-const preloadPath = path.join(__dirname, "preload.js");
-console.log("Resolved preload path:", preloadPath);
-console.log("Preload exists at window creation:", fs.existsSync(preloadPath));
 
 let mainWindow: BrowserWindow | null;
 app.commandLine.appendSwitch("enable-logging");  
@@ -550,7 +547,6 @@ async function ensureConfigExists() {
     await fs.promises.mkdir(configDir, { recursive: true });
     // Try accessing the file
     await fs.promises.access(configPath, fs.constants.F_OK);
-    console.log("Config file exists:", configPath);
   } catch (error: any) {
     if (error.code === "ENOENT") {
       // Config file doesn't exist, create it with defaults

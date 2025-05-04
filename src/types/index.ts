@@ -29,7 +29,6 @@ export interface AppConfig {
   /** Base directory for storing patient data and notes. Null if not configured. */
   dataDirectory: string | null;
   /** Filename for the patient list JSON. Relative to dataDirectory. */
-  patientsFilename: string;
   /** Subdirectory name for notes. Relative to dataDirectory. */
   notesBaseDir: string;
   theme: "light" | "dark";

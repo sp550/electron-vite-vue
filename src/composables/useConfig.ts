@@ -10,7 +10,6 @@ const error = ref<string | null>(null);
 
 const defaultConfig: AppConfig = {
   dataDirectory: null, // Default to null, meaning not configured
-  patientsFilename: "patients.json",
   notesBaseDir: "notes",
   theme: "light",
   iCMListDirectory: null, // Default path for iCM list
