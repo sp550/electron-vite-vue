@@ -223,6 +223,10 @@ export function useConfig() {
     }
   };
 
+  const updateTheme = (newTheme: "light" | "dark"): void => {
+    config.value.theme = newTheme;
+  };
+
   const setDataDirectory = async (newPath: string | null): Promise<boolean> => {
     if (config.value.dataDirectory !== newPath) {
       config.value.dataDirectory = newPath;
@@ -249,6 +253,7 @@ export function useConfig() {
     isDataDirectorySet,
     loadConfig,
     saveConfig,
+    updateTheme, // Add the new function here
     setDataDirectory,
     dataDirectoryChangeFlag: readonly(dataDirectoryChangeFlag),
     configPath: readonly(configPathDisplay), // Expose the config path

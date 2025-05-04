@@ -271,6 +271,7 @@
 
 <script setup lang="ts" async>
 import { ref, provide, computed, watch, nextTick, onMounted } from 'vue';
+import { useTheme } from 'vuetify';
 
 // Quick Add Patient Name State
 const showQuickAddPatientStringField = ref(false); // Keep for now, might be used elsewhere
@@ -312,6 +313,7 @@ import MonacoEditorComponent from '@/components/MonacoEditorComponent.vue';
 import PatientList from '@/components/PatientList.vue';
 import SettingsModal from '@/components/SettingsModal.vue';
 
+const theme = useTheme(); // Get Vuetify theme instance
 const drawerState = ref(2); // 0: Permanent, 1: Temporary Rail, 2: Temporary Full
 
 const isPermanent = computed(() => (drawerState.value === 0 || drawerState.value === 1));
@@ -877,6 +879,16 @@ const openDataDirectory = async () => {
 // --- Watchers ---
 
 // Watch for changes in selected patient or data directory readiness
+watch(
+   () => configState.config.value.theme,
+   (newTheme) => {
+      if (newTheme) {
+         theme.global.name.value = newTheme;
+      }
+   },
+   { immediate: true } // Apply initial theme on load
+);
+
 watch(
    () => [selectedPatientId.value, configState.isDataDirectorySet.value],
    async ([newPatientId, isDirSet], [oldPatientId, oldIsDirSet]) => {

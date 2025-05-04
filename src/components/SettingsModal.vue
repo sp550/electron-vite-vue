@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { defineProps, defineEmits } from 'vue';
+import { defineProps, defineEmits, ref, watch } from 'vue'; // Added ref and watch
 import { useConfig } from '@/composables/useConfig';
 import { useSnackbar } from '@/composables/useSnackbar';
 
@@ -19,7 +19,19 @@ const emit = defineEmits(['update:modelValue', 'update:isAutoSaveEnabled']);
 const configState = useConfig();
 const { showSnackbar } = useSnackbar();
 
+// Local state for theme selection to avoid modifying readonly config directly
+const localSelectedTheme = ref(configState.config.value.theme);
+
+// Watch for dialog visibility changes to sync local state with config
+watch(() => props.modelValue, (newValue) => {
+  if (newValue) {
+    localSelectedTheme.value = configState.config.value.theme;
+  }
+});
+
 const closeDialog = () => {
+  // Reset local state to current config value when closing without saving
+  localSelectedTheme.value = configState.config.value.theme;
   emit('update:modelValue', false);
 };
 
@@ -52,6 +64,8 @@ const selectDataDirectory = async () => {
 };
 
 const saveSettings = () => {
+  // Update the theme in the config state before saving
+  configState.updateTheme(localSelectedTheme.value);
   configState.saveConfig();
   closeDialog(); // Close after saving
 };
@@ -92,7 +106,7 @@ const saveSettings = () => {
             <v-card-text>
               <v-select
                 label="Theme"
-                v-model="configState.config.value.theme"
+                v-model="localSelectedTheme"
                 :items="['light', 'dark']"
                 density="compact"
                 variant="outlined"

@@ -24,6 +24,17 @@ export default createVuetify({
           warning: '#ffca28', // Standard warning color
         },
       },
+      dark: {
+        colors: {
+          primary: '#2196F3', // Default Vuetify primary blue
+          secondary: '#424242', // Default Vuetify secondary gray
+          accent: '#FF4081', // Default Vuetify accent pink
+          error: '#FF5252', // Default Vuetify error red
+          info: '#2196F3', // Default Vuetify info blue
+          success: '#4CAF50', // Default Vuetify success green
+          warning: '#FB8C00', // Default Vuetify warning orange
+        },
+      },
     },
   },
 });
