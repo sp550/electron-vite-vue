@@ -336,34 +336,70 @@ const handleQuickEditClick = () => {
 };
 
 const updatePatientNameFromQuickAdd = async () => {
-   if (!selectedPatient.value) return;
-
+   // 1. Input Preparation & Validation Section:
    const inputString = quickAddPatientString.value.trim();
+
+   if (!selectedPatient.value) {
+      return;
+   }
+
+   // Check for disallowed characters
+   const disallowedChars = /[$%@#^&]/;
+   if (disallowedChars.test(inputString)) {
+      // 3. Update & Error Handling Section (for validation failure):
+      showSnackbar('Invalid characters in input. Please avoid $, %, @, #, ^, &.', 'error');
+      // Clear the quick add field and hide it
+      showQuickAddPatientStringField.value = false;
+      quickAddPatientString.value = '';
+      return; // Stop processing
+   }
+
+   // Check for empty string after trimming and validation
+   if (inputString === '') {
+      // 3. Update & Error Handling Section (for validation failure):
+      showSnackbar('Patient name and UMRN cannot be empty.', 'error');
+      // Clear the quick add field and hide it
+      showQuickAddPatientStringField.value = false;
+      quickAddPatientString.value = '';
+      return; // Stop processing
+   }
+
+   // 2. Identification and Separation Section:
    let namePart = '';
    let umrnPart = '';
 
-   const openParenIndex = inputString.indexOf('(');
+   // Regex to find a single word with numbers at the end, optionally in parentheses
+   const umrnRegex = /\s*\(?(\S*\d\S*)\)?\s*$/;
+   const match = inputString.match(umrnRegex);
 
-   if (openParenIndex !== -1) {
-      // Found opening parenthesis
-      namePart = inputString.substring(0, openParenIndex).trim();
+   if (match) {
+      // Potential UMRN found
+      const potentialUmrn = match[1].trim();
+      const potentialNamePart = inputString.substring(0, match.index).trim();
 
-      const closeParenIndex = inputString.indexOf(')', openParenIndex + 1);
+      // Check if the potential name part contains numbers or parentheses (Rule 4)
+      const nameHasDisallowedChars = /\d|[\(\)]/.test(potentialNamePart);
 
-      if (closeParenIndex !== -1) {
-         // Found closing parenthesis
-         umrnPart = inputString.substring(openParenIndex + 1, closeParenIndex).trim();
-      } else {
-         // Opening parenthesis found, but no closing one
-         // Treat the part before '(' as name, UMRN is empty
+      if (nameHasDisallowedChars) {
+         // If name part has numbers or parentheses, treat the whole string as name
+         namePart = inputString;
          umrnPart = '';
+      } else {
+         // Otherwise, use the extracted parts
+         namePart = potentialNamePart;
+         umrnPart = potentialUmrn;
       }
    } else {
-      // No opening parenthesis found, treat entire string as name
+      // No potential UMRN found at the end, treat entire string as name
       namePart = inputString;
       umrnPart = '';
    }
 
+   // Final trimming (already done for potential parts, but good to be explicit for the final result)
+   namePart = namePart.trim();
+   umrnPart = umrnPart.trim();
+
+   // 3. Update & Error Handling Section (for successful validation and parsing):
    // Update the selected patient object
    selectedPatient.value.rawName = namePart;
    selectedPatient.value.umrn = umrnPart;
@@ -379,7 +415,7 @@ const updatePatientNameFromQuickAdd = async () => {
       // await patientDataComposable.loadPatients(); // Reload to revert
    }
 
-   // Hide the quick add field and clear its value
+   // Hide the quick add field and clear its value (after update attempt)
    showQuickAddPatientStringField.value = false;
    quickAddPatientString.value = '';
 };
