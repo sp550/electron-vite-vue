@@ -1,3 +1,4 @@
+import monacoEditorPlugin from 'vite-plugin-monaco-editor';
 import { defineConfig } from "vite";
 import vue from "@vitejs/plugin-vue";
 import electron from "vite-plugin-electron"; // Use the standard plugin
@@ -14,13 +15,6 @@ export default defineConfig(({ command }) => {
 
   return {
     optimizeDeps: {
-      include: [
-        "monaco-editor/esm/vs/editor/editor.worker",
-        "monaco-editor/esm/vs/language/json/json.worker",
-        "monaco-editor/esm/vs/language/css/css.worker",
-        "monaco-editor/esm/vs/language/html/html.worker",
-        "monaco-editor/esm/vs/language/typescript/ts.worker",
-      ],
     },
     resolve: {
       alias: {
@@ -29,6 +23,8 @@ export default defineConfig(({ command }) => {
     },
     plugins: [
       vue(),
+      monacoEditorPlugin({
+      }),
       electron([
         // Configure main and preload processes
         {
@@ -56,15 +52,6 @@ export default defineConfig(({ command }) => {
             options.reload();
           },
           vite: {
-            optimizeDeps: {
-              include: [
-                "monaco-editor/esm/vs/editor/editor.worker",
-                "monaco-editor/esm/vs/language/json/json.worker",
-                "monaco-editor/esm/vs/language/css/css.worker",
-                "monaco-editor/esm/vs/language/html/html.worker",
-                "monaco-editor/esm/vs/language/typescript/ts.worker",
-              ],
-            },
             build: {
               sourcemap: sourcemap ? "inline" : undefined,
               minify: isBuild,
