@@ -22,6 +22,33 @@ export interface MonacoThemeConfig {
   colors?: monaco.editor.IColors;
 }
 
+// Define custom themes
+const medicalLangLight: MonacoThemeConfig = {
+  name: 'medicalLang-light',
+  base: 'vs', // Base on Visual Studio light theme
+  inherit: true, // Inherit rules from base
+  rules: [
+    // Add custom rules here if needed, e.g., for specific token colors
+    // { token: 'comment', foreground: '008000' },
+  ],
+  colors: {
+    // Add custom colors here if needed, e.g., editor background
+    // 'editor.background': '#F3F3F3',
+  },
+};
+
+const medicalLangDark: MonacoThemeConfig = {
+  name: 'medicalLang-dark',
+  base: 'vs-dark', // Base on Visual Studio dark theme
+  inherit: true, // Inherit rules from base
+  rules: [
+    // Add custom rules here if needed
+  ],
+  colors: {
+    // Add custom colors here if needed
+  },
+};
+
 export interface TemplateCompletion {
   label: string;
   insertText: string;
@@ -814,19 +841,11 @@ class MonacoService {
     // 2. Register folding provider
     this.registerFoldingRangeProvider('medicalLang');
 
-    // 3. Register and set theme from config/medicalLangConfig.json
-    const config = await loadMedicalLangConfig();
-    if (config.theme) {
-      const themeConfig = {
-        name: config.theme.id || 'medicalLang-theme',
-        base: config.theme.base || 'vs',
-        inherit: config.theme.inherit !== undefined ? config.theme.inherit : true,
-        rules: config.theme.rules || [],
-        colors: config.theme.colors || {}
-      };
-      this.registerTheme(themeConfig);
-      this.setTheme(themeConfig.name);
-    }
+    // 3. Register light and dark themes
+    this.registerTheme(medicalLangLight);
+    this.registerTheme(medicalLangDark);
+
+    // The theme will be set by the component based on the application's theme state
 
     // 4. Register completion providers
     await this.registerMedicalLangCompletionProvider();

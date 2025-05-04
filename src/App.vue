@@ -236,7 +236,7 @@
                <v-btn @click="loadSelectedNote" small variant="tonal" class="ml-2">Retry</v-btn>
             </div>
             <MonacoEditorComponent v-if="!noteEditor.isLoading.value && !noteEditor.error.value" ref="monacoEditorRef"
-               v-model="noteContent" language="medicalLang" theme="medicalLang-theme" :options="{}"
+               v-model="noteContent" language="medicalLang" :theme="monacoTheme" :options="{}"
                class="pa-4 flex-grow-1" style="height: 0;" />
          </v-container>
       </v-main>
@@ -647,6 +647,11 @@ onMounted(async () => {
 });
 
 // --- Computed Properties ---
+const monacoTheme = computed(() => {
+   // Map application theme to Monaco Editor theme
+   return configState.config.value.theme === 'dark' ? 'medicalLang-dark' : 'medicalLang-light';
+});
+
 const saveStatusIcon = computed(() => {
    return noteEditor.hasUnsavedChanges.value ? 'mdi-content-save-edit' : 'mdi-check-circle';
 });
