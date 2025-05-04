@@ -104,7 +104,7 @@ const selectDataDirectory = async () => {
               <v-switch
                 label="Theme"
                 :model-value="configState.config.value.theme"
-                @update:model-value="configState.updateTheme($event)"
+                @update:model-value="async (newValue) => { configState.updateTheme(newValue); await configState.saveConfig(); }"
                 true-value="dark"
                 false-value="light"
                 :append-icon="themeIcon"

@@ -83,6 +83,7 @@ class MonacoService {
    * @returns The created editor instance.
    */
   public createEditor(options: MonacoServiceOptions): monaco.editor.IStandaloneCodeEditor {
+    console.log('MonacoService: createEditor called with options:', options);
     if (this.editor) {
       this.disposeEditor();
     }
@@ -165,6 +166,7 @@ class MonacoService {
       unicodeHighlight: { "ambiguousCharacters": false },
       ...options.options,
     });
+    console.log('MonacoService: Editor instance created.');
 
     return this.editor;
   }
@@ -228,6 +230,7 @@ class MonacoService {
    * @param themeName Name of the registered theme.
    */
   public setTheme(themeName: string): void {
+    console.log('MonacoService: setTheme called with theme:', themeName);
     monaco.editor.setTheme(themeName);
   }
 
