@@ -1,6 +1,7 @@
+
 <template>
+   <!-- === App Bar === -->
    <v-app>
-      <!-- === App Bar === -->
       <v-app-bar app color="primary" density="comfortable">
          <v-btn :icon="menuIcon" @click="toggleDrawerMode" title="Toggle Navigation Drawer Mode"></v-btn>
          <v-spacer></v-spacer>
@@ -45,80 +46,51 @@
       </v-system-bar>
 
       <!-- === Navigation Drawer with Patient List and Controls === -->
-      <v-navigation-drawer
-        v-model="drawer"
-        :permanent="isPermanent"
-        :temporary="isTemporary"
-        :expand-on-hover="isExpandOnHover"
-        :rail="isRail"
-        rail-width="56"
-        app
-        :width="drawerWidth"
-        open-delay="10"
-      >
-        <v-container class="pa-0 d-flex flex-column" style="height: 100%;">
-          <!-- Patient List: hidden in rail mode -->
-          <PatientList
-           class="flex-grow-1"
-           :selectedPatientIds="selectedPatientIds"
-           :isEditPatientListMode="isEditPatientListMode"
-           :search="search"
-           :todayString="todayString"
-           :selectedDate="selectedNoteDate"
-           :noteDateDisplay="noteDateDisplay(selectedNoteDate)"
-           :goToPreviousNoteDay="() => { selectedNoteDate = goToPreviousNoteDay(selectedNoteDate); loadSelectedNote(); }"
-           :goToNextNoteDay="() => { selectedNoteDate = goToNextNoteDay(selectedNoteDate); loadSelectedNote(); }"
-           :onDateChange="handleDateChange"
-           :configState="configState"
-           :version="version"
-           :isPackaged="isPackaged"
-           :nodeEnv="nodeEnv"
-           :sortMode="sortMode"
-           :setSortMode="setSortMode"
-           :isRail="isRail" 
-           @update:search="val => search = val"
-           @update:selectedPatientIds="val => selectedPatientIds = val"
-           @update:isEditPatientListMode="val => isEditPatientListMode = val"
-           @patientSelected="onPatientSelected"
-           @patientListChanged="onPatientListChanged"
-           @addNewPatient="handleAddNewPatient"
-           @removePatientFromList="handleRemovePatientFromList"
-           @removeSelectedPatientsFromList="removeSelectedPatientsFromList"
-           @addSelectedToTodayList="addSelectedToTodayList"
-           @checkboxSelectPatientList="checkboxSelectPatientList"
-           @request-date-change="handleDateChange"
-         />
-         <!-- Arrow icon shown in rail mode -->
-          <!-- <div v-if="isRail" class="rail-arrow-container">
+      <v-navigation-drawer v-model="drawer" :permanent="isPermanent" :temporary="isTemporary"
+         :expand-on-hover="isExpandOnHover" :rail="isRail" rail-width="56" app :width="drawerWidth" open-delay="10">
+         <v-container class="pa-0 d-flex flex-column" style="height: 100%;">
+            <!-- Patient List: hidden in rail mode -->
+            <PatientList class="flex-grow-1" :selectedPatientIds="selectedPatientIds"
+               :isEditPatientListMode="isEditPatientListMode" :search="search" :todayString="todayString"
+               :selectedDate="selectedNoteDate" :noteDateDisplay="noteDateDisplay(selectedNoteDate)"
+               :goToPreviousNoteDay="() => { selectedNoteDate = goToPreviousNoteDay(selectedNoteDate); loadSelectedNote(); }"
+               :goToNextNoteDay="() => { selectedNoteDate = goToNextNoteDay(selectedNoteDate); loadSelectedNote(); }"
+               :onDateChange="handleDateChange" :configState="configState" :version="version" :isPackaged="isPackaged"
+               :nodeEnv="nodeEnv" :sortMode="sortMode" :setSortMode="setSortMode" :isRail="isRail"
+               @update:search="val => search = val" @update:selectedPatientIds="val => selectedPatientIds = val"
+               @update:isEditPatientListMode="val => isEditPatientListMode = val" @patientSelected="onPatientSelected"
+               @patientListChanged="onPatientListChanged" @addNewPatient="handleAddNewPatient"
+               @removePatientFromList="handleRemovePatientFromList"
+               @removeSelectedPatientsFromList="removeSelectedPatientsFromList"
+               @addSelectedToTodayList="addSelectedToTodayList" @checkboxSelectPatientList="checkboxSelectPatientList"
+               @request-date-change="handleDateChange" />
+            <!-- Arrow icon shown in rail mode -->
+            <!-- <div v-if="isRail" class="rail-arrow-container">
             <v-icon size="36" color="primary" title="Expand drawer">mdi-chevron-right</v-icon>
           </div> -->
-          <div>
-            <v-divider class="my-2"></v-divider>
-            <v-expansion-panels class="flex-shrink-0">
-              <v-expansion-panel title="Debug Info">
-                <v-expansion-panel-text>
-                  App Info:<br />
-                  Version: {{ version }}<br />
-                  Packaged: {{ isPackaged ? "Yes" : "No" }}<br />
-                  Environment: {{ nodeEnv }}<br />
-                  Config Path: {{ configState.configPath.value || "Loading..." }}<br />
-                  <div v-if="configState.config.value.dataDirectory">
-                    Data Directory:
-                    <span class="text-caption text-wrap" :title="configState.config.value.dataDirectory">
-                      {{ configState.config.value.dataDirectory }}
-                    </span>
-                  </div>
-                </v-expansion-panel-text>
-              </v-expansion-panel>
-            </v-expansion-panels>
-          </div>
-        </v-container>
-        <!-- === Drawer Resize Handle (Vuetify only) === -->
-        <v-divider
-          vertical
-          :thickness="10"
-          :inset="false"
-          :style="{
+            <div>
+               <v-divider class="my-2"></v-divider>
+               <v-expansion-panels class="flex-shrink-0">
+                  <v-expansion-panel title="Debug Info">
+                     <v-expansion-panel-text>
+                        App Info:<br />
+                        Version: {{ version }}<br />
+                        Packaged: {{ isPackaged ? "Yes" : "No" }}<br />
+                        Environment: {{ nodeEnv }}<br />
+                        Config Path: {{ configState.configPath.value || "Loading..." }}<br />
+                        <div v-if="configState.config.value.dataDirectory">
+                           Data Directory:
+                           <span class="text-caption text-wrap" :title="configState.config.value.dataDirectory">
+                              {{ configState.config.value.dataDirectory }}
+                           </span>
+                        </div>
+                     </v-expansion-panel-text>
+                  </v-expansion-panel>
+               </v-expansion-panels>
+            </div>
+         </v-container>
+         <!-- === Drawer Resize Handle (Vuetify only) === -->
+         <v-divider vertical :thickness="10" :inset="false" :style="{
             position: 'absolute',
             top: 0,
             right: 0,
@@ -127,17 +99,9 @@
             cursor: isResizing ? 'ew-resize' : 'col-resize',
             opacity: isResizing ? 0 : 0,
             transition: 'opacity 0.1s'
-          }"
-          tabindex="0"
-          role="separator"
-          aria-orientation="vertical"
-          aria-label="Resize navigation drawer"
-          :aria-valuenow="drawerWidth"
-          aria-valuemin="240"
-          aria-valuemax="600"
-          @mousedown="onResizeMouseDown"
-        >
-        </v-divider>
+          }" tabindex="0" role="separator" aria-orientation="vertical" aria-label="Resize navigation drawer"
+            :aria-valuenow="drawerWidth" aria-valuemin="240" aria-valuemax="600" @mousedown="onResizeMouseDown">
+         </v-divider>
       </v-navigation-drawer>
 
       <!-- === Main Content Area === -->
@@ -177,39 +141,25 @@
          </v-container>
          <v-container v-else fluid class=" pa-0  px-xl-16 d-flex flex-column fill-height justify-start fill-width">
             <v-toolbar color="grey-lighten-3 " density="comfortable" v-if="selectedPatient">
-               <v-text-field v-model="selectedPatient!.rawName" label="Patient Name" hide-details single-line
-                  @blur="updatePatientName"></v-text-field>
-               <!-- Debug fields for parsed name components -->
-               <v-text-field
-                  v-if="selectedPatient?.firstName"
-                  v-model="selectedPatient.firstName"
-                  label="First Name"
-                  readonly
-                  hide-details
-                  single-line
-                  class="ml-2"
-               ></v-text-field>
-               <v-text-field
-                  v-if="selectedPatient?.middleName"
-                  v-model="selectedPatient.middleName"
-                  label="Middle Name"
-                  readonly
-                  hide-details
-                  single-details
-                  class="ml-2"
-               ></v-text-field>
-               <v-text-field
-                  v-if="selectedPatient?.lastName"
-                  v-model="selectedPatient.lastName"
-                  label="Last Name"
-                  readonly
-                  hide-details
-                  single-line
-                  class="ml-2"
-               ></v-text-field>
-               <!-- Independent Note Date Selector -->
+               <div class="d-flex align-center flex-grow-1">
+                  <v-text-field :model-value="formattedPatientName" label="Patient Name" hide-details single-line
+                     readonly class="flex-grow-1"></v-text-field>
+                  </div>
+                  <v-text-field v-model="selectedPatient!.umrn" label="Patient UMRN" hide-details single-line
+                  @blur="updatePatientUmrn"></v-text-field>
+                  <v-btn icon="mdi-pencil" size="small" variant="text" @click="toggleQuickAddPatientField"
+                     title="Edit Patient Name/Quick Add"></v-btn>
+                     <v-text-field v-if="showQuickAddPatientStringField" v-model="quickAddPatientString"
+                     label="Quick Add Patient" placeholder="Surname, Firstname (A1234567)" variant="outlined"
+                     prepend-inner-icon="mdi-lightning-bolt" color="secondary" hint="Hint: use %id"
+                     class="mt-2"></v-text-field>
+                     <v-spacer></v-spacer>
+
+
                <div class="d-flex align-center">
-                  <v-btn icon="mdi-chevron-left" size="small" variant="text" @click="selectedNoteDate = goToPreviousNoteDay(selectedNoteDate); loadSelectedNote();" title="Previous Day"></v-btn>
+                  <v-btn icon="mdi-chevron-left" size="small" variant="text"
+                     @click="selectedNoteDate = goToPreviousNoteDay(selectedNoteDate); loadSelectedNote();"
+                     title="Previous Day"></v-btn>
                   <v-menu>
                      <template v-slot:activator="{ props }">
                         <span v-bind="props" class="text-subtitle-1 mx-2" style="cursor: pointer;">
@@ -217,15 +167,14 @@
                         </span>
                      </template>
                      <v-card>
-                        <v-date-picker v-model="selectedNoteDate" @update:model-value="onNoteDateChange"></v-date-picker>
+                        <v-date-picker v-model="selectedNoteDate"
+                           @update:model-value="onNoteDateChange"></v-date-picker>
                      </v-card>
                   </v-menu>
-                  <v-btn icon="mdi-chevron-right" size="small" variant="text" @click="selectedNoteDate = goToNextNoteDay(selectedNoteDate); loadSelectedNote();" title="Next Day"></v-btn>
+                  <v-btn icon="mdi-chevron-right" size="small" variant="text"
+                     @click="selectedNoteDate = goToNextNoteDay(selectedNoteDate); loadSelectedNote();"
+                     title="Next Day"></v-btn>
                </div>
-               <v-text-field v-model="selectedPatient!.umrn" label="Patient UMRN" hide-details single-line
-                  @blur="updatePatientUmrn"></v-text-field>
-               <v-spacer></v-spacer>
-
                <v-spacer></v-spacer> <!-- Added spacer -->
                <v-btn :loading="noteEditor.isLoading.value"
                   :disabled="noteEditor.isLoading.value || !isNoteLoaded || !configState.isDataDirectorySet.value"
@@ -250,8 +199,8 @@
                <v-btn @click="loadSelectedNote" small variant="tonal" class="ml-2">Retry</v-btn>
             </div>
             <MonacoEditorComponent v-if="!noteEditor.isLoading.value && !noteEditor.error.value" ref="monacoEditorRef"
-               v-model="noteContent" language="medicalLang" theme="medicalLang-theme" :options="{}" class="pa-4 flex-grow-1"
-               style="height: 0;" />
+               v-model="noteContent" language="medicalLang" theme="medicalLang-theme" :options="{}"
+               class="pa-4 flex-grow-1" style="height: 0;" />
          </v-container>
       </v-main>
 
@@ -359,6 +308,24 @@ const drawer = ref(true);
 
 // === Resizable Drawer State (Vuetify only, no custom CSS) ===
 const DEFAULT_DRAWER_WIDTH = 350;
+const showQuickAddPatientStringField = ref(false);
+
+const formattedPatientName = computed(() => {
+  if (!selectedPatient.value) return '';
+  const { lastName, firstName } = selectedPatient.value;
+  if (lastName && firstName) {
+    return `${lastName}, ${firstName}`;
+  } else if (lastName) {
+    return lastName;
+  } else if (firstName) {
+    return firstName;
+  }
+  return selectedPatient.value.rawName || '';
+});
+
+const toggleQuickAddPatientField = () => {
+  showQuickAddPatientStringField.value = !showQuickAddPatientStringField.value;
+};
 const MIN_DRAWER_WIDTH = 240;
 const MAX_DRAWER_WIDTH = 600;
 const drawerWidth = ref(DEFAULT_DRAWER_WIDTH);
