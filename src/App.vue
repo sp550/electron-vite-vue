@@ -237,9 +237,10 @@
             </div>
             <MonacoEditorComponent v-if="!noteEditor.isLoading.value && !noteEditor.error.value" ref="monacoEditorRef"
                v-model="noteContent" language="medicalLang" :theme="monacoTheme" :options="{}"
-               class="pa-4 flex-grow-1" style="height: 0;" />
-         </v-container>
-      </v-main>
+               class="pa-4 flex-grow-1" style="height: 0;"
+               @onAction="handleMonacoAction" />
+          </v-container>
+       </v-main>
 
       <!-- === Snackbar === -->
       <v-snackbar v-model="snackbar.show" :color="snackbar.color" timeout="3000" location="bottom right">
@@ -891,6 +892,15 @@ const openDataDirectory = async () => {
    }
 };
 
+// --- Monaco Editor Action Handler ---
+const handleMonacoAction = (actionId: string) => {
+  if (actionId === 'save') {
+    console.log('Monaco Action: Save');
+    saveCurrentNote();
+  }
+  // Handle other potential Monaco actions if needed
+};
+
 // --- Watchers ---
 
 // Watch for changes in selected patient or data directory readiness
@@ -1015,6 +1025,27 @@ onMounted(async () => {
    // Attempt initial load if conditions are met (e.g., data dir already set)
    if (configState.isDataDirectorySet.value && selectedPatientId.value) {
       await loadSelectedNote();
+   }
+
+   // Listen for hotkey IPC events from the main process
+   if (window.electronAPI) {
+     window.electronAPI.onNavigatePreviousNote(() => {
+       console.log('Hotkey: Navigate Previous Note');
+       selectedNoteDate.value = goToPreviousNoteDay(selectedNoteDate.value);
+       loadSelectedNote();
+     });
+     window.electronAPI.onNavigateNextNote(() => {
+       console.log('Hotkey: Navigate Next Note');
+       selectedNoteDate.value = goToNextNoteDay(selectedNoteDate.value);
+       loadSelectedNote();
+     });
+     window.electronAPI.onToggleTheme(() => {
+       console.log('Hotkey: Toggle Theme');
+       // Implement theme toggling logic here
+       const currentTheme = configState.config.value.theme;
+       const newTheme = currentTheme === 'light' ? 'dark' : 'light';
+       configState.setTheme(newTheme); // Assuming useConfig has a setTheme method
+     });
    }
 });
 

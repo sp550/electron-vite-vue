@@ -88,7 +88,30 @@ template.push({
     { role: 'zoomIn' as 'zoomIn' },
     { role: 'zoomOut' as 'zoomOut' },
     { type: 'separator' as 'separator' },
-    { role: 'togglefullscreen' as 'togglefullscreen' }
+    { role: 'togglefullscreen' as 'togglefullscreen' },
+    { type: 'separator' as 'separator' },
+    {
+      label: 'Previous Note',
+      accelerator: 'CommandOrControl+Shift+Left',
+      click: () => {
+        mainWindow?.webContents.send('navigate-previous-note');
+      }
+    },
+    {
+      label: 'Next Note',
+      accelerator: 'CommandOrControl+Shift+Right',
+      click: () => {
+        mainWindow?.webContents.send('navigate-next-note');
+      }
+    },
+    { type: 'separator' as 'separator' },
+    {
+      label: 'Toggle Theme',
+      accelerator: 'CommandOrControl+T',
+      click: () => {
+        mainWindow?.webContents.send('toggle-theme');
+      }
+    }
   ]
 });
 

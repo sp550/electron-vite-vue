@@ -2,8 +2,6 @@
 
 
 # App features
-- Display config.json for debugging.
-- Basic settings/config implementation (perhaps a new vue component)
 - Basic common hotkeys.
 
 # Patient Notes
@@ -19,7 +17,6 @@ Sort by custom order and frag FUnctionality is a Pain to implement becuase it ke
 **Post Minimal Functional Product**
 # Aesthetics 
 - Title bar UI, notes toolbar ui
-- light and dark mode
 # Navdrawer
  -  toggle sidebar left/right.
   - fix  container doestn resize on stlye change

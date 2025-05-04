@@ -82,6 +82,9 @@ contextBridge.exposeInMainWorld("electronAPI", {
     ipcRenderer.invoke("select-folder"),
   selectCSVFile: (): Promise<string | null> =>
     ipcRenderer.invoke("select-csv-file"),
+  onNavigatePreviousNote: (callback: () => void) => ipcRenderer.on('navigate-previous-note', callback),
+  onNavigateNextNote: (callback: () => void) => ipcRenderer.on('navigate-next-note', callback),
+  onToggleTheme: (callback: () => void) => ipcRenderer.on('toggle-theme', callback),
 });
 
 
@@ -136,6 +139,9 @@ declare global {
       openDirectory: (dir: string) => Promise<void>;
       selectFolder: () => Promise<string | null>; // Add selectFolder type
       selectCSVFile: () => Promise<string | null>;
+      onNavigatePreviousNote: (callback: () => void) => void;
+      onNavigateNextNote: (callback: () => void) => void;
+      onToggleTheme: (callback: () => void) => void;
       // (end of electronAPI interface)
     };
   }
