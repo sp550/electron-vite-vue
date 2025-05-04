@@ -9,6 +9,8 @@ import {
   OpenDialogReturnValue,
   MessageBoxOptions,
   MessageBoxReturnValue,
+  Menu, // Import Menu
+  MenuItemConstructorOptions // Import MenuItemConstructorOptions
 } from "electron";
 import path from "node:path";
 import fs from "node:fs";
@@ -17,6 +19,113 @@ console.log("Resolved preload path:", preloadPath);
 console.log("Preload exists at window creation:", fs.existsSync(preloadPath));
 
 let mainWindow: BrowserWindow | null;
+
+// --- macOS Standard Menu ---
+
+const isMac = process.platform === "darwin";
+
+const macAppMenu: MenuItemConstructorOptions[] = [
+  { role: 'about' as 'about' },
+  { type: 'separator' as 'separator' },
+  { role: 'services' as 'services' },
+  { type: 'separator' as 'separator' },
+  { role: 'hide' as 'hide' },
+  { role: 'hideOthers' as 'hideOthers' },
+  { role: 'unhide' as 'unhide' },
+  { type: 'separator' as 'separator' },
+  { role: 'quit' as 'quit' },
+];
+
+const macWindowMenu: MenuItemConstructorOptions[] = [
+  { type: 'separator' as 'separator' },
+  { role: 'front' as 'front' },
+  { type: 'separator' as 'separator' },
+  { role: 'window' as 'window' }, // This role is for managing multiple windows, might not be needed for a single-window app
+];
+
+
+const template: MenuItemConstructorOptions[] = [];
+
+if (isMac) {
+  template.push({
+    label: app.name,
+    submenu: macAppMenu
+  });
+}
+
+// Add File menu if needed, e.g., for New, Open, Save As...
+// template.push({
+//   label: 'File',
+//   submenu: [
+//     isMac ? { role: 'close' as 'close' } : { role: 'quit' as 'quit' }
+//   ]
+// });
+
+// { role: 'editMenu' }
+template.push({
+  label: 'Edit',
+  submenu: [
+    { role: 'undo' as 'undo' },
+    { role: 'redo' as 'redo' },
+    { type: 'separator' as 'separator' },
+    { role: 'cut' as 'cut' },
+    { role: 'copy' as 'copy' },
+    { role: 'paste' as 'paste' },
+    ...(isMac ? [
+      { role: 'pasteAndMatchStyle' as 'pasteAndMatchStyle' },
+    ] : []),
+    { role: 'delete' as 'delete' },
+    { role: 'selectAll' as 'selectAll' }
+  ]
+});
+
+{ role: 'viewMenu' }
+template.push({
+  label: 'View',
+  submenu: [
+    { role: 'reload' as 'reload' },
+    { role: 'forceReload' as 'forceReload' },
+    { role: 'toggleDevTools' as 'toggleDevTools' },
+    { type: 'separator' as 'separator' },
+    { role: 'resetZoom' as 'resetZoom' },
+    { role: 'zoomIn' as 'zoomIn' },
+    { role: 'zoomOut' as 'zoomOut' },
+    { type: 'separator' as 'separator' },
+    { role: 'togglefullscreen' as 'togglefullscreen' }
+  ]
+});
+
+{ role: 'windowMenu' }
+template.push({
+  label: 'Window',
+  submenu: [
+    { role: 'minimize' as 'minimize' },
+    { role: 'zoom' as 'zoom' },
+    ...(isMac ? macWindowMenu : [
+      { role: 'close' as 'close' }
+    ])
+  ]
+});
+
+// { role: 'help' }
+template.push({
+  role: 'help' as 'help',
+  submenu: [
+    {
+      label: 'Learn More',
+      click: async () => {
+        const { shell } = require('electron');
+        await shell.openExternal('https://electronjs.org'); // Replace with your app's help URL
+      }
+    }
+  ]
+});
+
+
+// Build and set the menu
+const menu = Menu.buildFromTemplate(template as MenuItemConstructorOptions[]);
+Menu.setApplicationMenu(menu);
+
 
 // --- Window Creation ---
 
@@ -542,10 +651,7 @@ app.whenReady().then(async () => {
 });
 
 app.on("window-all-closed", () => {
-  // Quit when all windows are closed, except on macOS
-  if (process.platform !== "darwin") {
-    app.quit();
-  }
+  app.quit();
 });
 
 app.on("activate", () => {
@@ -614,3 +720,4 @@ async function handleOpenDirectory(directory: string): Promise<string | undefine
 ipcMain.handle('open-directory', async (_event, directory: string) => {
   return await handleOpenDirectory(directory);
 });
+

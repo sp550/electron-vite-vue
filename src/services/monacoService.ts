@@ -88,7 +88,7 @@ class MonacoService {
       emptySelectionClipboard: true,
       find: { "seedSearchStringFromSelection": "always" },
       foldingHighlight: false,
-      fontFamily: "Consolas",
+      fontFamily: "Arial",
       fontVariations: true,
       formatOnPaste: true,
       glyphMargin: false,

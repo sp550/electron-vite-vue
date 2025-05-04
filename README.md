@@ -15,9 +15,7 @@ before this i will have to implement patient first name Last Name, other names
 
 
 # Monaco editor integration:
-  - Insert options from previous project.
   - Implement templates and snippets.
-  - Change font to non-monospace.
 
 ## Patient list
 patient lists for different day
