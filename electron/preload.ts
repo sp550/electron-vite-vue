@@ -2,6 +2,7 @@ import {
   // app, // Removed 'app' import
   contextBridge,
   ipcRenderer,
+  IpcRendererEvent,
   MessageBoxOptions,
   MessageBoxReturnValue,
   OpenDialogOptions,
@@ -85,64 +86,11 @@ contextBridge.exposeInMainWorld("electronAPI", {
   onNavigatePreviousNote: (callback: () => void) => ipcRenderer.on('navigate-previous-note', callback),
   onNavigateNextNote: (callback: () => void) => ipcRenderer.on('navigate-next-note', callback),
   onToggleTheme: (callback: () => void) => ipcRenderer.on('toggle-theme', callback),
+  getSystemTheme: () => ipcRenderer.invoke('get-system-theme'),
+  onSystemThemeUpdated: (callback: (event: Electron.IpcRendererEvent, isDark: boolean) => void) => {
+    ipcRenderer.on('system-theme-updated', callback);
+  },
+  removeSystemThemeUpdated: (callback: (event: Electron.IpcRendererEvent, isDark: boolean) => void) => {
+    ipcRenderer.removeListener('system-theme-updated', callback);
+  },
 });
-
-
-
-declare global {
-  interface Window {
-    electronAPI: {
-      readFileAbsolute: (absolutePath: string) => Promise<string | null>;
-      writeFileAbsolute: (
-        absolutePath: string,
-        content: string
-      ) => Promise<void>;
-      deleteFileAbsolute: (absolutePath: string) => Promise<void>;
-      existsAbsolute: (absolutePath: string) => Promise<boolean>;
-      mkdirAbsolute: (absolutePath: string) => Promise<void>;
-      rmdirAbsolute: (absolutePath: string) => Promise<void>;
-      showConfirmDialog: (
-        options: MessageBoxOptions
-      ) => Promise<MessageBoxReturnValue>;
-      showOpenDialog: (
-        options: OpenDialogOptions
-      ) => Promise<OpenDialogReturnValue>;
-      showSaveDialog: (
-        options: SaveDialogOptions
-      ) => Promise<SaveDialogReturnValue>;
-      getPath: (
-        name:
-          | "home"
-          | "appData"
-          | "userData"
-          | "logs"
-          | "temp"
-          | "desktop"
-          | "documents"
-          | "downloads"
-          | "music"
-          | "pictures"
-          | "videos"
-      ) => Promise<string>;
-      joinPaths: (...paths: string[]) => Promise<string>;
-      getAppPath: () => Promise<string>;
-      isPackaged: () => Promise<boolean>; // Updated type for isPackaged
-      isProduction: () => boolean;
-      moveFiles: (sourceDir: string, destDir: string) => Promise<void>;
-      listFiles: (absolutePath: string) => Promise<string[] | null>;
-      getConfigValue: (key: string) => Promise<any>;
-      getPreviousDayNote: (patientId: string, currentDate: string) => Promise<string | null>;
-      getNextDayNote: (patientId: string, currentDate: string) => Promise<string | null>;
-      getConfigPath: () => Promise<string>; // Added getConfigPath type
-      setUnsavedChanges: (hasChanges: boolean) => Promise<boolean>;
-      exportNotesForDay: (date: string) => Promise<string | null>;
-      openDirectory: (dir: string) => Promise<void>;
-      selectFolder: () => Promise<string | null>; // Add selectFolder type
-      selectCSVFile: () => Promise<string | null>;
-      onNavigatePreviousNote: (callback: () => void) => void;
-      onNavigateNextNote: (callback: () => void) => void;
-      onToggleTheme: (callback: () => void) => void;
-      // (end of electronAPI interface)
-    };
-  }
-}

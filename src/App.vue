@@ -903,9 +903,9 @@ const handleMonacoAction = (actionId: string) => {
 
 // --- Watchers ---
 
-// Watch for changes in selected patient or data directory readiness
+// Watch for changes in the effective theme
 watch(
-   () => configState.config.value.theme,
+   () => configState.effectiveTheme.value,
    (newTheme) => {
       if (newTheme) {
          theme.global.name.value = newTheme;
@@ -1040,14 +1040,13 @@ onMounted(async () => {
        loadSelectedNote();
      });
      window.electronAPI.onToggleTheme(() => {
-       console.log('Hotkey: Toggle Theme');
-       // Implement theme toggling logic here
-       const currentTheme = configState.config.value.theme;
-       const newTheme = currentTheme === 'light' ? 'dark' : 'light';
-       configState.setTheme(newTheme); // Assuming useConfig has a setTheme method
+       console.log('Hotkey: Toggle Adapt System Theme');
+       // Toggle the adaptSystemTheme setting
+       const currentAdaptSetting = configState.config.value.adaptSystemTheme;
+       configState.updateAdaptSystemTheme(!currentAdaptSetting);
      });
    }
-});
+ });
 
 
 </script>

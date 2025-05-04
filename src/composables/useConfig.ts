@@ -1,4 +1,4 @@
-import { ref, readonly, onMounted, computed } from "vue";
+import { ref, readonly, onMounted, onUnmounted, computed } from "vue";
 import type { AppConfig } from "@/types";
 
 // --- Caching for medicalLangConfig and templates ---
@@ -13,6 +13,7 @@ const defaultConfig: AppConfig = {
   notesBaseDir: "notes",
   theme: "light",
   iCMListDirectory: null, // Default path for iCM list
+  adaptSystemTheme: false, // Add new property
 };
 
 // Hardcoded fallback for medicalLangConfig (minimal, can be expanded)
@@ -56,8 +57,6 @@ const fallbackTemplates = [
 const config = ref<AppConfig>({ ...defaultConfig });
 const isConfigLoaded = ref(false);
 const dataDirectoryChangeFlag = ref(0); // Used to trigger reactivity on path change
-const configPathDisplay = ref<string | null>(null); // Ref to store the config path for display
-
 // Cross-platform path join helper (moved to module scope)
 function joinPath(...parts: string[]) {
   // Join with "/" and remove duplicate slashes
@@ -147,36 +146,76 @@ export async function loadTemplates(forceReload = false): Promise<any[]> {
 
 export function useConfig() {
 
-  // Helper function to determine the correct config file path
-  const getConfigPath = async (): Promise<string> => {
-    // Use the reliable IPC call to get the path from the ma   in process
-    return await window.electronAPI.getConfigPath();
+  // New ref for system theme state
+  const systemThemeIsDark = ref(false);
+
+  // Define the listener callback
+  const systemThemeListener = (_event: Electron.IpcRendererEvent, isDark: boolean) => {
+    systemThemeIsDark.value = isDark;
+    console.log(`System theme updated to dark: ${isDark}`);
   };
 
-  const readConfigFile = async (): Promise<AppConfig | null> => {
+  // Set up listener
+  window.electronAPI.onSystemThemeUpdated(systemThemeListener);
+
+  // Cleanup listener on unmount
+  onUnmounted(() => {
+    console.log('Cleaning up system-theme-updated listener');
+    // Use removeListener with the specific callback
+    window.electronAPI.removeSystemThemeUpdated(systemThemeListener);
+  });
+
+  // Function to fetch system theme from main process
+  const fetchSystemTheme = async () => {
     try {
-      const configPath = await getConfigPath();
-      configPathDisplay.value = configPath; // Store the path
-      const fileContent = await window.electronAPI.readFileAbsolute(configPath);
-      return fileContent ? JSON.parse(fileContent) : null;
-    } catch (error: any) {
-      console.error("Error reading config file:", error);
-      return null;
+      systemThemeIsDark.value = await window.electronAPI.getSystemTheme();
+      console.log(`Fetched system theme is dark: ${systemThemeIsDark.value}`);
+    } catch (error) {
+      console.error("Failed to fetch system theme:", error);
+      // Default to false (light) on error
+      systemThemeIsDark.value = false;
     }
   };
 
-  const writeConfigFile = async (configData: AppConfig): Promise<void> => {
-    try {
-      const configPath = await getConfigPath();
-      await window.electronAPI.writeFileAbsolute(
-        configPath,
-        JSON.stringify(configData, null, 2)
-      );
-    } catch (error: any) {
-      console.error("Error writing config file:", error);
-      throw error; // Re-throw to be caught by caller
+  // Computed property for the effective theme
+  const effectiveTheme = computed(() => {
+    if (config.value.adaptSystemTheme) {
+      return systemThemeIsDark.value ? 'dark' : 'light';
     }
-  };
+    return config.value.theme;
+  });
+
+async function getConfigPath(): Promise<string> {
+  // Use the reliable IPC call to get the path from the main process
+  return await window.electronAPI.getConfigPath();
+}
+
+async function readConfigFile(): Promise<AppConfig | null> {
+  try {
+    const configPath = await getConfigPath();
+    const fileContent = await window.electronAPI.readFileAbsolute(configPath);
+    return fileContent ? JSON.parse(fileContent) : null;
+  } catch (error: any) {
+    console.error("Error reading config file:", error);
+    return null;
+  }
+}
+
+async function writeConfigFile(configData: AppConfig): Promise<void> {
+  try {
+    const configPath = await getConfigPath();
+    await window.electronAPI.writeFileAbsolute(
+      configPath,
+      JSON.stringify(configData, null, 2)
+    );
+  } catch (error: any) {
+    console.error("Error writing config file:", error);
+    throw error; // Re-throw to be caught by caller
+  }
+}
+
+
+  const configPathDisplay = ref<string | null>(null); // Ref to store the config path for display
 
   const loadConfig = async () => {
     if (isConfigLoaded.value) return;
@@ -193,6 +232,9 @@ export function useConfig() {
         await writeConfigFile(config.value); // Save the default config
       }
       isConfigLoaded.value = true;
+      // Fetch initial system theme
+
+
     } catch (err: any) {
       console.error("Error loading or parsing config:", err);
       error.value = `Failed to load configuration: ${err.message}. Using defaults.`;
@@ -227,6 +269,12 @@ export function useConfig() {
     config.value.theme = newTheme;
   };
 
+  const updateAdaptSystemTheme = async (value: boolean) => {
+    config.value.adaptSystemTheme = value;
+    await saveConfig(); // Encapsulate saveConfig here
+  };
+
+
   const setDataDirectory = async (newPath: string | null): Promise<boolean> => {
     if (config.value.dataDirectory !== newPath) {
       config.value.dataDirectory = newPath;
@@ -241,6 +289,7 @@ export function useConfig() {
 
   onMounted(async () => {
     await loadConfig();
+    await fetchSystemTheme(); // Fetch initial system theme here
   });
 
   const isDataDirectorySet = computed(() => !!config.value.dataDirectory);
@@ -253,11 +302,15 @@ export function useConfig() {
     isDataDirectorySet,
     loadConfig,
     saveConfig,
-    updateTheme, // Add the new function here
+    updateTheme,
     setDataDirectory,
     dataDirectoryChangeFlag: readonly(dataDirectoryChangeFlag),
-    configPath: readonly(configPathDisplay), // Expose the config path
+    configPath: readonly(configPathDisplay),
     loadMedicalLangConfig,
     loadTemplates,
+    // Expose new properties and functions
+    systemThemeIsDark: readonly(systemThemeIsDark),
+    effectiveTheme,
+    updateAdaptSystemTheme,
   };
 }

@@ -10,7 +10,8 @@ import {
   MessageBoxOptions,
   MessageBoxReturnValue,
   Menu, // Import Menu
-  MenuItemConstructorOptions // Import MenuItemConstructorOptions
+  MenuItemConstructorOptions, // Import MenuItemConstructorOptions
+  nativeTheme // Import nativeTheme
 } from "electron";
 import path from "node:path";
 import fs from "node:fs";
@@ -321,6 +322,9 @@ async function handleAsyncIpcOperation<T>(
 
 // -- Environment --
 ipcMain.handle("is-packaged", () => app.isPackaged);
+
+// -- Theme --
+ipcMain.handle("get-system-theme", () => nativeTheme.shouldUseDarkColors);
 
 // -- Path Handling --
 ipcMain.handle("join-paths", (_event, ...paths: string[]): string =>
@@ -665,6 +669,11 @@ ipcMain.handle("set-unsaved-changes", (_event, hasChanges: boolean) => {
 app.whenReady().then(async () => {
   await ensureConfigExists(); // Ensure config is ready before creating window
   createWindow();
+
+  // Listen for system theme changes
+  nativeTheme.on('updated', () => {
+    mainWindow?.webContents.send('system-theme-updated', nativeTheme.shouldUseDarkColors);
+  });
 });
 
 app.on("window-all-closed", () => {

@@ -34,5 +34,42 @@ export interface AppConfig {
   theme: "light" | "dark";
   /** Directory path for the iCM patient list CSV. Null if not configured. */
   iCMListDirectory: string | null;
+  /** Whether the application theme should adapt to the system's light/dark mode preference. */
+  adaptSystemTheme: boolean;
   // Add other config options later
+}
+
+// Extend the Electron API interface in the global window object
+declare global {
+ interface Window {
+   electronAPI: {
+     readFileAbsolute: (absolutePath: string) => Promise<string | null>;
+     writeFileAbsolute: (absolutePath: string, content: string) => Promise<void>;
+     deleteFileAbsolute: (absolutePath: string) => Promise<void>;
+     existsAbsolute: (absolutePath: string) => Promise<boolean>;
+     mkdirAbsolute: (absolutePath: string) => Promise<void>;
+     rmdirAbsolute: (absolutePath: string) => Promise<void>;
+     moveFiles: (sourcePath: string, destPath: string) => Promise<void>;
+     listFiles: (absolutePath: string) => Promise<string[] | null>;
+     joinPaths: (...paths: string[]) => Promise<string>;
+     getPath: (name: string) => Promise<string>;
+     getAppPath: () => Promise<string>;
+     getConfigPath: () => Promise<string>;
+     showOpenDialog: (options: Electron.OpenDialogOptions) => Promise<Electron.OpenDialogReturnValue>;
+     showDirectoryDialog: () => Promise<Electron.OpenDialogReturnValue>;
+     selectFolder: () => Promise<string | null>;
+     selectCsvFile: () => Promise<string | null>;
+     showConfirmDialog: (options: Electron.MessageBoxOptions) => Promise<Electron.MessageBoxReturnValue>;
+     showSaveDialog: (options: Electron.SaveDialogOptions) => Promise<Electron.SaveDialogReturnValue>;
+     getPreviousDayNote: (patientId: string, currentDate: string) => Promise<string | null>;
+     getNextDayNote: (patientId: string, currentDate: string) => Promise<string | null>;
+     setUnsavedChanges: (hasChanges: boolean) => Promise<void>;
+     openDirectory: (directory: string) => Promise<string | undefined>;
+     isPackaged: () => Promise<boolean>;
+     // Add new IPC handlers here
+     getSystemTheme: () => Promise<boolean>;
+     onSystemThemeUpdated: (callback: (event: Electron.IpcRendererEvent, isDark: boolean) => void) => void;
+     removeSystemThemeUpdated: (callback: (event: Electron.IpcRendererEvent, isDark: boolean) => void) => void; // Added
+   };
+ }
 }

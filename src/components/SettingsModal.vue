@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { defineProps, defineEmits, ref, watch, computed } from 'vue'; // Added ref, watch, and computed
+import { defineProps, defineEmits, ref, watch, computed } from 'vue';
 import { useConfig } from '@/composables/useConfig';
 import { useSnackbar } from '@/composables/useSnackbar';
 
@@ -102,6 +102,14 @@ const selectDataDirectory = async () => {
             <v-card-title>Appearance</v-card-title>
             <v-card-text>
               <v-switch
+                label="Adapt to System Theme"
+                :model-value="configState.config.value.adaptSystemTheme"
+                @update:model-value="configState.updateAdaptSystemTheme"
+                density="compact"
+                hide-details
+              ></v-switch>
+
+              <v-switch
                 label="Theme"
                 :model-value="configState.config.value.theme"
                 @update:model-value="async (newValue) => { configState.updateTheme(newValue); await configState.saveConfig(); }"
@@ -111,6 +119,7 @@ const selectDataDirectory = async () => {
                 :color="themeColor"
                 density="compact"
                 hide-details
+                :disabled="configState.config.value.adaptSystemTheme"
               ></v-switch>
             </v-card-text>
           </v-card>
