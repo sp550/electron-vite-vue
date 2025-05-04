@@ -454,7 +454,7 @@ class MonacoService {
    */
   public registerFoldingRangeProvider(languageId: string): void {
     monaco.languages.registerFoldingRangeProvider(languageId, {
-      provideFoldingRanges: (model, context, token) => {
+      provideFoldingRanges: (model, _context, _token) => {
         return this._computeFoldingRanges(model);
       }
     });
@@ -615,7 +615,7 @@ class MonacoService {
        * @param context The inline completion context.
        * @param token The cancellation token.
        */
-      provideInlineCompletions: (model, position, context, token) => {
+      provideInlineCompletions: (model, position, _context, _token) => {
         const textUntilPosition = model.getValueInRange({
           startLineNumber: 1,
           startColumn: 1,
@@ -627,8 +627,8 @@ class MonacoService {
         const lastWord = lastWordMatch ? lastWordMatch[1].toLowerCase() : '';
         const suggestions = templates
           .filter(t =>
-            t.label.toLowerCase().includes(lastWord) ||
-            t.insertText.toLowerCase().includes(lastWord)
+            lastWord.length >= 2 && (t.label.toLowerCase().includes(lastWord) ||
+            t.insertText.toLowerCase().includes(lastWord))
           )
           .map(t => ({
             insertText: t.insertText,
@@ -672,7 +672,7 @@ class MonacoService {
        * @param context The inline completion context.
        * @param token The cancellation token.
        */
-      provideInlineCompletions: (model, position, context, token) => {
+      provideInlineCompletions: (model, position, _context, _token) => {
         const textUntilPosition = model.getValueInRange({
           startLineNumber: 1,
           startColumn: 1,
@@ -683,9 +683,8 @@ class MonacoService {
         const lastWord = lastWordMatch ? lastWordMatch[1].toLowerCase() : '';
 
 // DEBUG LOG: Show lastWord and suggestions
-console.log('[InlineCompletion] lastWord:', lastWord);
         // Only provide suggestions if the last word exists and has at least 3 characters
-        if (!lastWord || lastWord.length < 3) {
+        if (!lastWord || lastWord.length < 2) {
           return null;
         }
 
@@ -704,8 +703,6 @@ console.log('[InlineCompletion] lastWord:', lastWord);
             command: undefined,
           }));
 
-        // DEBUG LOG: Show suggestions
-        console.log('[InlineCompletion] suggestions:', suggestions);
 
         return { items: suggestions, dispose: () => {} };
       },
