@@ -13,19 +13,19 @@
         <v-list>
           <v-list-item @click="handleSortSelect('name')">
             <v-list-item-title>
-              <v-icon start v-if="sortMode.value === 'name'" color="primary">mdi-check</v-icon>
+              <v-icon start v-if="sortMode === 'name'" color="primary">mdi-check</v-icon>
               Sort by Name
             </v-list-item-title>
           </v-list-item>
           <v-list-item @click="handleSortSelect('location')">
             <v-list-item-title>
-              <v-icon start v-if="sortMode.value === 'location'" color="primary">mdi-check</v-icon>
+              <v-icon start v-if="sortMode === 'location'" color="primary">mdi-check</v-icon>
               Sort by Location
             </v-list-item-title>
           </v-list-item>
           <v-list-item @click="handleSortSelect('custom')">
             <v-list-item-title>
-              <v-icon start v-if="sortMode.value === 'custom'" color="primary">mdi-check</v-icon>
+              <v-icon start v-if="sortMode === 'custom'" color="primary">mdi-check</v-icon>
               Custom Sort (Manual Order)
             </v-list-item-title>
           </v-list-item>
@@ -54,6 +54,9 @@
 
       <v-spacer></v-spacer>
 
+      <span class="text-subtitle-2 mx-2">
+        {{ patientCount }} patient{{ patientCount === 1 ? '' : 's' }}
+      </span>
 
     </v-toolbar>
 
@@ -68,13 +71,11 @@
             <template #prepend>
               <v-icon class="me-2" title="Drag to reorder" @mousedown.stop>mdi-drag</v-icon>
             </template>
-            <v-list-item-content>
               <v-list-item-title>{{ (patient.lastName && patient.firstName) ? `${patient.lastName.toUpperCase()}, ${patient.firstName}` : patient.fullName || patient.rawName || patient.id }}</v-list-item-title>
               <v-list-item-subtitle v-if="(patient.umrn || patient.location)" class="umrn-location">
                {{ patient.umrn ? `${patient.umrn}` : "" }}
                {{ patient.location ? `Location: ${patient.location}` : "" }}
              </v-list-item-subtitle>
-            </v-list-item-content>
             <template #append>
               <v-list-item-action>
                 <v-btn icon="mdi-delete" variant="plain" size="small" color="error"
@@ -88,7 +89,6 @@
       <template v-else>
         <v-list-item v-for="(patient, _index) in patients" :key="patient.id" :data-id="patient.id"
           @click="onPatientClick(patient.id)">
-          <v-list-item-content>
             <v-list-item-title>
              <span class="hide-small-2">{{ (patient.lastName && patient.firstName) ? `${patient.lastName.toUpperCase()}, ${patient.firstName}` : patient.fullName || patient.rawName || patient.id }}</span>
              <span class="show-small">{{ (patient.fullName || patient.rawName || patient.id)?.charAt(0) || ' - ' }}</span> <!-- Show only initial in rail mode -->
@@ -97,7 +97,6 @@
              <span>{{ patient.umrn ? `${patient.umrn}` : "" }}</span>
              <span class="location-right">{{ patient.location ? `${patient.location}` : "" }}</span>
            </v-list-item-subtitle>
-          </v-list-item-content>
         </v-list-item>
       </template>
     </v-list>
@@ -130,7 +129,7 @@ const props = defineProps({
   version: { type: String, required: true },
   isPackaged: { type: Boolean, required: true },
   nodeEnv: { type: String, required: true },
-  sortMode: { type: Object as PropType<import('vue').Ref<any>>, required: true },
+  sortMode: { type: String as PropType<"custom" | "name" | "location">, required: true },
   setSortMode: { type: Function as PropType<(mode: "custom" | "name" | "location") => void>, required: true },
 });
 
@@ -174,7 +173,7 @@ const patientListDateDisplayComputed = computed(() => {
 
 
 const sortModeLabel = computed(() => {
-  switch (props.sortMode.value) {
+  switch (props.sortMode) {
     case "name":
       return "Name";
     case "location":
@@ -184,6 +183,10 @@ const sortModeLabel = computed(() => {
     default:
       return "Custom Order";
   }
+});
+
+const patientCount = computed(() => {
+  return patients.value.length;
 });
 
 function handleSortSelect(mode: "custom" | "name" | "location") {

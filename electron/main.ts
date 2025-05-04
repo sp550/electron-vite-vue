@@ -19,7 +19,7 @@ console.log("Resolved preload path:", preloadPath);
 console.log("Preload exists at window creation:", fs.existsSync(preloadPath));
 
 let mainWindow: BrowserWindow | null;
-
+app.commandLine.appendSwitch("enable-logging");  
 // --- macOS Standard Menu ---
 
 const isMac = process.platform === "darwin";

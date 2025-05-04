@@ -50,12 +50,12 @@
          <v-container class="pa-0 d-flex flex-column" style="height: 100%;">
             <!-- Patient List: hidden in rail mode -->
             <PatientList class="flex-grow-1" :selectedPatientIds="selectedPatientIds"
-               :isEditPatientListMode="isEditPatientListMode" :search="search" :todayString="todayString"
+               :isEditPatientListMode="isEditPatientListMode" :search="search" :todayString="todayString()"
                :selectedDate="selectedNoteDate" :noteDateDisplay="noteDateDisplay(selectedNoteDate)"
                :goToPreviousNoteDay="() => { selectedNoteDate = goToPreviousNoteDay(selectedNoteDate); loadSelectedNote(); }"
                :goToNextNoteDay="() => { selectedNoteDate = goToNextNoteDay(selectedNoteDate); loadSelectedNote(); }"
                :onDateChange="handleDateChange" :configState="configState" :version="version" :isPackaged="isPackaged"
-               :nodeEnv="nodeEnv" :sortMode="sortMode" :setSortMode="setSortMode" :isRail="isRail"
+               :nodeEnv="nodeEnv" :sortMode="sortMode.value || 'custom'" :setSortMode="setSortMode" :isRail="isRail"
                @update:search="val => search = val" @update:selectedPatientIds="val => selectedPatientIds = val"
                @update:isEditPatientListMode="val => isEditPatientListMode = val" @patientSelected="onPatientSelected"
                @patientListChanged="onPatientListChanged" @addNewPatient="handleAddNewPatient"
@@ -265,16 +265,18 @@
             </v-card-actions>
          </v-card>
       </v-dialog>
+      <SettingsModal v-model="showSettingsModal" v-model:isAutoSaveEnabled="noteEditor.isAutoSaveEnabled.value" />
    </v-app>
 </template>
 
-<script setup lang="ts">
+<script setup lang="ts" async>
 import { ref, provide, computed, watch, nextTick, onMounted } from 'vue';
 
 // Quick Add Patient Name State
 const showQuickAddPatientStringField = ref(false); // Keep for now, might be used elsewhere
 const quickAddPatientString = ref('');
 const isEditingPatientName = ref(false);
+const showSettingsModal = ref(false);
 
 function getTodayString() {
    const today = new Date();
@@ -308,6 +310,7 @@ import Sortable from 'sortablejs';
 import type { Patient, Note } from '@/types';
 import MonacoEditorComponent from '@/components/MonacoEditorComponent.vue';
 import PatientList from '@/components/PatientList.vue';
+import SettingsModal from '@/components/SettingsModal.vue';
 
 const drawerState = ref(2); // 0: Permanent, 1: Temporary Rail, 2: Temporary Full
 
@@ -583,7 +586,7 @@ const noteContent = ref<string>('');
 const currentNote = ref<Note | null>(null);
 const isNoteLoaded = ref(false);
 const version = packageJson.version;
-const isPackaged = (window as any).electronAPI.isPackaged;
+const isPackaged = await (window as any).electronAPI.isPackaged(); // Call the function and await the result
 const nodeEnv = process.env.NODE_ENV || '';
 
 provide('showSnackbar', showSnackbar);
@@ -832,7 +835,7 @@ const handleImportICMClick = async () => {
 
 // --- System Actions ---
 const goToSettings = () => {
-   showSnackbar('Settings not implemented yet.', 'info');
+   showSettingsModal.value = true;
 };
 
 const selectDataDirectory = async () => {

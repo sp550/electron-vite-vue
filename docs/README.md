@@ -1,7 +1,4 @@
-use vuetify and monaco api MCP*******
 
-# Patient Notes
-edit location of patient
 
 
 # App features
@@ -9,7 +6,9 @@ edit location of patient
 - Basic settings/config implementation (perhaps a new vue component)
 - Basic common hotkeys.
 
+# Patient Notes
 ## Patient list
+edit location of patient
 patient lists for different day
 Sort by custom order and frag FUnctionality is a Pain to implement becuase it keeps breaking, lets prioritise it for later
 # Monaco

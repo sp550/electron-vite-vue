@@ -1,13 +1,13 @@
-// src/main.ts
+ // src/main.ts
 import { createApp } from "vue";
 import { isRef } from "vue";
-import App from "./App.vue";
+import Root from "./Root.vue"; // Import the new Root component
 // import router from './router'; // Remove this line
 import vuetify from "./plugins/vuetify";
 // import './styles/main.scss'; // Import global styles if you have them
 import Sortable from "sortablejs"
 
-const app = createApp(App);
+const app = createApp(Root); // Mount the Root component
 
 app.directive("sortable", {
   mounted(el, binding) {
@@ -46,5 +46,6 @@ app.directive("sortable", {
 });
 app.use(vuetify);
 
-app.mount("#app");
+// Mount the app with Suspense wrapping the root component
+app.mount("#app"); // Mount the Root component
 
