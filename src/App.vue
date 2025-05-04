@@ -1,4 +1,3 @@
-
 <template>
    <!-- === App Bar === -->
    <v-app>
@@ -99,7 +98,7 @@
             cursor: isResizing ? 'ew-resize' : 'col-resize',
             opacity: isResizing ? 0 : 0,
             transition: 'opacity 0.1s'
-          }" tabindex="0" role="separator" aria-orientation="vertical" aria-label="Resize navigation drawer"
+         }" tabindex="0" role="separator" aria-orientation="vertical" aria-label="Resize navigation drawer"
             :aria-valuenow="drawerWidth" aria-valuemin="240" aria-valuemax="600" @mousedown="onResizeMouseDown">
          </v-divider>
       </v-navigation-drawer>
@@ -144,16 +143,18 @@
                <div class="d-flex align-center flex-grow-1">
                   <v-text-field :model-value="formattedPatientName" label="Patient Name" hide-details single-line
                      readonly class="flex-grow-1"></v-text-field>
-                  </div>
-                  <v-text-field v-model="selectedPatient!.umrn" label="Patient UMRN" hide-details single-line
+               </div>
+               <v-text-field v-model="selectedPatient!.umrn" label="Patient UMRN" hide-details single-line
                   @blur="updatePatientUmrn"></v-text-field>
-                  <v-btn icon="mdi-pencil" size="small" variant="text" @click="toggleQuickAddPatientField"
-                     title="Edit Patient Name/Quick Add"></v-btn>
-                     <v-text-field v-if="showQuickAddPatientStringField" v-model="quickAddPatientString"
-                     label="Quick Add Patient" placeholder="Surname, Firstname (A1234567)" variant="outlined"
-                     prepend-inner-icon="mdi-lightning-bolt" color="secondary" hint="Hint: use %id"
-                     class="mt-2"></v-text-field>
-                     <v-spacer></v-spacer>
+               <v-btn icon="mdi-pencil" size="small" variant="text" @click="handleQuickEditClick"
+                  title="Edit Patient Name/Quick Add"></v-btn>
+               <v-text-field v-if="showQuickAddPatientStringField" v-model="quickAddPatientString"
+                  label="Quick Add Patient" placeholder="Surname, Firstname (A1234567)" variant="outlined"
+                  prepend-inner-icon="mdi-lightning-bolt" color="secondary" class=""
+                  @keyup.enter="updatePatientNameFromQuickAdd"></v-text-field>
+               <v-btn v-if="showQuickAddPatientStringField" icon="mdi-check" size="small" variant="text" @click="updatePatientNameFromQuickAdd"
+                  title="Save Quick Add Name"></v-btn>
+               <v-spacer></v-spacer>
 
 
                <div class="d-flex align-center">
@@ -205,7 +206,7 @@
       </v-main>
 
       <!-- === Snackbar === -->
-      <v-snackbar v-model=" snackbar.show" :color="snackbar.color" timeout="3000" location="bottom right">
+      <v-snackbar v-model="snackbar.show" :color="snackbar.color" timeout="3000" location="bottom right">
          {{ snackbar.text }}
          <template #actions>
             <v-btn variant="text" @click="snackbar.show = false">Close</v-btn>
@@ -244,6 +245,10 @@
 <script setup lang="ts">
 import { ref, provide, computed, watch, nextTick, onMounted } from 'vue';
 
+// Quick Add Patient Name State
+const showQuickAddPatientStringField = ref(false);
+const quickAddPatientString = ref('');
+
 function getTodayString() {
    const today = new Date();
    return today.toISOString().slice(0, 10);
@@ -279,26 +284,26 @@ import PatientList from '@/components/PatientList.vue';
 
 const drawerState = ref(2); // 0: Permanent, 1: Temporary Rail, 2: Temporary Full
 
-const isPermanent = computed(() => (drawerState.value === 0 ||drawerState.value === 1));
+const isPermanent = computed(() => (drawerState.value === 0 || drawerState.value === 1));
 const isTemporary = computed(
    () => drawerState.value === 2
 )
 
 const isRail = computed(() => drawerState.value === 1);
-const isExpandOnHover = computed(() => drawerState.value === 1 || drawerState.value === 2);
+const isExpandOnHover = computed(() => drawerState.value === 2); // Only expand on hover in temporary full mode
 
 const menuIcon = computed(() => {
-  switch (drawerState.value) {
-    case 0: return 'mdi-menu'; // Permanent
-    case 1: return 'mdi-chevron-right'; // Temporary Rail
-    case 2: return 'mdi-chevron-left'; // Temporary Full
-    default: return 'mdi-menu';
-  }
+   switch (drawerState.value) {
+      case 0: return 'mdi-menu'; // Permanent
+      case 1: return 'mdi-chevron-right'; // Temporary Rail
+      case 2: return 'mdi-chevron-left'; // Temporary Full
+      default: return 'mdi-menu';
+   }
 });
 
 const toggleDrawerMode = () => {
-  drawerState.value = (drawerState.value + 1) % 3;
-  drawer.value = true; // Ensure drawer is visible when mode is changed
+   drawerState.value = (drawerState.value + 1) % 3;
+   drawer.value = true; // Ensure drawer is visible when mode is changed
 };
 
 const selectedPatientId = ref<string | null>(null); // ID of the currently active patient
@@ -308,24 +313,51 @@ const drawer = ref(true);
 
 // === Resizable Drawer State (Vuetify only, no custom CSS) ===
 const DEFAULT_DRAWER_WIDTH = 350;
-const showQuickAddPatientStringField = ref(false);
 
 const formattedPatientName = computed(() => {
-  if (!selectedPatient.value) return '';
-  const { lastName, firstName } = selectedPatient.value;
-  if (lastName && firstName) {
-    return `${lastName}, ${firstName}`;
-  } else if (lastName) {
-    return lastName;
-  } else if (firstName) {
-    return firstName;
-  }
-  return selectedPatient.value.rawName || '';
+   if (!selectedPatient.value) return '';
+   const { lastName, firstName } = selectedPatient.value;
+   if (lastName && firstName) {
+      return `${lastName}, ${firstName}`;
+   } else if (lastName) {
+      return lastName;
+   } else if (firstName) {
+      return firstName;
+   }
+   return selectedPatient.value.rawName || '';
 });
 
-const toggleQuickAddPatientField = () => {
-  showQuickAddPatientStringField.value = !showQuickAddPatientStringField.value;
+const handleQuickEditClick = () => {
+   showQuickAddPatientStringField.value = !showQuickAddPatientStringField.value;
+   if (showQuickAddPatientStringField.value && selectedPatient.value) {
+      quickAddPatientString.value = selectedPatient.value.rawName || ''; // Pre-populate
+   } else {
+      quickAddPatientString.value = ''; // Clear when hiding
+   }
 };
+
+const updatePatientNameFromQuickAdd = async () => {
+   if (!selectedPatient.value) return;
+
+   // Update the rawName of the selected patient object
+   selectedPatient.value.rawName = quickAddPatientString.value;
+
+   // Call the updatePatient function from the composable
+   const success = await patientDataComposable.updatePatient(selectedPatient.value);
+
+   if (success) {
+      showSnackbar(`Patient name updated to: ${selectedPatient.value.rawName}`, 'success');
+   } else {
+      showSnackbar(`Failed to update patient name: ${patientDataComposable.error.value || 'Unknown error'}`, 'error');
+      // Optionally revert the local change if save failed
+      // await patientDataComposable.loadPatients(); // Reload to revert
+   }
+
+   // Hide the quick add field and clear its value
+   showQuickAddPatientStringField.value = false;
+   quickAddPatientString.value = '';
+};
+
 const MIN_DRAWER_WIDTH = 240;
 const MAX_DRAWER_WIDTH = 600;
 const drawerWidth = ref(DEFAULT_DRAWER_WIDTH);
@@ -335,27 +367,27 @@ let startWidth = 0;
 
 // Mouse events
 function onResizeMouseDown(e: MouseEvent) {
-  isResizing.value = true;
-  startX = e.clientX;
-  startWidth = drawerWidth.value;
-  document.body.style.cursor = 'ew-resize';
-  window.addEventListener('mousemove', onResizeMouseMove);
-  window.addEventListener('mouseup', onResizeMouseUp);
+   isResizing.value = true;
+   startX = e.clientX;
+   startWidth = drawerWidth.value;
+   document.body.style.cursor = 'ew-resize';
+   window.addEventListener('mousemove', onResizeMouseMove);
+   window.addEventListener('mouseup', onResizeMouseUp);
 }
 
 function onResizeMouseMove(e: MouseEvent) {
-  if (!isResizing.value) return;
-  const dx = e.clientX - startX;
-  let newWidth = startWidth + dx;
-  newWidth = Math.max(MIN_DRAWER_WIDTH, Math.min(MAX_DRAWER_WIDTH, newWidth));
-  drawerWidth.value = newWidth;
+   if (!isResizing.value) return;
+   const dx = e.clientX - startX;
+   let newWidth = startWidth + dx;
+   newWidth = Math.max(MIN_DRAWER_WIDTH, Math.min(MAX_DRAWER_WIDTH, newWidth));
+   drawerWidth.value = newWidth;
 }
 
 function onResizeMouseUp() {
-  isResizing.value = false;
-  document.body.style.cursor = '';
-  window.removeEventListener('mousemove', onResizeMouseMove);
-  window.removeEventListener('mouseup', onResizeMouseUp);
+   isResizing.value = false;
+   document.body.style.cursor = '';
+   window.removeEventListener('mousemove', onResizeMouseMove);
+   window.removeEventListener('mouseup', onResizeMouseUp);
 }
 
 
@@ -519,67 +551,67 @@ const clearSelectedPatientState = () => {
 
 // Load the note for the currently selected patient and date
 const loadSelectedNote = async () => {
-    console.log(`[App.vue] loadSelectedNote called for patient: ${selectedPatientId.value}, date: ${selectedNoteDate.value}`);
-    if (!selectedPatientId.value || !selectedNoteDate.value) {
-       console.log('[App.vue] loadSelectedNote: Clearing state: No patient or date selected.');
-       clearSelectedPatientState();
-       return;
-    }
+   console.log(`[App.vue] loadSelectedNote called for patient: ${selectedPatientId.value}, date: ${selectedNoteDate.value}`);
+   if (!selectedPatientId.value || !selectedNoteDate.value) {
+      console.log('[App.vue] loadSelectedNote: Clearing state: No patient or date selected.');
+      clearSelectedPatientState();
+      return;
+   }
 
-    isNoteLoaded.value = false; // Set loading state
-    try {
-       const patient = selectedPatient.value; // Get the computed patient object
-        console.log(`[App.vue] loadSelectedNote: Using patient object:`, patient);
-        if (!patient) {
-           showSnackbar('Cannot load note: Patient data not found.', 'error');
-           clearSelectedPatientState();
-           return;
-        }
+   isNoteLoaded.value = false; // Set loading state
+   try {
+      const patient = selectedPatient.value; // Get the computed patient object
+      console.log(`[App.vue] loadSelectedNote: Using patient object:`, patient);
+      if (!patient) {
+         showSnackbar('Cannot load note: Patient data not found.', 'error');
+         clearSelectedPatientState();
+         return;
+      }
 
-       // Call useNoteEditor's loadNote function
-       await noteEditor.loadNote(patient, selectedNoteDate.value);
+      // Call useNoteEditor's loadNote function
+      await noteEditor.loadNote(patient, selectedNoteDate.value);
 
-       // Check the state *after* loadNote completes
-       if (noteEditor.currentNote.value && !noteEditor.error.value) {
-          noteEditor.setUnsavedChanges(false); // Reset flag before updating content
-          await nextTick(); // Ensure state update propagates
+      // Check the state *after* loadNote completes
+      if (noteEditor.currentNote.value && !noteEditor.error.value) {
+         noteEditor.setUnsavedChanges(false); // Reset flag before updating content
+         await nextTick(); // Ensure state update propagates
 
-          // Check cache for unsaved note (manual save mode)
-          const cacheKey = `${selectedPatientId.value}:${selectedNoteDate.value}`;
-          if (!noteEditor.isAutoSaveEnabled.value && unsavedNotesCache.hasOwnProperty(cacheKey)) {
-             noteContent.value = unsavedNotesCache[cacheKey];
-             noteEditor.setUnsavedChanges(true); // Mark as dirty if restored from cache
-          } else {
-             noteContent.value = noteEditor.currentNote.value.content;
-             noteEditor.setUnsavedChanges(false); // Mark as clean if loaded from disk/new
-          }
-          currentNote.value = noteEditor.currentNote.value; // Keep local ref synced if needed
-          isNoteLoaded.value = true;
-       } else {
-          // Failed to load (e.g., file not found, permission error)
-          noteContent.value = ''; // Clear content on error/failure
-          currentNote.value = null;
-          isNoteLoaded.value = false; // Ensure loading state is false
-          // Show snackbar only for actual errors, not 'file not found' (ENOENT)
-          // or if data directory isn't set yet.
-          if (noteEditor.error.value && !noteEditor.error.value.includes('ENOENT') && !noteEditor.error.value.includes('Data directory not configured')) {
-             showSnackbar(`Failed to load note: ${noteEditor.error.value}`, 'error');
-          } else if (!noteEditor.currentNote.value && !noteEditor.error.value) {
-             // This case might indicate a logic error if loadNote finished without error but currentNote is still null
-             // Or it could mean a new note needs to be created implicitly
-             console.warn("[App.vue] loadSelectedNote: loadNote completed without error/ENOENT, but currentNote is still null. Ready for new note.");
-             isNoteLoaded.value = true; // Allow editor to show for new note creation
-             noteEditor.setUnsavedChanges(false); // Start clean
-          } else {
-             console.log(`[App.vue] Note not found for ${selectedPatientId.value} on ${selectedNoteDate.value}. Ready for new note.`);
-             isNoteLoaded.value = true; // Allow editor to show for new note creation
-             noteEditor.setUnsavedChanges(false); // Start clean
-          }
-       }
-    } catch (e: any) {
-       showSnackbar(`[App.vue] Error in loadSelectedNote: ${e.message || e}`, 'error');
-       clearSelectedPatientState();
-    }
+         // Check cache for unsaved note (manual save mode)
+         const cacheKey = `${selectedPatientId.value}:${selectedNoteDate.value}`;
+         if (!noteEditor.isAutoSaveEnabled.value && unsavedNotesCache.hasOwnProperty(cacheKey)) {
+            noteContent.value = unsavedNotesCache[cacheKey];
+            noteEditor.setUnsavedChanges(true); // Mark as dirty if restored from cache
+         } else {
+            noteContent.value = noteEditor.currentNote.value.content;
+            noteEditor.setUnsavedChanges(false); // Mark as clean if loaded from disk/new
+         }
+         currentNote.value = noteEditor.currentNote.value; // Keep local ref synced if needed
+         isNoteLoaded.value = true;
+      } else {
+         // Failed to load (e.g., file not found, permission error)
+         noteContent.value = ''; // Clear content on error/failure
+         currentNote.value = null;
+         isNoteLoaded.value = false; // Ensure loading state is false
+         // Show snackbar only for actual errors, not 'file not found' (ENOENT)
+         // or if data directory isn't set yet.
+         if (noteEditor.error.value && !noteEditor.error.value.includes('ENOENT') && !noteEditor.error.value.includes('Data directory not configured')) {
+            showSnackbar(`Failed to load note: ${noteEditor.error.value}`, 'error');
+         } else if (!noteEditor.currentNote.value && !noteEditor.error.value) {
+            // This case might indicate a logic error if loadNote finished without error but currentNote is still null
+            // Or it could mean a new note needs to be created implicitly
+            console.warn("[App.vue] loadSelectedNote: loadNote completed without error/ENOENT, but currentNote is still null. Ready for new note.");
+            isNoteLoaded.value = true; // Allow editor to show for new note creation
+            noteEditor.setUnsavedChanges(false); // Start clean
+         } else {
+            console.log(`[App.vue] Note not found for ${selectedPatientId.value} on ${selectedNoteDate.value}. Ready for new note.`);
+            isNoteLoaded.value = true; // Allow editor to show for new note creation
+            noteEditor.setUnsavedChanges(false); // Start clean
+         }
+      }
+   } catch (e: any) {
+      showSnackbar(`[App.vue] Error in loadSelectedNote: ${e.message || e}`, 'error');
+      clearSelectedPatientState();
+   }
 };
 
 // Save the current note content
@@ -901,7 +933,6 @@ onMounted(async () => {
 </script>
 
 <style>
-
 .patient-list-rail-hidden {
    opacity: 0 !important;
    pointer-events: none !important;
