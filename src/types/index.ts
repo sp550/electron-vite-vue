@@ -3,7 +3,13 @@ export interface Patient {
   id: string; // Unique identifier (UMRN or UUID)
   type: "umrn" | "uuid"; // Type discriminator
   umrn?: string; // Medical Record Number (optional if type is uuid initially)
-  name?: string; // Patient's full name
+  rawName?: string; // Original patient's full name string input
+  salutation?: string; // e.g., Mr., Ms., Dr.
+  firstName?: string; // Patient's first given name
+  middleName?: string; // Patient's middle name(s)
+  lastName?: string; // Patient's surname
+  suffix?: string; // e.g., Jr., Sr., III
+  fullName?: string; // Parsed full name from components (optional, humanparser might provide this)
   location?: string; // Patient's current location (e.g., ward, bed number)
   age?: number | string; // Patient's age (number or string like "80+")
   los?: number | string; // Length of stay (days or string)

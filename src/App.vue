@@ -176,9 +176,37 @@
             </v-card>
          </v-container>
          <v-container v-else fluid class=" pa-0  px-xl-16 d-flex flex-column fill-height justify-start fill-width">
-            <v-toolbar color="grey-lighten-3 " density="comfortable">
-               <v-text-field v-model="selectedPatient!.name" label="Patient Name" hide-details single-line
+            <v-toolbar color="grey-lighten-3 " density="comfortable" v-if="selectedPatient">
+               <v-text-field v-model="selectedPatient!.rawName" label="Patient Name" hide-details single-line
                   @blur="updatePatientName"></v-text-field>
+               <!-- Debug fields for parsed name components -->
+               <v-text-field
+                  v-if="selectedPatient?.value?.firstName"
+                  v-model="selectedPatient.value.firstName"
+                  label="First Name"
+                  readonly
+                  hide-details
+                  single-line
+                  class="ml-2"
+               ></v-text-field>
+               <v-text-field
+                  v-if="selectedPatient?.value?.middleName"
+                  v-model="selectedPatient.value.middleName"
+                  label="Middle Name"
+                  readonly
+                  hide-details
+                  single-line
+                  class="ml-2"
+               ></v-text-field>
+               <v-text-field
+                  v-if="selectedPatient?.value?.lastName"
+                  v-model="selectedPatient.value.lastName"
+                  label="Last Name"
+                  readonly
+                  hide-details
+                  single-line
+                  class="ml-2"
+               ></v-text-field>
                <!-- Independent Note Date Selector -->
                <div class="d-flex align-center">
                   <v-btn icon="mdi-chevron-left" size="small" variant="text" @click="selectedNoteDate = goToPreviousNoteDay(selectedNoteDate); loadSelectedNote();" title="Previous Day"></v-btn>
@@ -618,8 +646,14 @@ function onPatientSelected(patientId: string) {
 }
 
 function onPatientListChanged() {
-   // No direct patient list state management here per requirements.
-   // This can be used to trigger a reload or update if needed.
+   // Check if the currently selected patient still exists after the list changes
+   if (selectedPatientId.value) {
+      const patientExists = patientDataComposable.getPatientById(selectedPatientId.value);
+      if (!patientExists) {
+         console.log(`[App.vue] Selected patient ID ${selectedPatientId.value} no longer exists. Clearing state.`);
+         clearSelectedPatientState();
+      }
+   }
 }
 
 //
@@ -648,7 +682,7 @@ const updatePatientName = async () => {
          showSnackbar(`Failed to update patient name: ${patientDataComposable.error.value || 'Unknown error'}`, 'error'); // Use patientDataComposable
          // Optionally revert UI change here if needed
       } else {
-         showSnackbar(`Patient name updated to: ${selectedPatient.value.name}`, 'success');
+         showSnackbar(`Patient name updated to: ${selectedPatient.value.rawName}`, 'success');
       }
    }
 };

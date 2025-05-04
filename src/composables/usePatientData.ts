@@ -5,6 +5,7 @@ import Papa from "papaparse";
 import type { Patient } from "@/types"; // Import the updated interface
 import { useFileSystemAccess } from "./useFileSystemAccess";
 import { useConfig } from "./useConfig";
+import { parsePatientName } from "@/utils/nameParser"; // Import the name parsing utility
 
 
 // --- Date Navigation State (from useDateNavigation) ---
@@ -30,9 +31,11 @@ const patient_identifierArray = ref<Record<string, string>>({});
 const updatePatientIdentifierArray = (patientList: Patient[]) => {
   const newMap: Record<string, string> = {};
   patientList.forEach(patient => {
-    if (patient.name && patient.umrn) {
-      // Handle potential name collisions if necessary, for now, last one wins
-      newMap[patient.name] = patient.umrn;
+    // Use rawName for the identifier map if available, otherwise use fullName or id
+    const identifier = patient.rawName || patient.fullName || patient.id;
+    if (identifier && patient.umrn) {
+      // Handle potential identifier collisions if necessary, for now, last one wins
+      newMap[identifier] = patient.umrn;
     }
   });
   patient_identifierArray.value = newMap;
@@ -318,7 +321,13 @@ const getPatientsFilePathForDate = async (date: string): Promise<string | null> 
         id: p.id,
         type: p.type,
         umrn: p.umrn,
-        name: p.name,
+        rawName: p.rawName, // Include rawName
+        salutation: p.salutation, // Include parsed name fields
+        firstName: p.firstName,
+        middleName: p.middleName,
+        lastName: p.lastName,
+        suffix: p.suffix,
+        fullName: p.fullName,
         location: p.location,
         age: p.age,
         los: p.los,
@@ -340,77 +349,87 @@ const getPatientsFilePathForDate = async (date: string): Promise<string | null> 
 
 
 
-  const addPatient = async (patientData: Omit<Patient, "id" | "type">): Promise<Patient | null> => {
+  const addPatient = async (patientData: Omit<Patient, "id" | "type" | "salutation" | "firstName" | "middleName" | "lastName" | "suffix" | "fullName"> & { rawName?: string }): Promise<Patient | null> => {
     let newPatientDir: string | null = null;
     try {
-    const baseNotesDirCheck = await getPatientNotesDir("", "uuid"); // Check base path validity
-    if (!baseNotesDirCheck) {
+      const baseNotesDirCheck = await getPatientNotesDir("", "uuid"); // Check base path validity
+      if (!baseNotesDirCheck) {
         error.value = "addPatient: Data directory not configured or invalid.";
-      console.error("Add Patient Error: Base notes directory check failed.");
-      return null;
-    }
-
-    isLoading.value = true;
-  error.value = null;
-
-  // Check if patient already exists (re-admission handling)
-  if (!patientData.umrn) {
-    // Implement search functionality based on patient name or admission date
-    // to prompt a potential merge for patients without UMRN, avoiding unnecessary duplication.
-    // This is a placeholder for the actual search implementation.
-    const existingPatient = patients.value.find(
-      (p) => p.name === patientData.name
-    );
-    if (existingPatient) {
-      // Prompt user to merge patients
-      const mergeConfirmation = await showConfirmDialog({
-        type: "warning",
-        buttons: ["Cancel", "Merge Patients", "Create New"],
-        defaultId: 0,
-        cancelId: 0,
-        title: "Potential Duplicate Patient",
-        message: `A patient with the name "${patientData.name}" already exists. What do you want to do?`,
-        detail: "Merge will combine the patients. Create New will create a new patient with a new UUID.",
-      });
-
-      if (mergeConfirmation.response === 1) {
-        // Merge patients
-        console.log("Merging patients...");
-        // Implement merge logic here
-        return existingPatient;
-      } else if (mergeConfirmation.response === 2) {
-        // Create new patient
-        console.log("Creating new patient with new UUID...");
-      }
-       else {
-        console.log("Patient creation cancelled by user.");
+        console.error("Add Patient Error: Base notes directory check failed.");
         return null;
       }
-    }
-  }
 
-    let patientId: string = uuidv4();
-    let patientType: "umrn" | "uuid" = "uuid";
-    let umrnExists = false;
+      isLoading.value = true;
+      error.value = null;
 
-    if (patientData.umrn) {
-      patientId = patientData.umrn;
-      patientType = "umrn";
-      // Check if UMRN directory exists
-      const umrnDir = await getPatientNotesDir(patientId, patientType);
-      if (umrnDir && await useFileSystemAccess().existsAbsolute(umrnDir)) {
-        umrnExists = true;
-        newPatientDir = umrnDir;
+      // Parse the raw name
+      const parsedName = parsePatientName(patientData.rawName);
+      console.log("addPatient: Parsed name:", {
+        rawName: patientData.rawName,
+        parsed: parsedName,
+      });
+
+      // Check if patient already exists (re-admission handling)
+      // Using rawName for duplicate check for now, can refine later if needed
+      if (!patientData.umrn && patientData.rawName) {
+        const existingPatient = patients.value.find(
+          (p) => p.rawName === patientData.rawName
+        );
+        if (existingPatient) {
+          // Prompt user to merge patients
+          const mergeConfirmation = await showConfirmDialog({
+            type: "warning",
+            buttons: ["Cancel", "Merge Patients", "Create New"],
+            defaultId: 0,
+            cancelId: 0,
+            title: "Potential Duplicate Patient",
+            message: `A patient with the name "${patientData.rawName}" already exists. What do you want to do?`,
+            detail: "Merge will combine the patients. Create New will create a new patient with a new UUID.",
+          });
+
+          if (mergeConfirmation.response === 1) {
+            // Merge patients
+            console.log("Merging patients...");
+            // Implement merge logic here
+            return existingPatient;
+          } else if (mergeConfirmation.response === 2) {
+            // Create new patient
+            console.log("Creating new patient with new UUID...");
+          } else {
+            console.log("Patient creation cancelled by user.");
+            return null;
+          }
+        }
       }
-    } else {
-      patientId = uuidv4();
-      patientType = "uuid";
-    }
 
-    const newPatient: Patient = { ...patientData, id: patientId, type: patientType };
-    if (!newPatientDir) {
-      newPatientDir = await getPatientNotesDir(patientId, patientType);
-    }
+      let patientId: string = uuidv4();
+      let patientType: "umrn" | "uuid" = "uuid";
+      let umrnExists = false;
+
+      if (patientData.umrn) {
+        patientId = patientData.umrn;
+        patientType = "umrn";
+        // Check if UMRN directory exists
+        const umrnDir = await getPatientNotesDir(patientId, patientType);
+        if (umrnDir && await useFileSystemAccess().existsAbsolute(umrnDir)) {
+          umrnExists = true;
+          newPatientDir = umrnDir;
+        }
+      } else {
+        patientId = uuidv4();
+        patientType = "uuid";
+      }
+
+      const newPatient: Patient = {
+        ...patientData,
+        ...parsedName, // Merge parsed name components
+        id: patientId,
+        type: patientType
+      };
+
+      if (!newPatientDir) {
+        newPatientDir = await getPatientNotesDir(patientId, patientType);
+      }
 
       if (!newPatientDir) {
         throw new Error("Could not construct patient notes directory path.");
@@ -662,7 +681,7 @@ const updatePatient = async (updatedPatient: Patient): Promise<boolean> => {
     // NOTE: As per requirements, removing a patient only updates the list file.
     // Patient notes directories are NEVER deleted by list changes.
     console.log(
-      `Requesting confirmation to remove patient: ${patientToRemove.name}`
+      `Requesting confirmation to remove patient: ${patientToRemove.rawName || patientToRemove.fullName || patientToRemove.id}`
     );
     const confirmation = await showConfirmDialog({
       type: "warning",
@@ -670,7 +689,7 @@ const updatePatient = async (updatedPatient: Patient): Promise<boolean> => {
       defaultId: 0,
       cancelId: 0,
       title: "Remove Patient from List",
-      message: `Are you sure you want to remove patient "${patientToRemove.name}" from the list?`,
+      message: `Are you sure you want to remove patient "${patientToRemove.rawName || patientToRemove.fullName || patientToRemove.id}" from the list?`,
       detail:
         "This action will only remove the patient from the current day's list. All associated notes will be preserved and are never deleted by this action.",
     });
@@ -732,8 +751,8 @@ const updatePatient = async (updatedPatient: Patient): Promise<boolean> => {
     skipExistingUmrns: boolean = true
   ): Patient[] => {
     console.log("Parsing CSV content...");
-    const parseResult = Papa.parse<Record<string, any>>(csvContent, {
-      header: true, // Assumes the first row is the header
+    const parseResult = Papa.parse<string[]>(csvContent, { // Expect array of strings, header: false
+      header: false, // Do not use header row
       skipEmptyLines: true,
       dynamicTyping: true, // Automatically convert types where possible
     });
@@ -746,8 +765,9 @@ const updatePatient = async (updatedPatient: Patient): Promise<boolean> => {
       );
     }
 
-    if (!parseResult.data || parseResult.data.length === 0) {
-      console.warn("CSV file is empty or contains no data rows.");
+    // Check if there's data after the header row (row 0)
+    if (!parseResult.data || parseResult.data.length <= 1) {
+      console.warn("CSV file is empty or contains only a header row.");
       return []; // Return empty array, not an error
     }
 
@@ -757,20 +777,29 @@ const updatePatient = async (updatedPatient: Patient): Promise<boolean> => {
       currentPatients.filter((p) => p.type === "umrn").map((p) => p.id)
     );
 
-    for (const row of parseResult.data) {
-      // Map relevant fields, skipping "trash" fields implicitly
-      const umrn = row.umrn ? String(row.umrn).trim() : undefined;
-      const name = row.name ? String(row.name).trim() : undefined;
+    // Start from the second row (index 1) to skip the header
+    for (let i = 1; i < parseResult.data.length; i++) {
+      const row = parseResult.data[i];
+
+      // Ensure row has enough columns for Name (index 12) and MRN (index 18)
+      if (row.length < 19) {
+        console.warn(`Skipping row ${i + 1} due to insufficient columns:`, row);
+        continue;
+      }
+
+      // Extract Name (index 12) and MRN (index 18) based on observed CSV structure
+      const name = row[12] ? String(row[12]).trim() : undefined;
+      const umrn = row[18] ? String(row[18]).trim() : undefined;
 
       // Basic validation: require at least a name or UMRN
       if (!umrn && !name) {
-        console.warn("Skipping row due to missing UMRN and Name:", row);
+        console.warn(`Skipping row ${i + 1} due to missing UMRN and Name:`, row);
         continue;
       }
 
       // Optionally skip if UMRN already exists in the current patient list
       if (skipExistingUmrns && umrn && existingUmrns.has(umrn)) {
-        console.log(`Skipping existing UMRN: ${umrn}`);
+        console.log(`Skipping existing UMRN: ${umrn} in row ${i + 1}`);
         continue;
       }
 
@@ -781,19 +810,30 @@ const updatePatient = async (updatedPatient: Patient): Promise<boolean> => {
         id: patientId,
         type: patientType,
         umrn: umrn,
-        name: name,
-        location: row.location ? String(row.location).trim() : undefined,
-        age: row.age !== null && row.age !== undefined ? row.age : undefined, // Allow number or string
-        los: row.los !== null && row.los !== undefined ? row.los : undefined, // Allow number or string
-        admission_date: row.admission_date
-          ? String(row.admission_date).trim()
-          : undefined,
-        cons_name: row.cons_name ? String(row.cons_name).trim() : undefined,
-        dsc_date: row.dsc_date ? String(row.dsc_date).trim() : undefined,
-        diagnosis: row.diagnosis ? String(row.diagnosis).trim() : undefined,
-        // ward: row.ward ? String(row.ward).trim() : undefined, // Map if 'ward' exists in CSV
+        rawName: name, // Store the original name from CSV
+        ...parsePatientName(name), // Parse and merge name components
+        // Map other fields based on their column index if needed, based on observed CSV structure
+        location: row[13] ? String(row[13]).trim() : undefined, // Assuming Location is index 13
+        age: row[14] !== null && row[14] !== undefined ? row[14] : undefined, // Assuming Age is index 14
+        los: row[15] !== null && row[15] !== undefined ? row[15] : undefined, // Assuming LOS is index 15
+        admission_date: row[16] ? String(row[16]).trim() : undefined, // Assuming Admission Date is index 16
+        cons_name: row[19] ? String(row[19]).trim() : undefined, // Assuming Doctor is index 19
+        dsc_date: row[21] ? String(row[21]).trim() : undefined, // Assuming Planned/Actual DSC Date is index 21
+        diagnosis: row[22] ? String(row[22]).trim() : undefined, // Assuming Diagnosis is index 22
       };
       importedPatients.push(newPatient);
+      console.log(`_parseAndMapICMPatients: Parsed patient from row ${i + 1}:`, {
+        rawName: name,
+        umrn: umrn,
+        parsed: {
+          salutation: newPatient.salutation,
+          firstName: newPatient.firstName,
+          middleName: newPatient.middleName,
+          lastName: newPatient.lastName,
+          suffix: newPatient.suffix,
+          fullName: newPatient.fullName,
+        },
+      });
     }
 
     return importedPatients;
@@ -1069,10 +1109,15 @@ const updatePatient = async (updatedPatient: Patient): Promise<boolean> => {
       });
     } else if (sortBy === "name") {
       patients.value = [...patients.value].sort((a, b) => {
-        const nameA = (a.name || "").toLowerCase();
-        const nameB = (b.name || "").toLowerCase();
-        if (nameA < nameB) return -1;
-        if (nameA > nameB) return 1;
+        // Sort by last name, then first name
+        const lastNameA = (a.lastName || "").toLowerCase();
+        const lastNameB = (b.lastName || "").toLowerCase();
+        if (lastNameA < lastNameB) return -1;
+        if (lastNameA > lastNameB) return 1;
+        const firstNameA = (a.firstName || "").toLowerCase();
+        const firstNameB = (b.firstName || "").toLowerCase();
+        if (firstNameA < firstNameB) return -1;
+        if (firstNameA > firstNameB) return 1;
         return 0;
       });
     } else if (sortBy === "custom") {

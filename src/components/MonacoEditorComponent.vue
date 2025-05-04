@@ -120,7 +120,6 @@ onMounted(async () => {
   await monacoService.initializeMonacoCustomizations(editor);
 
   // Log editor options for debugging
-  console.log('Monaco Editor Options:', editor.getOptions());
 
   // Register actions and keybindings
   registerActionsAndKeybindings(editor);

@@ -69,7 +69,7 @@
               <v-icon class="me-2" title="Drag to reorder" @mousedown.stop>mdi-drag</v-icon>
             </template>
             <v-list-item-content>
-              <v-list-item-title>{{ patient.name }}</v-list-item-title>
+              <v-list-item-title>{{ patient.rawName || patient.fullName || patient.id }}</v-list-item-title>
               <v-list-item-subtitle v-if="(patient.umrn || patient.location)" class="umrn-location">
                {{ patient.umrn ? `${patient.umrn}` : "" }}
                {{ patient.location ? `Location: ${patient.location}` : "" }}
@@ -90,8 +90,8 @@
           @click="onPatientClick(patient.id)">
           <v-list-item-content>
             <v-list-item-title>
-             <span class="hide-small-2">{{ patient.name }}</span>
-             <span class="show-small">{{ patient.name ? patient.name.charAt(0) : ' - ' }}</span> <!-- Show only initial in rail mode -->
+             <span class="hide-small-2">{{ patient.rawName || patient.fullName || patient.id }}</span>
+             <span class="show-small">{{ (patient.rawName || patient.fullName || patient.id)?.charAt(0) || ' - ' }}</span> <!-- Show only initial in rail mode -->
            </v-list-item-title>
            <v-list-item-subtitle v-if="(patient.umrn || patient.location)" class="umrn-location hide-small">
               {{ patient.umrn ? `${patient.umrn}` : "" }}

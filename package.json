@@ -17,6 +17,7 @@
     "preview": "vite preview"
   },
   "devDependencies": {
+    "@types/humanparser": "^1.1.8",
     "@types/node": "^22.14.0",
     "@types/sortablejs": "^1.15.8",
     "@types/uuid": "^10.0.0",
@@ -36,6 +37,7 @@
     "@mdi/font": "^7.4.47",
     "@types/papaparse": "^5.3.15",
     "electron-squirrel-startup": "^1.0.1",
+    "humanparser": "^2.7.0",
     "papaparse": "^5.5.2",
     "sortablejs": "^1.15.6",
     "uuid": "^11.1.0",
