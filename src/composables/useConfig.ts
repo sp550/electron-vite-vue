@@ -157,7 +157,6 @@ export function useConfig() {
   const readConfigFile = async (): Promise<AppConfig | null> => {
     try {
       const configPath = await getConfigPath();
-      console.log(configPath)
       configPathDisplay.value = configPath; // Store the path
       const fileContent = await window.electronAPI.readFileAbsolute(configPath);
       return fileContent ? JSON.parse(fileContent) : null;

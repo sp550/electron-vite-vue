@@ -642,7 +642,6 @@ const saveStatusIcon = computed(() => {
 // Get the full Patient object for the selected ID
 const selectedPatient = computed<Patient | undefined>(() => {
    const patient = selectedPatientId.value ? patientDataComposable.getPatientById(selectedPatientId.value) : undefined; // Use patientDataComposable
-   console.log('[App.vue] selectedPatient computed updated:', patient);
    return patient;
 });
 
@@ -677,7 +676,6 @@ const clearSelectedPatientState = () => {
 
 // Load the note for the currently selected patient and date
 const loadSelectedNote = async () => {
-   console.log(`[App.vue] loadSelectedNote called for patient: ${selectedPatientId.value}, date: ${selectedNoteDate.value}`);
    if (!selectedPatientId.value || !selectedNoteDate.value) {
       console.log('[App.vue] loadSelectedNote: Clearing state: No patient or date selected.');
       clearSelectedPatientState();
@@ -687,7 +685,6 @@ const loadSelectedNote = async () => {
    isNoteLoaded.value = false; // Set loading state
    try {
       const patient = selectedPatient.value; // Get the computed patient object
-      console.log(`[App.vue] loadSelectedNote: Using patient object:`, patient);
       if (!patient) {
          showSnackbar('Cannot load note: Patient data not found.', 'error');
          clearSelectedPatientState();
