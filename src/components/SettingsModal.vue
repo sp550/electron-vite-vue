@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { defineProps, defineEmits } from 'vue';
 import { useConfig } from '@/composables/useConfig';
+import { useSnackbar } from '@/composables/useSnackbar';
 
 const props = defineProps({
   modelValue: {
@@ -16,13 +17,38 @@ const props = defineProps({
 const emit = defineEmits(['update:modelValue', 'update:isAutoSaveEnabled']);
 
 const configState = useConfig();
+const { showSnackbar } = useSnackbar();
 
 const closeDialog = () => {
   emit('update:modelValue', false);
 };
 
-const selectDataDirectory = () => {
-  configState.setDataDirectory(null);
+const selectDataDirectory = async () => {
+   showSnackbar("Select the folder where patient data should be stored.", "info");
+   try {
+      const result = await window.electronAPI.showOpenDialog({
+         title: 'Select Data Directory',
+         properties: ['openDirectory', 'createDirectory'],
+      });
+
+      if (result === undefined) {
+         throw new Error("Dialog interaction failed unexpectedly.");
+      }
+
+      if (!result.canceled && result.filePaths.length > 0) {
+         const selectedPath = result.filePaths[0];
+         const success = await configState.setDataDirectory(selectedPath);
+         if (success) {
+            showSnackbar(`Data directory set to: ${selectedPath}`, 'success');
+            // Note: The original App.vue code includes logic for loading notes based on selectedPatientId.
+            // This logic is specific to App.vue and is not included here as per the scope.
+         } else {
+            showSnackbar('Failed to save the selected data directory.', 'error');
+         }
+      }
+   } catch (error: any) {
+      showSnackbar(`Error selecting directory: ${error.message || 'Unknown error'}`, 'error');
+   }
 };
 
 const saveSettings = () => {
@@ -78,15 +104,28 @@ const saveSettings = () => {
           <v-card>
             <v-card-title>Data Storage</v-card-title>
             <v-card-text>
-              <v-text-field
-                label="Data Directory"
-                :model-value="configState.config.value.dataDirectory"
-                readonly
-                density="compact"
-                variant="outlined"
-                hide-details
-                class="mb-4"
-              ></v-text-field>
+              <v-row no-gutters class="align-center mb-4">
+                <v-col cols="9">
+                  <v-text-field
+                    label="Data Directory"
+                    :model-value="configState.config.value.dataDirectory"
+                    readonly
+                    density="compact"
+                    variant="outlined"
+                    hide-details
+                  ></v-text-field>
+                </v-col>
+                <v-col cols="3" class="pl-2">
+                  <v-btn
+                    @click="selectDataDirectory"
+                    color="secondary"
+                    variant="outlined"
+                    block
+                  >
+                    Select
+                  </v-btn>
+                </v-col>
+              </v-row>
               <v-text-field
                 label="ICM List Directory"
                 :model-value="configState.config.value.iCMListDirectory"
@@ -95,14 +134,6 @@ const saveSettings = () => {
                 variant="outlined"
                 hide-details
               ></v-text-field>
-              <v-btn
-                class="mt-2"
-                @click="selectDataDirectory"
-                color="secondary"
-                variant="outlined"
-              >
-                Select Data Directory
-              </v-btn>
             </v-card-text>
           </v-card>
         </v-container>

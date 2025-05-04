@@ -445,13 +445,12 @@ ipcMain.handle(
 ipcMain.handle(
   "write-file-absolute",
   async (_event, absolutePath: string, content: string): Promise<void> => {
-   console.log(`IPC: writeFileAbsolute called with absolutePath: ${absolutePath}`);
-   console.log(`IPC: writeFileAbsolute received content: ${JSON.stringify(content)}`); // Log received content
+  //  console.log(`IPC: writeFileAbsolute received content: ${JSON.stringify(content)}`); // Log received content
     // Ensure directory exists first (mkdir handles existing dirs gracefully)
     const dir = path.dirname(absolutePath);
     await handleFsOperation("create directory for write", fs.promises.mkdir, dir, { recursive: true });
     // Now write the file
-    console.log(`IPC: Writing file to ${absolutePath}`);
+    // console.log(`IPC: Writing file to ${absolutePath}`);
     await handleFsOperation(
         "write file",
         fs.promises.writeFile, // fsFunction
@@ -459,7 +458,6 @@ ipcMain.handle(
         content,
         "utf-8"
     );
-    console.log(`IPC: writeFileAbsolute completed successfully: ${absolutePath}`);
     // Returns Promise<void>, so result is implicitly null on success via handleFsOperation
   }
 );
