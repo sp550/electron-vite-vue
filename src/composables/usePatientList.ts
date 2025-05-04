@@ -40,7 +40,7 @@ export function usePatientList(
       // Filter the patients list from usePatientData
       return (patientData.patients.value || []).filter(
          p =>
-            (p.name && p.name.toLowerCase().includes(s)) ||
+            (p.rawName && p.rawName.toLowerCase().includes(s)) ||
             (p.umrn && p.umrn.toLowerCase().includes(s)) ||
             (p.location && p.location.toLowerCase().includes(s))
       );
@@ -62,7 +62,7 @@ export function usePatientList(
       const sortFunc = (a: Patient, b: Patient) => {
          switch (sortMode.value) {
             case 'name':
-               return a.name?.toLowerCase().localeCompare(b.name?.toLowerCase() || '') || 0;
+               return a.rawName?.toLowerCase().localeCompare(b.rawName?.toLowerCase() || '') || 0;
             case 'location': {
                // Debug logs to validate ward values and types
                const aLocation = typeof a.location === 'string' ? a.location : (a.location !== undefined && a.location !== null ? String(a.location) : '');
@@ -186,7 +186,7 @@ export function usePatientList(
    const removePatient = async (patient: Patient) => {
       const success = await patientData.removePatient(patient.id);
       if (success) {
-         showSnackbar(`Patient "${patient.name}" removed.`, 'info');
+         showSnackbar(`Patient "${patient.rawName}" removed.`, 'info');
          // If the removed patient was selected, clear selection in App.vue's ref
          if (selectedPatientId.value === patient.id) {
             selectedPatientId.value = null;

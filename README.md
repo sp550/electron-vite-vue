@@ -1,8 +1,10 @@
 use vuetify and monaco api MCP*******
 
 # Patient Notes
-- Title bar UI, notes toolbar ui
 edit location of patient
+
+# Aesthetics 
+- Title bar UI, notes toolbar ui
 
 # App features
 - Display config.json for debugging.

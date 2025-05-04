@@ -47,7 +47,7 @@ export function useNoteEditor() {
 
       return await joinPaths(basePath, patientDir, `${formattedDate}.json`);
     } catch (e: any) {
-      const patientName = patient.name ? ` (${patient.name})` : '';
+      const patientName = patient.rawName ? ` (${patient.rawName})` : '';
       console.error(`Error determining note path for patient ${patient.id}${patientName}:`, e);
       error.value = `Failed to determine note path for patient ${patient.id}${patientName}: ${e.message || e}`;
       return null;
@@ -85,7 +85,7 @@ export function useNoteEditor() {
         currentNote.value = { date: date.split('T')[0], content: '' };
       }
     } catch (err: any) {
-      const patientName = patient.name ? ` (${patient.name})` : '';
+      const patientName = patient.rawName ? ` (${patient.rawName})` : '';
       console.error(`Error loading note for patient ${patient.id}${patientName} on ${date}:`, err);
       error.value = `Failed to load note for patient ${patient.id}${patientName}: ${err.message || err}`;
       resetState();
@@ -96,7 +96,7 @@ export function useNoteEditor() {
 
   // Modified to accept patient and the full note object to save
   const saveCurrentNote = async (patient: Patient, noteToSave: Note): Promise<boolean> => {
-    const patientName = patient.name ? ` (${patient.name})` : '';
+    const patientName = patient.rawName ? ` (${patient.rawName})` : '';
     console.log(`useNoteEditor: saveCurrentNote called for patient ${patient.id}${patientName}`);
     // Validate inputs directly
     if (!patient || !noteToSave) {

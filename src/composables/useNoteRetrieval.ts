@@ -144,7 +144,7 @@ export function useNoteExport({
   ): Promise<string> {
     let output = "";
     for (const patient of patients) {
-      const { last, first } = splitName(patient.name || "");
+      const { last, first } = splitName(patient.rawName || "");
       const umrn = patient.umrn || "";
       let noteContent = await getNoteContentFn(patient, dateStr); // Pass the full patient object
       output += `[ ] -----${last}, ${first} (${umrn})-----\n${noteContent}\n\n`;

@@ -248,7 +248,7 @@
             <v-card-text>
                A patient with similar information already exists.
                <br>
-               Name: <b>{{ duplicatePatient?.name }}</b>
+               Name: <b>{{ duplicatePatient?.rawName }}</b>
                <br>
                UMRN: <b>{{ duplicatePatient?.umrn }}</b>
                <br>
@@ -341,18 +341,6 @@ const drawer = ref(true);
 // === Resizable Drawer State (Vuetify only, no custom CSS) ===
 const DEFAULT_DRAWER_WIDTH = 350;
 
-const formattedPatientName = computed(() => {
-   if (!selectedPatient.value) return '';
-   const { lastName, firstName } = selectedPatient.value;
-   if (lastName && firstName) {
-      return `${lastName}, ${firstName}`;
-   } else if (lastName) {
-      return lastName;
-   } else if (firstName) {
-      return firstName;
-   }
-   return selectedPatient.value.rawName || '';
-});
 
 const displayPatientName = computed(() => {
    if (!selectedPatient.value) return '';
@@ -802,75 +790,18 @@ const handleAddNewPatient = async () => {
       return;
    }
    // Add a new patient directly using patientData composable
-   const newPatientData: Omit<Patient, 'id' | 'type'> = { name: 'New Patient', umrn: '', location: '' }; // Corrected type
+   const newPatientData: Omit<Patient, 'id' | 'type'> = { rawName: 'New Patient', umrn: '', location: '' }; // Corrected type
    const newPatient = await patientDataComposable.addPatient(newPatientData); // Use patientDataComposable
    if (newPatient) {
       selectPatient(newPatient.id);
    }
    // Snackbar messages are handled within the composable
-};
-
-const updatePatientName = async () => {
-   if (selectedPatient.value) {
-      // The v-model already updated the name locally
-      const success = await patientDataComposable.updatePatient(selectedPatient.value); // Use patientDataComposable
-      if (!success) {
-         showSnackbar(`Failed to update patient name: ${patientDataComposable.error.value || 'Unknown error'}`, 'error'); // Use patientDataComposable
-         // Optionally revert UI change here if needed
-      } else {
-         showSnackbar(`Patient name updated to: ${selectedPatient.value.rawName}`, 'success');
-      }
-   }
-};
-
-const updatePatientUmrn = async () => {
-   if (!selectedPatient.value) return;
-
-   const patientBeforeUpdate = { ...selectedPatient.value };
-   const oldPatientType = patientBeforeUpdate.type;
-   const oldPatientId = patientBeforeUpdate.id;
-
-   // The v-model already updated the UMRN locally
-   const success = await patientDataComposable.updatePatient(selectedPatient.value); // Use patientDataComposable
-
-   if (!success) {
-      showSnackbar(`Failed to update patient UMRN: ${patientDataComposable.error.value || 'Unknown error'}`, 'error'); // Use patientDataComposable
-      // Optionally revert UI change
-      // selectedPatient.value.umrn = patientBeforeUpdate.umrn;
-   } else {
-      showSnackbar(`Patient UMRN updated to: ${selectedPatient.value.umrn}`, 'success');
-
-      // Check if merge is needed (was UUID, now has UMRN)
-      if (oldPatientType === 'uuid' && selectedPatient.value.umrn) {
-         try {
-            const mergeSuccess = await patientDataComposable.mergePatientData(oldPatientId, selectedPatient.value.umrn); // Use patientDataComposable
-            if (mergeSuccess) {
-               showSnackbar(`Patient data merged to UMRN ${selectedPatient.value.umrn}.`, 'success');
-               // Patient list should update reactively. Need to select the *new* ID.
-               await nextTick();
-               const newPatientRecord = patientDataComposable.getPatientByUmrn(selectedPatient.value.umrn); // Use patientDataComposable
-               if (newPatientRecord) {
-                  selectPatient(newPatientRecord.id); // Select the merged record
-               } else {
-                  clearSelectedPatientState();
-                  showSnackbar('Could not find merged patient record.', 'error');
-               }
-            } else {
-               showSnackbar(`Failed to merge patient data: ${patientDataComposable.error.value || 'Unknown error'}`, 'error'); // Use patientDataComposable
-            }
-         } catch (error: any) {
-            showSnackbar(`Error merging patient data: ${error.message || 'Unknown error'}`, 'error');
-         }
-      }
-      // No explicit re-selection needed if ID didn't change, computed should update.
-   }
-};
-
+}
 const confirmRemoveCurrentPatient = async () => {
    if (!selectedPatient.value) return;
    const success = await patientDataComposable.removePatient(selectedPatient.value.id); // Use patientDataComposable
    if (success) {
-      showSnackbar(`Patient "${selectedPatient.value.name}" removed.`, 'info');
+      showSnackbar(`Patient "${selectedPatient.value.rawName}" removed.`, 'info');
       // clearSelectedPatientState is called implicitly by the watcher when selectedPatientId becomes invalid
    } else {
       showSnackbar(`Failed to remove patient: ${patientDataComposable.error.value || 'Unknown error'}`, 'error'); // Use patientDataComposable
@@ -1059,10 +990,6 @@ onMounted(async () => {
       await loadSelectedNote();
    }
 });
-
-
-
-
 
 
 </script>

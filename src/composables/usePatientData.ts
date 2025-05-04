@@ -78,7 +78,7 @@ const setActivePatientListDate = async (date: string) => {
 /**
  * Handler for when the date is changed via UI (from useDateNavigation).
  */
-const onDateChange = async (newDate: string) => {
+const onDateChange = async () => {
   // Logic related to date change can be added here if needed in the future,
   // but for now, the date state is managed externally in App.vue.
 };

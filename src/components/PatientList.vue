@@ -117,7 +117,7 @@
 
 </template>
 <script setup lang="ts">
-import { defineProps, defineEmits, ref, computed, PropType, onMounted, onBeforeUnmount } from "vue";
+import { defineProps, defineEmits, ref, computed, PropType } from "vue";
 import { usePatientData } from "@/composables/usePatientData"; // Import usePatientData
 
 // Props for presentational PatientList
