@@ -236,7 +236,7 @@
                <v-btn @click="loadSelectedNote" small variant="tonal" class="ml-2">Retry</v-btn>
             </div>
             <MonacoEditorComponent v-if="!noteEditor.isLoading.value && !noteEditor.error.value" ref="monacoEditorRef"
-               v-model="noteContent" language="medicalLang" :theme="monacoTheme" :options="{}"
+               v-model="noteContent" language="medicalLang" :options="{}"
                class="pa-4 flex-grow-1" style="height: 0;"
                @onAction="handleMonacoAction" />
           </v-container>
@@ -283,6 +283,9 @@
 <script setup lang="ts" async>
 import { ref, provide, computed, watch, nextTick, onMounted } from 'vue';
 import { useTheme } from 'vuetify';
+import { useConfig } from '@/composables/useConfig';
+
+const configState = useConfig();
 
 // Quick Add Patient Name State
 const showQuickAddPatientStringField = ref(false); // Keep for now, might be used elsewhere
@@ -561,7 +564,6 @@ const isEditPatientListMode = ref(false);
 const selectedPatientIds = ref<string[]>([]);
 const patientListRef = ref<HTMLElement | null>(null);
 
-const configState = useConfig();
 const patientDataComposable = usePatientData(); // Rename to avoid conflict with patientData in useNoteExport
 const noteEditor = useNoteEditor();
 const fileSystemAccess = useFileSystemAccess();
@@ -650,7 +652,7 @@ onMounted(async () => {
 // --- Computed Properties ---
 const monacoTheme = computed(() => {
    // Map application theme to Monaco Editor theme
-   return configState.config.value.theme === 'dark' ? 'medicalLang-dark' : 'medicalLang-light';
+   return configState.effectiveTheme.value === 'dark' ? 'medicalLang-dark' : 'medicalLang-light';
 });
 
 const saveStatusIcon = computed(() => {

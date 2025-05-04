@@ -7,6 +7,9 @@ import { ref, onMounted, onBeforeUnmount, watch, nextTick } from 'vue';
 import type { PropType } from 'vue';
 import { monacoService, MonacoServiceOptions } from '@/services/monacoService';
 import type * as monaco from 'monaco-editor';
+import { useConfig } from '@/composables/useConfig';
+
+const configState = useConfig();
 
 /**
  * Props for MonacoEditorComponent
@@ -116,7 +119,7 @@ onMounted(async () => {
     container: editorContainer.value,
     value: props.modelValue,
     language: props.language,
-    theme: props.theme,
+    theme: configState.effectiveTheme.value === 'dark' ? 'medicalLang-dark' : 'medicalLang-light',
     readOnly: props.readOnly,
     options: {
       ...props.options,
@@ -130,8 +133,8 @@ onMounted(async () => {
   console.log('MonacoEditorComponent: Custom customizations initialized.');
 
   // Explicitly set theme after initialization
-  console.log('MonacoEditorComponent: Explicitly setting theme to', props.theme);
-  monacoService.setTheme(props.theme);
+  console.log('MonacoEditorComponent: Explicitly setting theme to', configState.effectiveTheme.value);
+  monacoService.setTheme(configState.effectiveTheme.value === 'dark' ? 'medicalLang-dark' : 'medicalLang-light');
 
   // Log editor options for debugging
 
@@ -177,9 +180,9 @@ watch(() => props.language, (newLang) => {
 /**
  * Watch for changes in theme prop and update the editor.
  */
-watch(() => props.theme, (newTheme) => {
-  console.log('MonacoEditorComponent: Theme prop changed to', newTheme);
-  monacoService.setTheme(newTheme);
+watch(() => configState.effectiveTheme.value, (newTheme) => {
+  console.log('MonacoEditorComponent: Effective theme changed to', newTheme);
+  monacoService.setTheme(newTheme === 'dark' ? 'medicalLang-dark' : 'medicalLang-light');
 });
 
 /**
