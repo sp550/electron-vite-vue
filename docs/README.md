@@ -13,7 +13,7 @@ patient lists for different day
 Sort by custom order and frag FUnctionality is a Pain to implement becuase it keeps breaking, lets prioritise it for later
 # Monaco
  - snippets with patient variables
-
+ - implement webworkers (important for stability)
 
  ---
 **Post Minimal Functional Product**
