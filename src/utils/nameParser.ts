@@ -1,12 +1,14 @@
-import humanparser from 'humanparser';
-import { Patient } from '../types';
+import humanparser from "humanparser";
+import { Patient } from "../types";
 
 /**
  * Parses a raw patient name string into structured name components.
  * @param rawName The raw patient name string.
  * @returns An object containing the parsed name components.
  */
-export function parsePatientName(rawName: string | undefined): Partial<Patient> {
+export function parsePatientName(
+  rawName: string | undefined
+): Partial<Patient> {
   if (!rawName) {
     return {};
   }

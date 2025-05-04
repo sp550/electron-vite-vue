@@ -251,6 +251,13 @@ const getPatientsFilePathForDate = async (date: string): Promise<string | null> 
           ...patient,
           type: patient.umrn ? "umrn" : "uuid"
         }));
+        // Ensure all loaded patients have parsed name components
+        loadedPatients.forEach(patient => {
+          const parsedName = parsePatientName(patient.rawName);
+          // console.log(`[usePatientData] loadPatients: Parsing name for patient ID ${patient.id}:`, { rawName: patient.rawName, parsed: parsedName });
+          Object.assign(patient, parsedName); // Merge parsed components into the patient object
+          // console.log(`[usePatientData] loadPatients: Patient object after merging parsed name for ID ${patient.id}:`, patient);
+        });
         patients.value = loadedPatients as Patient[];
         customOrder.value = [...loadedPatients] as Patient[];
         updatePatientIdentifierArray(patients.value);
@@ -364,7 +371,7 @@ const getPatientsFilePathForDate = async (date: string): Promise<string | null> 
 
       // Parse the raw name
       const parsedName = parsePatientName(patientData.rawName);
-      console.log("addPatient: Parsed name:", {
+      console.log("[usePatientData] addPatient: Parsed name:", {
         rawName: patientData.rawName,
         parsed: parsedName,
       });
@@ -426,6 +433,7 @@ const getPatientsFilePathForDate = async (date: string): Promise<string | null> 
         id: patientId,
         type: patientType
       };
+      console.log("[usePatientData] addPatient: New patient object before saving:", newPatient);
 
       if (!newPatientDir) {
         newPatientDir = await getPatientNotesDir(patientId, patientType);
@@ -624,8 +632,8 @@ const updatePatient = async (updatedPatient: Patient): Promise<boolean> => {
   error.value = null;
 
   try {
-    const currentPatients = [...patients.value];
-    const patientIndex = currentPatients.findIndex(
+    // Find the index in the reactive patients array
+    const patientIndex = patients.value.findIndex(
       (p) => p.id === updatedPatient.id
     );
     if (patientIndex === -1) {
@@ -633,9 +641,21 @@ const updatePatient = async (updatedPatient: Patient): Promise<boolean> => {
       return false;
     }
 
-    currentPatients[patientIndex] = { ...updatedPatient };
+    // Parse the raw name and merge components before updating
+    const parsedName = parsePatientName(updatedPatient.rawName);
+    const patientToUpdate = { // Renamed for clarity
+      ...updatedPatient,
+      ...parsedName, // Merge parsed name components, overwriting existing if present
+    };
 
-    const saveSuccess = await savePatients(currentPatients); // Save the modified array
+    // Update the patient object in place within the reactive array
+    // Using Object.assign to ensure reactivity for individual properties
+    Object.assign(patients.value[patientIndex], patientToUpdate);
+
+    // The patients.value array is now reactively updated.
+    // Now save the current state of patients.value to disk.
+
+    const saveSuccess = await savePatients(patients.value); // Save the modified array
     if (saveSuccess) {
       console.log("Patient list saved successfully after update.");
       return true;

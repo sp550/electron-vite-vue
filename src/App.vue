@@ -181,8 +181,8 @@
                   @blur="updatePatientName"></v-text-field>
                <!-- Debug fields for parsed name components -->
                <v-text-field
-                  v-if="selectedPatient?.value?.firstName"
-                  v-model="selectedPatient.value.firstName"
+                  v-if="selectedPatient?.firstName"
+                  v-model="selectedPatient.firstName"
                   label="First Name"
                   readonly
                   hide-details
@@ -190,17 +190,17 @@
                   class="ml-2"
                ></v-text-field>
                <v-text-field
-                  v-if="selectedPatient?.value?.middleName"
-                  v-model="selectedPatient.value.middleName"
+                  v-if="selectedPatient?.middleName"
+                  v-model="selectedPatient.middleName"
                   label="Middle Name"
                   readonly
                   hide-details
-                  single-line
+                  single-details
                   class="ml-2"
                ></v-text-field>
                <v-text-field
-                  v-if="selectedPatient?.value?.lastName"
-                  v-model="selectedPatient.value.lastName"
+                  v-if="selectedPatient?.lastName"
+                  v-model="selectedPatient.lastName"
                   label="Last Name"
                   readonly
                   hide-details
@@ -516,8 +516,9 @@ const saveStatusIcon = computed(() => {
 
 // Get the full Patient object for the selected ID
 const selectedPatient = computed<Patient | undefined>(() => {
-   if (!selectedPatientId.value) return undefined;
-   return patientDataComposable.getPatientById(selectedPatientId.value); // Use patientDataComposable
+   const patient = selectedPatientId.value ? patientDataComposable.getPatientById(selectedPatientId.value) : undefined; // Use patientDataComposable
+   console.log('[App.vue] selectedPatient computed updated:', patient);
+   return patient;
 });
 
 // --- Core Functions ---
@@ -561,11 +562,12 @@ const loadSelectedNote = async () => {
     isNoteLoaded.value = false; // Set loading state
     try {
        const patient = selectedPatient.value; // Get the computed patient object
-       if (!patient) {
-          showSnackbar('Cannot load note: Patient data not found.', 'error');
-          clearSelectedPatientState();
-          return;
-       }
+        console.log(`[App.vue] loadSelectedNote: Using patient object:`, patient);
+        if (!patient) {
+           showSnackbar('Cannot load note: Patient data not found.', 'error');
+           clearSelectedPatientState();
+           return;
+        }
 
        // Call useNoteEditor's loadNote function
        await noteEditor.loadNote(patient, selectedNoteDate.value);
