@@ -1,12 +1,8 @@
 use vuetify and monaco api MCP*******
 
 # Patient Notes
-
-- Quick add feature (inspired by bloodproducts generator).
-add new patient - error on entering umrn
-before this i will have to implement patient first name Last Name, other names
-
 - Title bar UI, notes toolbar ui
+edit location of patient
 
 # App features
 - Display config.json for debugging.
@@ -16,8 +12,8 @@ before this i will have to implement patient first name Last Name, other names
 ## Patient list
 patient lists for different day
 Sort by custom order and frag FUnctionality is a Pain to implement becuase it keeps breaking, lets prioritise it for later
-
-
+# Monaco
+ - snippets with patient variables
 **Post Minimal Functional Product**
 
 # Navdrawer

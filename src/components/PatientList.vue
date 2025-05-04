@@ -69,7 +69,7 @@
               <v-icon class="me-2" title="Drag to reorder" @mousedown.stop>mdi-drag</v-icon>
             </template>
             <v-list-item-content>
-              <v-list-item-title>{{ patient.rawName || patient.fullName || patient.id }}</v-list-item-title>
+              <v-list-item-title>{{ (patient.lastName && patient.firstName) ? `${patient.lastName.toUpperCase()}, ${patient.firstName}` : patient.fullName || patient.rawName || patient.id }}</v-list-item-title>
               <v-list-item-subtitle v-if="(patient.umrn || patient.location)" class="umrn-location">
                {{ patient.umrn ? `${patient.umrn}` : "" }}
                {{ patient.location ? `Location: ${patient.location}` : "" }}
@@ -90,13 +90,13 @@
           @click="onPatientClick(patient.id)">
           <v-list-item-content>
             <v-list-item-title>
-             <span class="hide-small-2">{{ patient.rawName || patient.fullName || patient.id }}</span>
-             <span class="show-small">{{ (patient.rawName || patient.fullName || patient.id)?.charAt(0) || ' - ' }}</span> <!-- Show only initial in rail mode -->
+             <span class="hide-small-2">{{ (patient.lastName && patient.firstName) ? `${patient.lastName.toUpperCase()}, ${patient.firstName}` : patient.fullName || patient.rawName || patient.id }}</span>
+             <span class="show-small">{{ (patient.fullName || patient.rawName || patient.id)?.charAt(0) || ' - ' }}</span> <!-- Show only initial in rail mode -->
            </v-list-item-title>
-           <v-list-item-subtitle v-if="(patient.umrn || patient.location)" class="umrn-location hide-small">
-              {{ patient.umrn ? `${patient.umrn}` : "" }}
-              {{ patient.location ? `Location: ${patient.location}` : "" }}
-            </v-list-item-subtitle>
+           <v-list-item-subtitle v-if="(patient.umrn || patient.location)" class="umrn-location hide-small d-flex justify-space-between">
+             <span>{{ patient.umrn ? `${patient.umrn}` : "" }}</span>
+             <span class="location-right">{{ patient.location ? `${patient.location}` : "" }}</span>
+           </v-list-item-subtitle>
           </v-list-item-content>
         </v-list-item>
       </template>
@@ -258,6 +258,10 @@ function handleDatePickerUpdate(newDateString: string | null) {
 /* Add any component-specific styles here if needed */
 .v-card {
   container-type: inline-size;
+}
+
+.location-right {
+  text-align: right;
 }
 
 @container (max-width: 70px) {

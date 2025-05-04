@@ -6,6 +6,21 @@ import { Patient } from "../types";
  * @param rawName The raw patient name string.
  * @returns An object containing the parsed name components.
  */
+function toTitleCase(str: string | undefined): string | undefined {
+  if (!str) {
+    return undefined;
+  }
+  const lower = str.toLowerCase();
+  const words = lower.split(' ');
+  const titleCaseWords = words.map(word => {
+    if (word.length === 0) {
+      return '';
+    }
+    return word.charAt(0).toUpperCase() + word.slice(1);
+  });
+  return titleCaseWords.join(' ');
+}
+
 export function parsePatientName(
   rawName: string | undefined
 ): Partial<Patient> {
@@ -17,12 +32,12 @@ export function parsePatientName(
     const parsed = humanparser.parseName(rawName);
     return {
       rawName: rawName,
-      salutation: parsed.salutation || undefined,
-      firstName: parsed.firstName || undefined,
-      middleName: parsed.middleName || undefined,
-      lastName: parsed.lastName || undefined,
-      suffix: parsed.suffix || undefined,
-      fullName: parsed.fullName || undefined, // humanparser might provide this
+      salutation: toTitleCase(parsed.salutation),
+      firstName: toTitleCase(parsed.firstName),
+      middleName: toTitleCase(parsed.middleName),
+      lastName: toTitleCase(parsed.lastName),
+      suffix: toTitleCase(parsed.suffix),
+      fullName: toTitleCase(parsed.fullName) || undefined, // humanparser might provide this
     };
   } catch (error) {
     console.error(`Error parsing name "${rawName}":`, error);
