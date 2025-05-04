@@ -13,10 +13,6 @@ before this i will have to implement patient first name Last Name, other names
 - Basic settings/config implementation (perhaps a new vue component)
 - Basic common hotkeys.
 
-
-# Monaco editor integration:
-  - Implement templates and snippets.
-
 ## Patient list
 patient lists for different day
 Sort by custom order and frag FUnctionality is a Pain to implement becuase it keeps breaking, lets prioritise it for later
