@@ -141,22 +141,50 @@
          <v-container v-else fluid class=" pa-0  px-xl-16 d-flex flex-column fill-height justify-start fill-width">
             <v-toolbar color="grey-lighten-3 " density="comfortable" v-if="selectedPatient">
                <div class="d-flex align-center flex-grow-1">
-                  <v-text-field :model-value="formattedPatientName" label="Patient Name" hide-details single-line
-                     readonly class="flex-grow-1"></v-text-field>
-               </div>
-               <v-text-field v-model="selectedPatient!.umrn" label="Patient UMRN" hide-details single-line
-                  @blur="updatePatientUmrn"></v-text-field>
-               <v-btn icon="mdi-pencil" size="small" variant="text" @click="handleQuickEditClick"
-                  title="Edit Patient Name/Quick Add"></v-btn>
-               <v-text-field v-if="showQuickAddPatientStringField" v-model="quickAddPatientString"
-                  label="Quick Add Patient" placeholder="Surname, Firstname (A1234567)" variant="outlined"
-                  prepend-inner-icon="mdi-lightning-bolt" color="secondary" class=""
-                  @keyup.enter="updatePatientNameFromQuickAdd"></v-text-field>
-               <v-btn v-if="showQuickAddPatientStringField" icon="mdi-check" size="small" variant="text" @click="updatePatientNameFromQuickAdd"
-                  title="Save Quick Add Name"></v-btn>
+                  <template v-if="isEditingPatientName">
+                     <v-text-field
+                        v-model="quickAddPatientString"
+                        label="Edit Patient Name/UMRN"
+                        hide-details
+                        single-line
+                        class="flex-grow-1"
+                        @blur="stopEditingPatientNameAndSave"
+                        @keydown.enter.prevent="stopEditingPatientNameAndSave"
+                     ></v-text-field>
+                  </template>
+                  <template v-else>
+                     <span class="text-subtitle-1 flex-grow-1" @click.stop="startEditingPatientName" style="cursor: pointer;">
+                        {{ displayPatientName }}
+                     </span>
+                  </template>
+              </div>
+              <v-btn
+                 v-if="!isEditingPatientName"
+                 icon="mdi-pencil"
+                 size="small"
+                 variant="text"
+                 @click="startEditingPatientName"
+                 title="Edit Patient Name/Quick Add"
+              ></v-btn>
+              <v-btn
+                 v-if="isEditingPatientName"
+                 icon="mdi-check"
+                 size="small"
+                 variant="text"
+                 @click="stopEditingPatientNameAndSave"
+                 title="Save Patient Name/UMRN"
+              ></v-btn>
+               <v-btn
+                 v-if="isEditingPatientName"
+                 icon="mdi-close"
+                 size="small"
+                 variant="text"
+                 @click="cancelEditingPatientName"
+                 title="Cancel Edit"
+              ></v-btn>
 
 
-               <div class="d-flex align-center">
+              <div class="d-flex align-center">
                   <v-btn icon="mdi-chevron-left" size="small" variant="text"
                      @click="selectedNoteDate = goToPreviousNoteDay(selectedNoteDate); loadSelectedNote();"
                      title="Previous Day"></v-btn>
@@ -244,8 +272,9 @@
 import { ref, provide, computed, watch, nextTick, onMounted } from 'vue';
 
 // Quick Add Patient Name State
-const showQuickAddPatientStringField = ref(false);
+const showQuickAddPatientStringField = ref(false); // Keep for now, might be used elsewhere
 const quickAddPatientString = ref('');
+const isEditingPatientName = ref(false);
 
 function getTodayString() {
    const today = new Date();
@@ -325,19 +354,59 @@ const formattedPatientName = computed(() => {
    return selectedPatient.value.rawName || '';
 });
 
-const handleQuickEditClick = () => {
-   showQuickAddPatientStringField.value = !showQuickAddPatientStringField.value;
-   if (showQuickAddPatientStringField.value && selectedPatient.value) {
+const displayPatientName = computed(() => {
+   if (!selectedPatient.value) return '';
+   if (isEditingPatientName.value) {
+      return `${selectedPatient.value.rawName || ''} (${selectedPatient.value.umrn || ''})`;
+   } else {
+      const { lastName, firstName, umrn } = selectedPatient.value;
+      let name = '';
+      if (lastName && firstName) {
+         name = `${lastName}, ${firstName}`;
+      } else if (lastName) {
+         name = lastName;
+      } else if (firstName) {
+         name = firstName;
+      } else {
+         name = selectedPatient.value.rawName || '';
+      }
+      return `${name} (${umrn || ''})`;
+   }
+});
+
+
+const startEditingPatientName = () => {
+   if (selectedPatient.value) {
+      isEditingPatientName.value = true;
       // Pre-populate with current name and UMRN in the specified format
       quickAddPatientString.value = `${selectedPatient.value.rawName || ''} (${selectedPatient.value.umrn || ''})`;
+      // Focus the input field - might require template ref
+   }
+};
+
+const stopEditingPatientNameAndSave = async () => {
+   if (isEditingPatientName.value) {
+      isEditingPatientName.value = false;
+      // Call the update logic
+      await updatePatientNameFromQuickAdd();
+   }
+};
+
+const cancelEditingPatientName = () => {
+   isEditingPatientName.value = false;
+   // Revert the quick add string to the original raw name and UMRN format
+   if (selectedPatient.value) {
+      quickAddPatientString.value = `${selectedPatient.value.rawName || ''} (${selectedPatient.value.umrn || ''})`;
    } else {
-      quickAddPatientString.value = ''; // Clear when hiding
+      quickAddPatientString.value = '';
    }
 };
 
 const updatePatientNameFromQuickAdd = async () => {
    // 1. Input Preparation & Validation Section:
-   const inputString = quickAddPatientString.value.trim();
+   let inputString = quickAddPatientString.value.trim();
+   // Trim leading/trailing parentheses after initial whitespace trim
+   inputString = inputString.replace(/^\(|\)$/g, '');
 
    if (!selectedPatient.value) {
       return;
@@ -369,16 +438,18 @@ const updatePatientNameFromQuickAdd = async () => {
    let umrnPart = '';
 
    // Regex to find a single word with numbers at the end, optionally in parentheses
-   const umrnRegex = /\s*\(?(\S*\d\S*)\)?\s*$/;
+   // Regex to find a single word with numbers at the end, preceded by whitespace
+   const umrnRegex = /\s+(\S*\d\S*)\s*$/;
    const match = inputString.match(umrnRegex);
 
    if (match) {
       // Potential UMRN found
-      const potentialUmrn = match[1].trim();
+      const potentialUmrn = match[1].replace(/[()]/g, '').trim();
       const potentialNamePart = inputString.substring(0, match.index).trim();
 
       // Check if the potential name part contains numbers or parentheses (Rule 4)
-      const nameHasDisallowedChars = /\d|[\(\)]/.test(potentialNamePart);
+      // Check if the potential name part contains numbers (Rule 4)
+      const nameHasDisallowedChars = /\d/.test(potentialNamePart);
 
       if (nameHasDisallowedChars) {
          // If name part has numbers or parentheses, treat the whole string as name
@@ -409,15 +480,17 @@ const updatePatientNameFromQuickAdd = async () => {
 
    if (success) {
       showSnackbar(`Patient updated: ${selectedPatient.value.rawName} (${selectedPatient.value.umrn})`, 'success');
+      // Update quick add string to reflect the new display name
+      await nextTick(); // Ensure displayPatientName is updated
+      quickAddPatientString.value = displayPatientName.value;
    } else {
       showSnackbar(`Failed to update patient: ${patientDataComposable.error.value || 'Unknown error'}`, 'error');
       // Optionally revert the local change if save failed
       // await patientDataComposable.loadPatients(); // Reload to revert
    }
 
-   // Hide the quick add field and clear its value (after update attempt)
+   // Hide the quick add field (value is updated on success or kept on failure)
    showQuickAddPatientStringField.value = false;
-   quickAddPatientString.value = '';
 };
 
 const MIN_DRAWER_WIDTH = 240;
