@@ -7,8 +7,16 @@
          <v-toolbar-title></v-toolbar-title>
          <!-- Date navigation moved to PatientList.vue -->
          <!-- Auto-Save Toggle -->
-         <v-switch v-model="noteEditor.isAutoSaveEnabled.value" label="Auto-Save" color="primary" hide-details
-            density="compact" class="mx-2 flex-shrink-0" title="Toggle Auto-Save"></v-switch>
+         <v-switch
+            :model-value="noteEditor.isAutoSaveEnabled.value"
+            @update:model-value="noteEditor.isAutoSaveEnabled.value = $event"
+            label="Auto-Save"
+            color="primary"
+            hide-details
+            density="compact"
+            class="mx-2 flex-shrink-0"
+            title="Toggle Auto-Save"
+         ></v-switch>
          <!-- Overflow Menu -->
          <v-menu location="bottom end" offset-y>
             <template #activator="{ props }">
@@ -89,6 +97,7 @@
             </div>
          </v-container>
          <!-- === Drawer Resize Handle (Vuetify only) === -->
+         <!--
          <v-divider vertical :thickness="10" :inset="false" :style="{
             position: 'absolute',
             top: 0,
@@ -101,6 +110,7 @@
          }" tabindex="0" role="separator" aria-orientation="vertical" aria-label="Resize navigation drawer"
             :aria-valuenow="drawerWidth" aria-valuemin="240" aria-valuemax="600" @mousedown="onResizeMouseDown">
          </v-divider>
+         -->
       </v-navigation-drawer>
 
       <!-- === Main Content Area === -->

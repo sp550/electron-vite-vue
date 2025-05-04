@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { defineProps, defineEmits, ref, watch } from 'vue'; // Added ref and watch
+import { defineProps, defineEmits, ref, watch, computed } from 'vue'; // Added ref, watch, and computed
 import { useConfig } from '@/composables/useConfig';
 import { useSnackbar } from '@/composables/useSnackbar';
 
@@ -20,18 +20,21 @@ const configState = useConfig();
 const { showSnackbar } = useSnackbar();
 
 // Local state for theme selection to avoid modifying readonly config directly
-const localSelectedTheme = ref(configState.config.value.theme);
+
+// Computed property for theme icon
+const themeIcon = computed(() => {
+  return configState.config.value.theme === 'dark' ? 'mdi-moon-waning-gibbous' : 'mdi-white-balance-sunny';
+});
+
+// Computed property for theme color
+const themeColor = computed(() => {
+  return configState.config.value.theme === 'dark' ? 'blue-grey' : 'orange';
+});
 
 // Watch for dialog visibility changes to sync local state with config
-watch(() => props.modelValue, (newValue) => {
-  if (newValue) {
-    localSelectedTheme.value = configState.config.value.theme;
-  }
-});
 
 const closeDialog = () => {
   // Reset local state to current config value when closing without saving
-  localSelectedTheme.value = configState.config.value.theme;
   emit('update:modelValue', false);
 };
 
@@ -63,12 +66,6 @@ const selectDataDirectory = async () => {
    }
 };
 
-const saveSettings = () => {
-  // Update the theme in the config state before saving
-  configState.updateTheme(localSelectedTheme.value);
-  configState.saveConfig();
-  closeDialog(); // Close after saving
-};
 </script>
 
 <template>
@@ -104,14 +101,17 @@ const saveSettings = () => {
           <v-card class="mb-4">
             <v-card-title>Appearance</v-card-title>
             <v-card-text>
-              <v-select
+              <v-switch
                 label="Theme"
-                v-model="localSelectedTheme"
-                :items="['light', 'dark']"
+                :model-value="configState.config.value.theme"
+                @update:model-value="configState.updateTheme($event)"
+                true-value="dark"
+                false-value="light"
+                :append-icon="themeIcon"
+                :color="themeColor"
                 density="compact"
-                variant="outlined"
                 hide-details
-              ></v-select>
+              ></v-switch>
             </v-card-text>
           </v-card>
 
@@ -154,13 +154,6 @@ const saveSettings = () => {
       </v-card-text>
       <v-card-actions>
         <v-spacer></v-spacer>
-        <v-btn
-          color="primary"
-          text
-          @click="saveSettings"
-        >
-          Save Settings
-        </v-btn>
         <v-btn
           color="secondary"
           text
