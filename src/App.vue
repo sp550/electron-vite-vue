@@ -139,8 +139,8 @@
             </v-card>
          </v-container>
          <v-container v-else fluid class=" pa-0  px-xl-16 d-flex flex-column fill-height justify-start fill-width">
-            <v-toolbar color="grey-lighten-3 " density="comfortable" v-if="selectedPatient">
-               <div class="d-flex align-center flex-grow-1">
+            <v-toolbar color="surface" density="comfortable" elevation="2" v-if="selectedPatient">
+               <div class="d-flex align-center flex-grow-1 px-2">
                   <template v-if="isEditingPatientName">
                      <v-text-field
                         v-model="quickAddPatientString"
@@ -153,38 +153,38 @@
                      ></v-text-field>
                   </template>
                   <template v-else>
-                     <span class="text-subtitle-1 flex-grow-1" @click.stop="startEditingPatientName" style="cursor: pointer;">
+                     <span class="text-h6 font-weight-bold flex-grow-1" @click.stop="startEditingPatientName" style="cursor: pointer;">
                         {{ displayPatientName }}
                      </span>
                   </template>
-              </div>
-              <v-btn
-                 v-if="!isEditingPatientName"
-                 icon="mdi-pencil"
-                 size="small"
-                 variant="text"
-                 @click="startEditingPatientName"
-                 title="Edit Patient Name/Quick Add"
-              ></v-btn>
-              <v-btn
-                 v-if="isEditingPatientName"
-                 icon="mdi-check"
-                 size="small"
-                 variant="text"
-                 @click="stopEditingPatientNameAndSave"
-                 title="Save Patient Name/UMRN"
-              ></v-btn>
-               <v-btn
-                 v-if="isEditingPatientName"
-                 icon="mdi-close"
-                 size="small"
-                 variant="text"
-                 @click="cancelEditingPatientName"
-                 title="Cancel Edit"
-              ></v-btn>
+                 <v-btn
+                    v-if="!isEditingPatientName"
+                    icon="mdi-pencil"
+                    size="small"
+                    variant="text"
+                    @click="startEditingPatientName"
+                    title="Edit Patient Name/Quick Add"
+                 ></v-btn>
+                 <v-btn
+                    v-if="isEditingPatientName"
+                    icon="mdi-check"
+                    size="small"
+                    variant="text"
+                    @click="stopEditingPatientNameAndSave"
+                    title="Save Patient Name/UMRN"
+                 ></v-btn>
+                 <v-btn
+                    v-if="isEditingPatientName"
+                    icon="mdi-close"
+                    size="small"
+                    variant="text"
+                    @click="cancelEditingPatientName"
+                    title="Cancel Edit"
+                 ></v-btn>
+               </div>
 
 
-              <div class="d-flex align-center">
+              <div class="d-flex align-center px-2">
                   <v-btn icon="mdi-chevron-left" size="small" variant="text"
                      @click="selectedNoteDate = goToPreviousNoteDay(selectedNoteDate); loadSelectedNote();"
                      title="Previous Day"></v-btn>
@@ -193,19 +193,19 @@
                         <span v-bind="props" class="text-subtitle-1 mx-2" style="cursor: pointer;">
                            {{ noteDateDisplay(selectedNoteDate) }}
                         </span>
-                     </template>
-                     <v-card>
-                        <v-date-picker v-model="selectedNoteDate"
-                           @update:model-value="onNoteDateChange"></v-date-picker>
-                     </v-card>
-                  </v-menu>
-                  <v-btn icon="mdi-chevron-right" size="small" variant="text"
-                     @click="selectedNoteDate = goToNextNoteDay(selectedNoteDate); loadSelectedNote();"
-                     title="Next Day"></v-btn>
-               </div>
+                      </template>
+                      <v-card>
+                         <v-date-picker v-model="selectedNoteDate"
+                            @update:model-value="onNoteDateChange"></v-date-picker>
+                      </v-card>
+                   </v-menu>
+                   <v-btn icon="mdi-chevron-right" size="small" variant="text"
+                      @click="selectedNoteDate = goToNextNoteDay(selectedNoteDate); loadSelectedNote();"
+                      title="Next Day"></v-btn>
+                </div>
                <v-btn :loading="noteEditor.isLoading.value"
                   :disabled="noteEditor.isLoading.value || !isNoteLoaded || !configState.isDataDirectorySet.value"
-                  @click="saveCurrentNote" color="primary" variant="tonal" size="small" class="mr-2" title="Save Note">
+                  @click="saveCurrentNote" color="primary" variant="tonal" size="small" class="mr-2 px-2" title="Save Note">
                   <v-icon start>mdi-content-save</v-icon> Save
                   <v-icon :icon="saveStatusIcon" :color="noteEditor.hasUnsavedChanges.value ? 'warning' : 'success'"
                      size="small" class="ml-2" title="Save Status"></v-icon>
