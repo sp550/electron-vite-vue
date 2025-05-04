@@ -111,11 +111,16 @@ onMounted(async () => {
     language: props.language,
     theme: props.theme,
     readOnly: props.readOnly,
-    options: props.options,
+    options: {
+      ...props.options,
+    },
   } as MonacoServiceOptions);
 
   // Ensure all custom language, theme, and config is loaded and applied
   await monacoService.initializeMonacoCustomizations(editor);
+
+  // Log editor options for debugging
+  console.log('Monaco Editor Options:', editor.getOptions());
 
   // Register actions and keybindings
   registerActionsAndKeybindings(editor);
