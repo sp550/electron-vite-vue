@@ -154,7 +154,6 @@
                   @keyup.enter="updatePatientNameFromQuickAdd"></v-text-field>
                <v-btn v-if="showQuickAddPatientStringField" icon="mdi-check" size="small" variant="text" @click="updatePatientNameFromQuickAdd"
                   title="Save Quick Add Name"></v-btn>
-               <v-spacer></v-spacer>
 
 
                <div class="d-flex align-center">
@@ -176,7 +175,6 @@
                      @click="selectedNoteDate = goToNextNoteDay(selectedNoteDate); loadSelectedNote();"
                      title="Next Day"></v-btn>
                </div>
-               <v-spacer></v-spacer> <!-- Added spacer -->
                <v-btn :loading="noteEditor.isLoading.value"
                   :disabled="noteEditor.isLoading.value || !isNoteLoaded || !configState.isDataDirectorySet.value"
                   @click="saveCurrentNote" color="primary" variant="tonal" size="small" class="mr-2" title="Save Note">
@@ -330,7 +328,8 @@ const formattedPatientName = computed(() => {
 const handleQuickEditClick = () => {
    showQuickAddPatientStringField.value = !showQuickAddPatientStringField.value;
    if (showQuickAddPatientStringField.value && selectedPatient.value) {
-      quickAddPatientString.value = selectedPatient.value.rawName || ''; // Pre-populate
+      // Pre-populate with current name and UMRN in the specified format
+      quickAddPatientString.value = `${selectedPatient.value.rawName || ''} (${selectedPatient.value.umrn || ''})`;
    } else {
       quickAddPatientString.value = ''; // Clear when hiding
    }
@@ -339,16 +338,43 @@ const handleQuickEditClick = () => {
 const updatePatientNameFromQuickAdd = async () => {
    if (!selectedPatient.value) return;
 
-   // Update the rawName of the selected patient object
-   selectedPatient.value.rawName = quickAddPatientString.value;
+   const inputString = quickAddPatientString.value.trim();
+   let namePart = '';
+   let umrnPart = '';
+
+   const openParenIndex = inputString.indexOf('(');
+
+   if (openParenIndex !== -1) {
+      // Found opening parenthesis
+      namePart = inputString.substring(0, openParenIndex).trim();
+
+      const closeParenIndex = inputString.indexOf(')', openParenIndex + 1);
+
+      if (closeParenIndex !== -1) {
+         // Found closing parenthesis
+         umrnPart = inputString.substring(openParenIndex + 1, closeParenIndex).trim();
+      } else {
+         // Opening parenthesis found, but no closing one
+         // Treat the part before '(' as name, UMRN is empty
+         umrnPart = '';
+      }
+   } else {
+      // No opening parenthesis found, treat entire string as name
+      namePart = inputString;
+      umrnPart = '';
+   }
+
+   // Update the selected patient object
+   selectedPatient.value.rawName = namePart;
+   selectedPatient.value.umrn = umrnPart;
 
    // Call the updatePatient function from the composable
    const success = await patientDataComposable.updatePatient(selectedPatient.value);
 
    if (success) {
-      showSnackbar(`Patient name updated to: ${selectedPatient.value.rawName}`, 'success');
+      showSnackbar(`Patient updated: ${selectedPatient.value.rawName} (${selectedPatient.value.umrn})`, 'success');
    } else {
-      showSnackbar(`Failed to update patient name: ${patientDataComposable.error.value || 'Unknown error'}`, 'error');
+      showSnackbar(`Failed to update patient: ${patientDataComposable.error.value || 'Unknown error'}`, 'error');
       // Optionally revert the local change if save failed
       // await patientDataComposable.loadPatients(); // Reload to revert
    }
