@@ -101,19 +101,12 @@ function registerActionsAndKeybindings(_editor: monaco.editor.IStandaloneCodeEdi
  */
 
 onMounted(async () => {
-  console.log('MonacoEditorComponent: onMounted');
   await nextTick();
   if (!editorContainer.value) {
     console.error('Monaco Editor container not found.');
     return;
   }
 
-  console.log('MonacoEditorComponent: Creating editor with props:', {
-    language: props.language,
-    theme: props.theme,
-    readOnly: props.readOnly,
-    options: props.options,
-  });
   // Create editor via service
   const editor = monacoService.createEditor({
     container: editorContainer.value,
@@ -125,15 +118,11 @@ onMounted(async () => {
       ...props.options,
     },
   } as MonacoServiceOptions);
-  console.log('MonacoEditorComponent: Editor created.');
 
   // Ensure all custom language, theme, and config is loaded and applied
-  console.log('MonacoEditorComponent: Initializing custom customizations.');
   await monacoService.initializeMonacoCustomizations(editor);
-  console.log('MonacoEditorComponent: Custom customizations initialized.');
 
   // Explicitly set theme after initialization
-  console.log('MonacoEditorComponent: Explicitly setting theme to', configState.effectiveTheme.value);
   monacoService.setTheme(configState.effectiveTheme.value === 'dark' ? 'medicalLang-dark' : 'medicalLang-light');
 
   // Log editor options for debugging
@@ -181,7 +170,6 @@ watch(() => props.language, (newLang) => {
  * Watch for changes in theme prop and update the editor.
  */
 watch(() => configState.effectiveTheme.value, (newTheme) => {
-  console.log('MonacoEditorComponent: Effective theme changed to', newTheme);
   monacoService.setTheme(newTheme === 'dark' ? 'medicalLang-dark' : 'medicalLang-light');
 });
 

@@ -83,7 +83,6 @@ class MonacoService {
    * @returns The created editor instance.
    */
   public createEditor(options: MonacoServiceOptions): monaco.editor.IStandaloneCodeEditor {
-    console.log('MonacoService: createEditor called with options:', options);
     if (this.editor) {
       this.disposeEditor();
     }
@@ -166,7 +165,6 @@ class MonacoService {
       unicodeHighlight: { "ambiguousCharacters": false },
       ...options.options,
     });
-    console.log('MonacoService: Editor instance created.');
 
     return this.editor;
   }
@@ -230,7 +228,6 @@ class MonacoService {
    * @param themeName Name of the registered theme.
    */
   public setTheme(themeName: string): void {
-    console.log('MonacoService: setTheme called with theme:', themeName);
     monaco.editor.setTheme(themeName);
   }
 
@@ -772,13 +769,11 @@ class MonacoService {
         const lastWordMatch = textUntilPosition.match(/(\w+)$/);
         const lastWord = lastWordMatch ? lastWordMatch[1].toLowerCase() : '';
 
-// DEBUG LOG: Show lastWord and suggestions
         // Only provide suggestions if the last word exists and has at least 3 characters
         if (!lastWord || lastWord.length < 2) {
           return null;
         }
 
-// DEBUG LOG: Show suggestions
         const suggestions = keyTerms
           .filter(term => term.toLowerCase().startsWith(lastWord))
           .map(term => ({

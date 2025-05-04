@@ -125,12 +125,9 @@ export async function loadTemplates(forceReload = false): Promise<any[]> {
       const fetchPath = dataDir
         ? joinPath(dataDir, "config", "templates.json")
         : "/public/templates.json";
-      console.log("[loadTemplates] Trying fetch with path:", fetchPath);
       const res = await fetch(fetchPath);
-      console.log("[loadTemplates] Fetch response ok?", res.ok);
       if (res.ok) {
         cachedTemplates = await res.json();
-        console.log("[loadTemplates] Loaded and parsed templates via fetch");
         return cachedTemplates;
       }
     } catch (e2) {
@@ -152,7 +149,6 @@ export function useConfig() {
   // Define the listener callback
   const systemThemeListener = (_event: Electron.IpcRendererEvent, isDark: boolean) => {
     systemThemeIsDark.value = isDark;
-    console.log(`System theme updated to dark: ${isDark}`);
   };
 
   // Set up listener
@@ -160,7 +156,6 @@ export function useConfig() {
 
   // Cleanup listener on unmount
   onUnmounted(() => {
-    console.log('Cleaning up system-theme-updated listener');
     // Use removeListener with the specific callback
     window.electronAPI.removeSystemThemeUpdated(systemThemeListener);
   });
@@ -169,7 +164,6 @@ export function useConfig() {
   const fetchSystemTheme = async () => {
     try {
       systemThemeIsDark.value = await window.electronAPI.getSystemTheme();
-      console.log(`Fetched system theme is dark: ${systemThemeIsDark.value}`);
     } catch (error) {
       console.error("Failed to fetch system theme:", error);
       // Default to false (light) on error
